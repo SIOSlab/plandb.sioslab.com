@@ -1,0 +1,191 @@
+body {
+  padding: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  //color: #444;
+   //background-color: #32455B;
+    padding: 0;
+   // border: 1px solid #aaa;
+    margin: 0px 5% 0px 5%;
+    min-width: 740px;
+
+}
+ 
+/*
+ * Create dark grey header with a white logo
+ */
+  
+header {
+//  background-color: #2B2B2B;
+  height: 35px;
+  width: 100%;
+  opacity: .9;
+  padding: 10px 0px 5px 0px;
+
+}
+ 
+header h1.logo {
+  margin: 0;
+  font-size: 1.7em;
+  color: #B0A79E; //#E68D2E;
+  text-transform: uppercase;
+  float: left;
+  margin-left: 10px;
+}
+ 
+header h1.logo:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+header h1 a {
+    color:#B0A79E;
+    text-decoration: none;
+}
+ 
+/*
+ * Center the body content
+ */
+  
+div.container {
+  margin: 0 auto;
+  background-color: white;
+}
+ 
+div.jumbo {
+  padding: 10px 5% 30px 5%;
+  background-color: #eeeeee;
+  -webkit-border-radius: 6px;
+     -moz-border-radius: 6px;
+          border-radius: 6px;
+  min-height: 700px;
+}
+ 
+div.results-outer{
+    overflow-x: scroll;
+}
+
+/*
+ * Alignment Classes
+ */
+.right{
+    float:right;
+}
+
+.left{
+    float:left;
+}
+
+
+h2 {
+  font-size: 2em;
+  margin-top: 40px;
+  text-align: center;
+  letter-spacing: -2px;
+}
+ 
+h3 {
+  font-size: 1.5em;
+  font-weight: 105;
+  margin-top: 30px;
+  text-align: center;
+  color: #999;
+}
+/*
+ * Display navigation links inline
+ */
+ 
+.menu {
+  float: right;
+  margin-top: 8px;
+  margin-right: 10px;
+}
+ 
+.menu li {
+  display: inline;
+}
+ 
+.menu li + li {
+  margin-left: 35px;
+}
+ 
+.menu li a {
+  color: #E68D2E;
+  text-decoration: none;
+}
+
+
+table.results {
+    margin-left: 5%;
+    margin-right: 5%;
+    width: 90%;
+}
+
+th {
+ // background-color: #B0B0B0;
+//  color: #000000;
+}
+
+th:after {
+    content: "\00a0\00a0\00a0";
+}
+
+th.major {
+  background-color: #909090;
+  color: #FFFFFF;
+}
+
+th.minor {
+  background-color: #B0B0B0;
+  color: #FFFFFF;
+  width: 150px;
+
+}
+
+th.dark {
+   background-color: #32455B;    /* same as page background */
+   color: skyblue;
+   font-size: 1.2em;
+   padding-top: 5px;
+
+}
+
+table.results thead tr .header {
+	background-image: url(bg.gif);
+	background-repeat: no-repeat;
+	background-position: center right;
+	cursor: pointer;
+}
+
+table.results thead tr .headerSortUp {
+	background-image: url(asc.gif);
+}
+table.results thead tr .headerSortDown {
+	background-image: url(desc.gif);
+}
+table.results thead tr .headerSortDown, table.results thead tr .headerSortUp {
+background-color: #8dbdd8;
+}
+
+table.inline {
+    display: inline-table;
+}
+
+table.recipe tr:nth-child(odd) {background-color: #FFF;}
+
+textarea
+{
+    border:1px solid #999999;
+    width:100%;
+    margin:5px 0;
+    padding:3px;
+}
+
+.flip-vertical {
+    -moz-transform: scaleY(-1);
+    -webkit-transform: scaleY(-1);
+    -o-transform: scaleY(-1);
+    -ms-transform: scaleY(1);
+    transform: scaleY(-1);
+    -ms-filter: flipv;
+    filter: flipv;
+}
