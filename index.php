@@ -1,14 +1,19 @@
 <?php include "templates/header.php"; ?>
 
+<h2> General Query </h2>
 
 <p>
+This interface provides direct querying to the full database:
  <form action="index.php" method="POST">
         <textarea name="querytext" rows="4" cols="150">
 <?php 
-if (empty($_POST["querytext"]))
-    $sql = "select pl_hostname, pl_letter,pl_angsep,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where pl_maxangsep > 150 AND pl_minangsep < 450";
-else
-    $sql = $_POST["querytext"]; 
+if (!empty($_GET["querytext"])){
+    $sql =$_GET["querytext"];}
+elseif (!empty($_POST["querytext"])){
+    $sql = $_POST["querytext"]; }
+else {
+    $sql = "select pl_hostname, pl_letter,pl_angsep,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where pl_maxangsep > 150 AND pl_minangsep < 450";}
+    
 echo "$sql";
 ?>
 </textarea><br>
@@ -53,7 +58,7 @@ if ($result){
            echo "</tr>";
          $counter++;
         }
-        echo "</table</div>\n";
+        echo "</table></div>\n";
     }
     $result->close();
 } else{
