@@ -58,6 +58,29 @@ planradii = [np.median(fcstr.calc_radius_from_mass(np.array([v]*1000)*u.M_jupite
 data['pl_radj'][noR] = planradii
 data = data.assign(rad_from_mass=noR)
 
+
+S = np.array([0.2790,0.589,-0.044,0.881])
+C0 = np.log10(1.008)
+T = np.array([2.04,((0.414*u.M_jupiter).to(u.M_earth)).value,((0.0800*u.M_sun).to(u.M_earth)).value])
+C = np.hstack((C0, C0 + np.cumsum(-np.diff(S)*np.log10(T))))
+
+m1 = np.array([1e-3,T[0]])
+r1 = 10.**(C[0] + np.log10(m1)*S[0])
+
+m2 = T[0:2]
+r2 = 10.**(C[1] + np.log10(m2)*S[1])
+
+m3 = T[1:3]
+r3 = 10.**(C[2] + np.log10(m3)*S[2])
+
+
+
+
+noteff = np.isnan(data['st_teff'].values)
+Teff = 4600.0*u.K * (1.0/(0.92*self.BV[sInds] + 1.7) + 1.0/(0.92*self.BV[sInds] + 0.62))
+
+
+
 #testdb
 engine = create_engine('mysql+pymysql://ds264@127.0.0.1/dsavrans_plandb',echo=False)
 data.to_sql('KnownPlanets',engine,chunksize=100)
