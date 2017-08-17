@@ -5,7 +5,7 @@
 <p>
 This interface provides direct querying to the full database:
  <form action="index.php" method="POST">
-        <textarea name="querytext" rows="4" cols="150">
+        <textarea name="querytext" rows="4" cols="100">
 <?php 
 if (!empty($_GET["querytext"])){
     $sql =$_GET["querytext"];}

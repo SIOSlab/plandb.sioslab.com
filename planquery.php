@@ -8,7 +8,7 @@ This interface filters planets of interest and links to details pages for the re
 <?php echo "$sqlsel";?>
 
  <form action="planquery.php" method="POST">
-    <textarea name="querytext" rows="4" cols="150">
+    <textarea name="querytext" rows="4" cols="100">
 <?php 
 if (empty($_POST["querytext"]))
     $sql = "pl_maxangsep > 150 AND pl_minangsep < 450";

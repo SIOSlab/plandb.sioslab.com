@@ -73,3 +73,5 @@ engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsav
 data.to_sql('KnownPlanets',engine,chunksize=100)
 
 
+
+#todo: fill in inclinations

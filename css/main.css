@@ -1,3 +1,71 @@
+header {
+  background-color: #483D8B;
+  height: 35px;
+  width: 100%;
+  opacity: .9;
+  padding: 10px 0px 5px 0px;
+
+}
+ 
+header h1.logo {
+  margin: 0;
+  font-size: 1.7em;
+  color: #C0C0C0;
+  text-transform: uppercase;
+  float: left;
+  margin-left: 10px;
+}
+ 
+header h1.logo:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+header h1 a {
+    color:#C0C0C0;
+    text-decoration: none;
+}
+
+div.container {
+  margin: 0 auto;
+  background-color: white;
+}
+
+/*
+ * Alignment Classes
+ */
+.right{
+    float:right;
+}
+
+.left{
+    float:left;
+}
+
+/*
+ * Display navigation links inline
+ */
+ 
+.menu {
+  float: right;
+  margin-top: 8px;
+  margin-right: 10px;
+}
+ 
+.menu li {
+  display: inline;
+}
+ 
+.menu li + li {
+  margin-left: 35px;
+}
+ 
+.menu li a {
+  color: #FFF5EE;
+  text-decoration: none;
+}
+
+
 table.results {
     margin-left: 5%;
     margin-right: 5%;
