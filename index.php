@@ -1,9 +1,12 @@
-<?php include "templates/header.php"; ?>
+<?php 
+include "templates/header.php"; 
+include "templates/headerclose.php"; 
+?>
 
 <h2> General Query </h2>
 
 <p>
-This interface provides direct querying to the full database:
+This interface provides direct querying to the full database. See the IPAC <a href='https://exoplanetarchive.ipac.caltech.edu/docs/API_exoplanet_columns.html'>schema here</a> for available column names.  Additional columns are: smax_from_orbper (bool: semi-major axis calculated from orbital period), pl_maxangsep, pl_minangsep, rad_from_mass (planet radius (pl_radj only) calculated from pl_bmassj using Forecaster). You can also query <a href="index.php?querytext=show columns in KnownPlanets">"show columns in KnownPlanets"</a>.
  <form action="index.php" method="POST">
         <textarea name="querytext" rows="4" cols="100">
 <?php 

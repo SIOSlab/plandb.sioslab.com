@@ -98,24 +98,86 @@ nobv = np.isnan(bmv)
 #θeff = 0.5379 + 0.3981(V − I)+4.432e-2(V − I)**2 − 2.693e-2(V − I)**3
 
 
+#orbit info
+from EXOSIMS.util.eccanom import eccanom
+from EXOSIMS.util.deltaMag import deltaMag
+import EXOSIMS.Prototypes.PlanetPhysicalModel
+PPMod = EXOSIMS.Prototypes.PlanetPhysicalModel.PlanetPhysicalModel()
+M = np.linspace(0,2*np.pi,100)
+plannames = data['pl_hostname'].values+' '+data['pl_letter'].values
+
+orbdata = None
+#row = data.iloc[71] 
+for j in range(len(plannames)):
+    print(plannames[j])
+    row = data.iloc[j] 
+
+    a = row['pl_orbsmax']
+    e = row['pl_orbeccen'] 
+    if np.isnan(e): e = 0.0
+    I = row['pl_orbincl']*np.pi/180.0
+    if np.isnan(I): I = np.pi/2.0
+    w = row['pl_orblper']*np.pi/180.0
+    if np.isnan(w): w = 0.0
+    E = eccanom(M, e)                      
+    Rp = row['pl_radj']
+    dist = row['st_dist']
+
+    a1 = np.cos(w) 
+    a2 = np.cos(I)*np.sin(w)
+    a3 = np.sin(I)*np.sin(w)
+    A = a*np.vstack((a1, a2, a3))
+
+    b1 = -np.sqrt(1 - e**2)*np.sin(w)
+    b2 = np.sqrt(1 - e**2)*np.cos(I)*np.cos(w)
+    b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
+    B = a*np.vstack((b1, b2, b3))
+    r1 = np.cos(E) - e
+    r2 = np.sin(E)
+
+    r = (A*r1 + B*r2).T
+    d = np.linalg.norm(r, axis=1)
+    s = np.linalg.norm(r[:,0:2], axis=1)
+    phi = PPMod.calc_Phi(np.arccos(r[:,2]/d)*u.rad) 
+    dMag = deltaMag(0.5, Rp*u.R_jupiter, d*u.AU, phi) 
+    WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
+
+
+    out = pandas.DataFrame({'Name': [plannames[j]]*len(M),
+                            'M': M,
+                            'r': d,
+                            's': s,
+                            'phi': phi,
+                            'dMag': dMag,
+                            'WA': WA})
+    if orbdata is None:
+        orbdata = out.copy()
+    else:
+        orbdata = orbdata.append(out)
 
 
 
-
+#------write to db------------
 
 #testdb
 engine = create_engine('mysql+pymysql://ds264@127.0.0.1/dsavrans_plandb',echo=False)
 data.to_sql('KnownPlanets',engine,chunksize=100)
 
+orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace')
+
+
+
 username = 'dsavrans_admin'
 passwd = keyring.get_password('plandb_sql_login', username)
 if passwd is None:
     passwd = getpass.getpass("Password for mysql user %s:\n"%username)
-    keyring.set_password('gpi_files_sql_login', username, passwd)
+    keyring.set_password('plandb_sql_login', username, passwd)
+
 
 #proddb
 engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsavrans_plandb',echo=False)
 data.to_sql('KnownPlanets',engine,chunksize=100)
+orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace')
 
 
 
