@@ -59,33 +59,37 @@ function drawChart1() {
 var data = new google.visualization.DataTable();
 data.addColumn('number', 'Mean Anomaly (rad)');
 data.addColumn('number', 'Orbital Radius (AU)');
-data.addColumn('number', 'Projected Separation (AU)');
+//data.addColumn('number', 'Projected Separation (AU)');
 data.addColumn('number', 'Angular Separation (mas)');
 
 <?php 
 if ($resultp && ($resultp->num_rows > 0)){
     echo "data.addRows([\n";
     $row = $resultp->fetch_assoc();
-    echo "[".$row[M].", ".$row[r].", ".$row[s].", ".$row[WA]."]";
+    //echo "[".$row[M].", ".$row[r].", ".$row[s].", ".$row[WA]."]";
+    echo "[".$row[M].", ".$row[r].", ".$row[WA]."]";
     while($row = $resultp->fetch_assoc()) {
-    echo ",\n[".$row[M].", ".$row[r].", ".$row[s].", ".$row[WA]."]";
+    //echo ",\n[".$row[M].", ".$row[r].", ".$row[s].", ".$row[WA]."]";
+        echo ",\n[".$row[M].", ".$row[r].", ".$row[WA]."]";
     }
     echo "]);\n\n";
 }
 ?>
 
   var options = {
-    'width':600,
+    'width':500,
     'height':400,
     series: {
-        0: {targetAxisIndex: 0},
-        1: {targetAxisIndex: 0},
-        2: {targetAxisIndex: 1}
+        0: {targetAxisIndex: 0, color: 'blue'},
+        //1: {targetAxisIndex: 0},
+        //2: {targetAxisIndex: 1}
+        1: {targetAxisIndex: 1, color: 'red'}
     },
+    legend: {position: 'none'},
     vAxes: {
-        0: {title: '(AU)'},  
-        1: {title: '(mas)'}
-    } 
+        0: {title: 'Orbital Radius (AU)',textStyle: {color: 'blue'}},  
+        1: {title: ' Angular Separation (mas)',textStyle: {color: 'red'}}
+    },
   };
 
   var chart = new google.charts.Line(document.getElementById('chart_div'));
@@ -113,15 +117,17 @@ if ($resultp && ($resultp->num_rows > 0)){
 ?>
 
   var options = {
-    'width':600,
+    'width':500,
     'height':400,
     series: {
-        0: {targetAxisIndex: 0},
-        1: {targetAxisIndex: 1},
+        0: {targetAxisIndex: 0, color: 'green'},
+        1: {targetAxisIndex: 1, color: 'purple'},
     },
+    legend: {position: 'none'},
+
     vAxes: {
-        0: {title: '\u0394 mag'},  
-        1: {title: '\u03A6 (\u03B2) '}
+        0: {title: '\u0394 mag',textStyle: {color: 'green'}},  
+        1: {title: '\u03A6 (\u03B2) ',textStyle: {color: 'purple'}}
     } 
   };
 
@@ -193,7 +199,7 @@ if ($resultp){
     if ($resultp->num_rows == 0){
         echo "No PlanetOrbit rows returned.";
     } else{
-        echo '<div style="float: left;" id="chart_div"></div>';
+        echo '<div style="float: left; margin-right: 2em" id="chart_div"></div>';
         echo '<div style="float: left;" id="chart_div2"></div>';
     }
     $resultp->close();
