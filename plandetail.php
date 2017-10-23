@@ -9,7 +9,7 @@ if (empty($_GET["name"])){
     $name = $_GET["name"];
 }
 
-$sql = "SELECT pl_orbper,pl_discmethod,pl_orbsmax,smax_from_orbper,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_radj,rad_from_mass,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj FROM KnownPlanets WHERE CONCAT(pl_hostname,' ',pl_letter)='".$name."'";
+$sql = "SELECT pl_orbper,pl_discmethod,pl_orbsmax,smax_from_orbper,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_radj,rad_from_mass,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj FROM KnownPlanets WHERE pl_name='".$name."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);

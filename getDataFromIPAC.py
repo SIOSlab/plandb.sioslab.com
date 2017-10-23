@@ -223,4 +223,150 @@ result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFEREN
 
 
 
+#---------------------------------------------
+
+#--------
+inds = np.where((data['pl_maxangsep'].values > 150) & (data['pl_minangsep'].values < 450))[0]
+
+WAbins0 = np.arange(100,501,1)
+WAbins = np.hstack((0, WAbins0, np.inf))
+dMagbins0 = np.arange(0,26.1,0.1)
+dMagbins = np.hstack((dMagbins0,np.inf))
+
+WAc,dMagc = np.meshgrid(WAbins0[:-1]+np.diff(WAbins0)/2.0,dMagbins0[:-1]+np.diff(dMagbins0)/2.0)
+WAc = WAc.T
+dMagc = dMagc.T
+
+
+names = []
+WAcs = []
+dMagcs = []
+hs = []
+cs = []
+goodinds = []
+for j in inds:
+    row = data.iloc[j] 
+    print row['pl_name']
+    
+    amu = row['pl_orbsmax']
+    astd = (row['pl_orbsmaxerr1'] - row['pl_orbsmaxerr2'])/2.
+    if np.isnan(astd): astd = 0.01*amu
+    gena = lambda n: np.clip(np.random.randn(n)*astd + amu,0,np.inf)
+
+    emu = row['pl_orbeccen'] 
+    if np.isnan(emu):
+        gene = lambda n: 0.175/np.sqrt(np.pi/2.)*np.sqrt(-2.*np.log(1 - np.random.uniform(size=n)))
+    else:
+        estd = (row['pl_orbeccenerr1'] - row['pl_orbeccenerr2'])/2.
+        if np.isnan(estd):
+            estd = 0.01*e
+        gene = lambda n: np.clip(np.random.randn(n)*estd + emu,0,0.99)
+
+    Imu = row['pl_orbincl']*np.pi/180.0
+    if np.isnan(Imu):
+        genI = lambda n: np.arccos(1 - 2.*np.random.uniform(size=n))
+    else:
+        Istd = (row['pl_orbinclerr1'] - row['pl_orbinclerr2'])/2.*np.pi/180.0
+        if np.isnan(Istd): 
+            Istd = Imu*0.01
+        genI = lambda n: np.random.randn(n)*Istd + Imu
+    
+
+    wbarmu = row['pl_orblper']*np.pi/180.0
+    if np.isnan(wbarmu):
+        genwbar = lambda n: np.random.uniform(size=n,low=0.0,high=2*np.pi)
+    else:
+        wbarstd = (row['pl_orblpererr1'] - row['pl_orblpererr2'])/2.*np.pi/180.0
+        if np.isnan(wbarstd): 
+            wbarstd = wbarmu*0.01
+        genwbar = lambda n: np.random.randn(n)*wbarstd + wbarmu
+
+    Rmu = row['pl_radj']
+    Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
+    if np.isnan(Rstd): Rstd = Rmu*0.1
+    genR = lambda n: np.random.randn(n)*Rstd + Rmu
+
+    n = int(1e6)
+    c = 0.
+    h = np.zeros((len(WAbins)-3, len(dMagbins)-2))
+    k = 0.0
+
+    cprev = 0.0
+    pdiff = 1.0
+
+    while (pdiff > 0.0001) | (k <3):
+        print k,pdiff
+        a = gena(n)
+        e = gene(n)
+        I = genI(n)
+        O = np.random.uniform(size=n,low=0.0,high=2*np.pi)
+        wbar = genwbar(n)
+        w = O - wbar
+        R = genR(n)
+        
+        M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
+        E = eccanom(M0, e)                     
+        
+        a1 = np.cos(O)*np.cos(w) - np.sin(O)*np.cos(I)*np.sin(w)
+        a2 = np.sin(O)*np.cos(w) + np.cos(O)*np.cos(I)*np.sin(w)
+        a3 = np.sin(I)*np.sin(w)
+        A = a*np.vstack((a1, a2, a3))
+        b1 = -np.sqrt(1 - e**2)*(np.cos(O)*np.sin(w) + np.sin(O)*np.cos(I)*np.cos(w))
+        b2 = np.sqrt(1 - e**2)*(-np.sin(O)*np.sin(w) + np.cos(O)*np.cos(I)*np.cos(w))
+        b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
+        B = a*np.vstack((b1, b2, b3))
+        r1 = np.cos(E) - e
+        r2 = np.sin(E)
+        
+        rvec = (A*r1 + B*r2).T
+        rnorm = np.linalg.norm(rvec, axis=1)
+        s = np.linalg.norm(rvec[:,0:2], axis=1)
+        phi = PPMod.calc_Phi(np.arccos(rvec[:,2]/rnorm)*u.rad)    # planet phase
+        dMag = deltaMag(0.5, R*u.R_jupiter, rnorm*u.AU, phi)     # delta magnitude
+        WA = np.arctan((s*u.AU)/(row['st_dist']*u.pc)).to('mas').value # working angle
+
+        h += np.histogram2d(WA,dMag,bins=(WAbins,dMagbins))[0][1:-1,0:-1]
+        k += 1.0
+        currc = float(len(np.where((WA >= 150) & (WA <= 430) & (dMag <= 22.5))[0]))/n
+        cprev = c
+        if k == 1.0:
+            c = currc
+        else:
+            c = ((k-1)*c + currc)/k
+        pdiff = np.abs(c - cprev)/c
+
+        if currc == 0.0:
+            break
+
+    if c != 0.0:
+        h = h/float(n*k)
+        names.append(np.array([row['pl_name']]*h.size))
+        WAcs.append(WAc.flatten())
+        dMagcs.append(dMagc.flatten())
+        hs.append(h.flatten())
+        cs.append(c)
+        goodinds.append(j)
+
+
+cs = np.array(cs)
+goodinds = np.array(goodinds)
+
+
+result = engine.execute("ALTER TABLE KnownPlanets ADD completeness double COMMENT 'WFIRST completeness'")
+for ind,c in zip(goodinds,cs):
+    result = engine.execute("UPDATE KnownPlanets SET completeness=%f where pl_name = '%s'"%(c,plannames[ind]))
+
+
+out2 = pandas.DataFrame({'Name': np.hstack(names),
+                         'alpha': np.hstack(WAcs),
+                         'dMag': np.hstack(dMagcs),
+                         'H':    np.hstack(hs)
+                         })
+out2 = out2[out2['H'].values != 0.]
+
+
+out2.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+result = engine.execute("ALTER TABLE Completeness ENGINE=InnoDB")
+result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
+result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE CASCADE ON UPDATE CASCADE");
 
