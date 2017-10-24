@@ -223,7 +223,7 @@ $conn->close();
 
 <div style="clear: both;"></div>
 
-<?php
+<?php  
 if ($resultc){
 
     echo '<div id="compDiv" style="width:600px; height:480px; margin:auto;"></div>';
@@ -254,7 +254,7 @@ if ($resultc){
     echo "var layout = {
         title: 'Total WFIRST Completeness = ".$row[completeness]."',
         xaxis: {title: 'Separation (mas)'},
-        yaxis: {title: 'Delta Mag'},
+        yaxis: {title: 'Delta mag'},
     };\n";
 
 
