@@ -9,7 +9,7 @@ if (empty($_GET["name"])){
     $name = $_GET["name"];
 }
 
-$sql = "SELECT pl_orbper,pl_discmethod,pl_orbsmax,smax_from_orbper,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_radj,rad_from_mass,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj FROM KnownPlanets WHERE pl_name='".$name."'";
+$sql = "SELECT pl_orbper,pl_discmethod,pl_orbsmax,smax_from_orbper,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_radj,rad_from_mass,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness FROM KnownPlanets WHERE pl_name='".$name."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -138,6 +138,17 @@ if ($resultp && ($resultp->num_rows > 0)){
 </script>
 
 
+<?php 
+$row = $result->fetch_assoc();
+if ($row[completeness]){
+    echo '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>';
+
+    $sql3 = "SELECT * FROM Completeness WHERE Name='".$name."'";
+    $resultc = $conn->query($sql3);
+
+}
+?>
+
 <?php include "templates/headerclose.php"; ?>
 
 <h2> Planet Detail for 
@@ -146,7 +157,6 @@ if ($resultp && ($resultp->num_rows > 0)){
 
 <div class="container">
 <?php
-$row = $result->fetch_assoc();
 $wd = '50';
 echo " <div style='float: left; width: 90%; margin-bottom: 2em;'>\n";
 echo "<TABLE class='results'>\n";
@@ -210,5 +220,52 @@ $conn->close();
 ?>
 
 </DIV>
+
+<div style="clear: both;"></div>
+
+<?php
+if ($resultc){
+
+    echo '<div id="compDiv" style="width:600px; height:480px; margin:auto;"></div>';
+    echo "\n\n";
+    echo "<script>\n";
+    echo "var xsize = 400, ysize = 260, x = new Array(xsize), y = new Array(ysize), z = new Array(ysize), i, j;\n";
+    echo "x[0] = 100.5;\n";
+    echo "for(var i = 1; i < xsize; i++) {x[i] = x[i-1]+1;}\n";
+    echo "y[0] = 0.05;\n";
+    echo "for(var i = 1; i < ysize; i++) {y[i] = y[i-1]+0.1;}\n";
+    echo "for (var i = 0; i < ysize; i++) { z[i] = new Array(xsize).fill(0); }\n";
+
+    while($rowc = $resultc->fetch_assoc()) {
+        echo "z[".$rowc[jind]."][".$rowc[iind]."]=".$rowc[H].";";
+    }
+    echo "\n\n";
+
+    echo "var data = [ {
+		z: z,
+		x: x,
+		y: y,
+        type: 'contour',
+        colorbar:{
+            title: 'log(Completeness)',
+        }
+    }];\n";
+
+    echo "var layout = {
+        title: 'Total WFIRST Completeness = ".$row[completeness]."',
+        xaxis: {title: 'Separation (mas)'},
+        yaxis: {title: 'Delta Mag'},
+    };\n";
+
+
+    echo "Plotly.newPlot('compDiv', data, layout);" ;
+    echo "</script>\n";
+
+}
+
+?>
+
+
+
 <?php include "templates/footer.php"; ?>
 

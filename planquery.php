@@ -6,7 +6,7 @@ include "templates/headerclose.php";
 <h2> Planet Detail Query </h2>
 
 <?php 
-$sqlsel = "SELECT pl_name as Name, pl_angsep, st_optmag FROM KnownPlanets WHERE "; 
+$sqlsel = "SELECT pl_name as Name, pl_angsep, st_optmag,completeness FROM KnownPlanets WHERE "; 
 $sqlord = "ORDER by pl_angsep ASC";
 ?>
 
@@ -45,7 +45,7 @@ if ($result){
     if ($result->num_rows > 0) {
         echo "<div class='results-outer'>\n";
         echo "<table class='results' id='gentable'><thead><tr>\n";
-        echo "<th>Planet Name</th><th>Separation (mas)</th><th>Optical Magnitude</th>";
+        echo "<th>Planet Name</th><th>Separation (mas)</th><th>Optical Magnitude</th><th>Completeness</th>";
         echo "</tr></thead>\n";
         while($row = $result->fetch_assoc()) {
             echo "<tr><td>";
@@ -54,6 +54,8 @@ if ($result){
             echo $row["pl_angsep"];
             echo "</td><td>";
             echo $row["st_optmag"];
+            echo "</td><td>";
+            echo $row["completeness"];
             echo "</td></tr>";
         }
         echo "</table></div>\n";

@@ -237,10 +237,17 @@ WAc,dMagc = np.meshgrid(WAbins0[:-1]+np.diff(WAbins0)/2.0,dMagbins0[:-1]+np.diff
 WAc = WAc.T
 dMagc = dMagc.T
 
+WAinds = np.arange(WAbins0.size-1)
+dMaginds = np.arange(dMagbins0.size-1)
+WAinds,dMaginds = np.meshgrid(WAinds,dMaginds)
+WAinds = WAinds.T
+dMaginds = dMaginds.T
 
 names = []
 WAcs = []
 dMagcs = []
+iinds = []
+jinds = []
 hs = []
 cs = []
 goodinds = []
@@ -344,6 +351,8 @@ for j in inds:
         WAcs.append(WAc.flatten())
         dMagcs.append(dMagc.flatten())
         hs.append(h.flatten())
+        iinds.append(WAinds.flatten())
+        jinds.append(dMaginds.flatten())
         cs.append(c)
         goodinds.append(j)
 
@@ -360,10 +369,12 @@ for ind,c in zip(goodinds,cs):
 out2 = pandas.DataFrame({'Name': np.hstack(names),
                          'alpha': np.hstack(WAcs),
                          'dMag': np.hstack(dMagcs),
-                         'H':    np.hstack(hs)
+                         'H':    np.hstack(hs),
+                         'iind': np.hstack(iinds),
+                         'jind': np.hstack(jinds)
                          })
 out2 = out2[out2['H'].values != 0.]
-
+out2['H'] = np.log10(out2['H'].values)
 
 out2.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
 result = engine.execute("ALTER TABLE Completeness ENGINE=InnoDB")
