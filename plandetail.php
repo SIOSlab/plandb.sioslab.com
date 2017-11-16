@@ -236,20 +236,28 @@ if ($resultc){
     echo "for(var i = 1; i < ysize; i++) {y[i] = y[i-1]+0.1;}\n";
     echo "for (var i = 0; i < ysize; i++) { z[i] = new Array(xsize).fill(0); }\n";
 
+
     while($rowc = $resultc->fetch_assoc()) {
         echo "z[".$rowc[jind]."][".$rowc[iind]."]=".$rowc[H].";";
     }
     echo "\n\n";
 
-    echo "var data = [ {
+    echo "var box1 = {
+        x: [150, 150, 430, 430],
+        y: [0, 22.5, 22.5, 0],
+        type: 'scatter'
+    };\n";    
+
+    echo "var data = {
 		z: z,
 		x: x,
 		y: y,
         type: 'contour',
+        colorscale: 'Hot',
         colorbar:{
             title: 'log(Completeness)',
         }
-    }];\n";
+    };\n";
 
     echo "var layout = {
         title: 'Total WFIRST Completeness = ".$row[completeness]."',
@@ -258,7 +266,7 @@ if ($resultc){
     };\n";
 
 
-    echo "Plotly.newPlot('compDiv', data, layout);" ;
+    echo "Plotly.newPlot('compDiv', [data,box1], layout);" ;
     echo "</script>\n";
 
 }

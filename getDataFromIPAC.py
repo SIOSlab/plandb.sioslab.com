@@ -107,6 +107,26 @@ m = ((data['pl_bmassj'][noR].values*u.M_jupiter).to(u.M_earth)).value
 def RfromM(m):
     m = np.array(m,ndmin=1)
     R = np.zeros(m.shape)
+
+
+    S = np.array([0.2790,0,0,0,0.881])
+    C = np.array([np.log10(1.008), 0, 0, 0, 0])
+    T = np.array([2.04,95.16,(u.M_jupiter).to(u.M_earth),((0.0800*u.M_sun).to(u.M_earth)).value])
+
+    Rj = u.R_jupiter.to(u.R_earth)
+    Rs = 8.522 #saturn radius
+
+    S[1] = (np.log10(Rs) - (C[0] + np.log10(T[0])*S[0]))/(np.log10(T[1]) - np.log10(T[0]))
+    C[1] = np.log10(Rs) - np.log10(T[1])*S[1]
+
+    S[2] = (np.log10(Rj) - np.log10(Rs))/(np.log10(T[2]) - np.log10(T[1]))
+    C[2] = np.log10(Rj) - np.log10(T[2])*S[2]
+
+    C[3] = np.log10(Rj)
+
+    C[4] = np.log10(Rj) - np.log10(T[3])*S[4]
+
+
     inds = np.digitize(m,np.hstack((0,T,np.inf)))
     for j in range(1,inds.max()+1):
         R[inds == j] = 10.**(C[j-1] + np.log10(m[inds == j])*S[j-1])
@@ -225,7 +245,6 @@ result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFEREN
 
 #---------------------------------------------
 
-#--------
 inds = np.where((data['pl_maxangsep'].values > 150) & (data['pl_minangsep'].values < 450))[0]
 
 WAbins0 = np.arange(100,501,1)
@@ -271,7 +290,14 @@ for j in inds:
 
     Imu = row['pl_orbincl']*np.pi/180.0
     if np.isnan(Imu):
-        genI = lambda n: np.arccos(1 - 2.*np.random.uniform(size=n))
+        if row['pl_bmassprov'] == 'Msini':
+            Icrit = np.arcsin( ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value/((0.0800*u.M_sun).to(u.M_earth)).value )
+            Irange = [Icrit, np.pi - Icrit]
+            C = 0.5*(np.cos(Irange[0])-np.cos(Irange[1]))
+            genI = lambda n: np.arccos(np.cos(Irange[0]) - 2.*C*np.random.uniform(size=n))
+
+        else:
+            genI = lambda n: np.arccos(1 - 2.*np.random.uniform(size=n))
     else:
         Istd = (row['pl_orbinclerr1'] - row['pl_orbinclerr2'])/2.*np.pi/180.0
         if np.isnan(Istd): 
@@ -288,10 +314,7 @@ for j in inds:
             wbarstd = wbarmu*0.01
         genwbar = lambda n: np.random.randn(n)*wbarstd + wbarmu
 
-    Rmu = row['pl_radj']
-    Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
-    if np.isnan(Rstd): Rstd = Rmu*0.1
-    genR = lambda n: np.random.randn(n)*Rstd + Rmu
+
 
     n = int(1e6)
     c = 0.
@@ -302,6 +325,7 @@ for j in inds:
     pdiff = 1.0
 
     while (pdiff > 0.0001) | (k <3):
+    for blah in range(100):
         print k,pdiff
         a = gena(n)
         e = gene(n)
@@ -309,7 +333,25 @@ for j in inds:
         O = np.random.uniform(size=n,low=0.0,high=2*np.pi)
         wbar = genwbar(n)
         w = O - wbar
-        R = genR(n)
+
+
+        if row['rad_from_mass']:
+            if row['pl_bmassprov'] == 'Msini':
+                Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+                Mp = Mp/np.sin(I)
+            else:
+                Mstd = (((row['pl_bmassjerr1'] - row['pl_bmassjerr2'])*u.M_jupiter).to(u.M_earth)).value
+                if np.isnan(Mstd):
+                    Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
+                Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+
+            R = (RfromM(Mp)*u.R_earth).to(u.R_jupiter).value
+            R[R > 1.0] = 1.0
+        else:
+            Rmu = row['pl_radj']
+            Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
+            if np.isnan(Rstd): Rstd = Rmu*0.1
+            R = np.random.randn(n)*Rstd + Rmu
         
         M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
         E = eccanom(M0, e)                     
@@ -340,9 +382,15 @@ for j in inds:
             c = currc
         else:
             c = ((k-1)*c + currc)/k
-        pdiff = np.abs(c - cprev)/c
+        if c == 0:
+            pdiff = 1.0
+        else:
+            pdiff = np.abs(c - cprev)/c
 
-        if currc == 0.0:
+        if (c == 0.0) & (k > 2):
+            break
+
+        if (c < 1e-5) & (k > 25):
             break
 
     if c != 0.0:
@@ -362,6 +410,8 @@ goodinds = np.array(goodinds)
 
 
 result = engine.execute("ALTER TABLE KnownPlanets ADD completeness double COMMENT 'WFIRST completeness'")
+
+result = engine.execute("UPDATE KnownPlanets SET completeness=NULL where completeness is not NULL")
 for ind,c in zip(goodinds,cs):
     result = engine.execute("UPDATE KnownPlanets SET completeness=%f where pl_name = '%s'"%(c,plannames[ind]))
 
@@ -380,4 +430,6 @@ out2.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name
 result = engine.execute("ALTER TABLE Completeness ENGINE=InnoDB")
 result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
 result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE CASCADE ON UPDATE CASCADE");
+
+
 
