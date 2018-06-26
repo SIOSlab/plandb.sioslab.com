@@ -18,7 +18,7 @@ This interface filters planets of interest and links to details pages for the re
     <textarea name="querytext" rows="4" cols="100">
 <?php 
 if (empty($_POST["querytext"]))
-    $sql = "pl_maxangsep > 150 AND pl_minangsep < 450";
+    $sql = "completeness > 0";
 else
     $sql = $_POST["querytext"]; 
 echo $sql;
@@ -39,10 +39,12 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 } 
 
-echo "<p>Query:</br>".$sqlsel.$sql." ".$sqlord.";</p>\n\n";
+echo "<h4>Query</h4><p>".$sqlsel.$sql." ".$sqlord.";</p>\n\n";
 $result = $conn->query($sqlsel.$sql." ".$sqlord);
 if ($result){
     if ($result->num_rows > 0) {
+        echo "<h4>Result</h4><p>".$result->num_rows." rows returned.</p>\n\n";
+
         echo "<div class='results-outer'>\n";
         echo "<table class='results' id='gentable'><thead><tr>\n";
         echo "<th>Planet Name</th><th>Separation (mas)</th><th>Optical Magnitude</th><th>Completeness</th>";

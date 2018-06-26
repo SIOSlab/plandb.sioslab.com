@@ -6,7 +6,7 @@ include "templates/headerclose.php";
 <h2> General Query </h2>
 
 <p>
-This interface provides direct querying to the full database. See the IPAC <a href='https://exoplanetarchive.ipac.caltech.edu/docs/API_exoplanet_columns.html'>schema here</a> for available column names.  Additional columns are: smax_from_orbper (bool: semi-major axis calculated from orbital period), pl_maxangsep, pl_minangsep, rad_from_mass (planet radius (pl_radj only) calculated from pl_bmassj using Forecaster). You can also query <a href="index.php?querytext=show columns in KnownPlanets">"show columns in KnownPlanets"</a>.
+This interface provides direct querying to the full database. See the IPAC <a href='https://exoplanetarchive.ipac.caltech.edu/docs/API_exoplanet_columns.html'>Confirmed Planet</a> and <a href='https://exoplanetarchive.ipac.caltech.edu/docs/API_compositepars_columns.html'>Composite Planet</a> table schemas for available column names.  You can also query <a href="index.php?querytext=show full columns in KnownPlanets">"show full columns in KnownPlanets"</a>.  Query must include selection of pl_name to create links to planet detail pages.
  <form action="index.php" method="POST">
         <textarea name="querytext" rows="4" cols="100">
 <?php 
@@ -15,7 +15,7 @@ if (!empty($_GET["querytext"])){
 elseif (!empty($_POST["querytext"])){
     $sql = $_POST["querytext"]; }
 else {
-    $sql = "select pl_hostname, pl_letter,pl_angsep,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where pl_maxangsep > 150 AND pl_minangsep < 450";}
+    $sql = "select pl_name, pl_angsep, completeness,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where pl_maxangsep > 100 AND pl_minangsep < 500 order by completeness DESC";}
     
 echo "$sql";
 ?>
@@ -34,11 +34,12 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 } 
 
-echo "<p>Query:</br>".$sql.";</p>\n\n";
+echo "<h4>Query</h4><p>".$sql.";</p>\n\n";
 $result = $conn->query($sql);
 if ($result){
     if ($result->num_rows > 0) {
-         while($row = $result->fetch_assoc()) {
+        echo "<h4>Result</h4><p>".$result->num_rows." rows returned.</p>\n\n";
+        while($row = $result->fetch_assoc()) {
            if (empty($counter)){
               $counter = 0;
               echo "<div class='results-outer'>\n";
@@ -50,13 +51,17 @@ if ($result){
            echo "<tr>";
            foreach(array_keys($row) as $paramName) {
                echo "<td>";
-               if (is_numeric($row[$paramName])){
-                   echo number_format((float)$row[$paramName], 2, '.', '');
-
+               if ($paramName == 'pl_name'){
+                    echo "<a href='plandetail.php?name=".urlencode($row[$paramName])."'>".$row[$paramName]."</a>";                
                } else{
-                   echo $row[$paramName];
+                   if (is_numeric($row[$paramName])){
+                       echo number_format((float)$row[$paramName], 2, '.', '');
+
+                   } else{
+                       echo $row[$paramName];
+                   }
                }
-                echo "</td>";    
+               echo "</td>";    
            }
            echo "</tr>";
          $counter++;

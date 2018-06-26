@@ -9,7 +9,7 @@ if (empty($_GET["name"])){
     $name = $_GET["name"];
 }
 
-$sql = "SELECT pl_orbper,pl_discmethod,pl_orbsmax,smax_from_orbper,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_radj,rad_from_mass,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness FROM KnownPlanets WHERE pl_name='".$name."'";
+$sql = "SELECT pl_orbper,pl_orbperreflink,pl_discmethod,pl_orbsmax,pl_orbsmaxreflink,pl_orbeccenreflink,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_bmassreflink,pl_radj,pl_radreflink,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag FROM KnownPlanets WHERE pl_name='".$name."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -108,9 +108,9 @@ if ($resultp && ($resultp->num_rows > 0)){
     echo "data.addRows([\n";
     $resultp->data_seek(0);
     $row = $resultp->fetch_assoc();
-    echo "[".$row[M].", ".$row[dMag].", ".$row[phi]."]";
+    echo "[".$row[M].", ".$row[dMag].", ".$row[pphi]."]";
     while($row = $resultp->fetch_assoc()) {
-    echo ",\n[".$row[M].", ".$row[dMag].", ".$row[phi]."]";
+    echo ",\n[".$row[M].", ".$row[dMag].", ".$row[pphi]."]";
     }
     echo "]);\n\n";
 }
@@ -127,7 +127,7 @@ if ($resultp && ($resultp->num_rows > 0)){
 
     vAxes: {
         0: {title: '\u0394 mag',textStyle: {color: 'green'}},  
-        1: {title: '\u03A6 (\u03B2) ',textStyle: {color: 'purple'}}
+        1: {title: 'p * \u03A6 (\u03B2) ',textStyle: {color: 'purple'}}
     } 
   };
 
@@ -162,23 +162,35 @@ echo " <div style='float: left; width: 90%; margin-bottom: 2em;'>\n";
 echo "<TABLE class='results'>\n";
 echo "<TR><TH colspan='2'> Planet Properties</TH></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Discovered via</TH><TD>".$row[pl_discmethod]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Period (days)</TH><TD>".$row[pl_orbper]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Semi-major Axis (AU)</TH><TD>".$row[pl_orbsmax];
-if ($row[smax_from_orbper])
-    echo " (calculated from period)\n";
+echo "<TR><TH style='width:".$wd."%'>Period (days)</TH><TD>".
+    number_format((float)$row[pl_orbper], 2, '.', '');
+if ($row[pl_orbperreflink])
+    echo " (".$row[pl_orbperreflink].")";
+echo "</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Semi-major Axis (AU)</TH><TD>".
+    number_format((float)$row[pl_orbsmax], 2, '.', '');
+if ($row[pl_orbsmaxreflink])
+    echo " (".$row[pl_orbsmaxreflink].")";
 echo"</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Eccentricity</TH><TD>".$row[pl_orbeccen]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Eccentricity</TH><TD>".$row[pl_orbeccen];
+if ($row[pl_orbeccenreflink])
+    echo " (".$row[pl_orbeccenreflink].")";
+echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Inclination (deg)</TH><TD>".$row[pl_orbincl]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>".$row[pl_bmassprov]." (Jupiter Masses)</TH><TD>".$row[pl_bmassj]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>".$row[pl_bmassprov]." (Jupiter Masses)</TH><TD>".$row[pl_bmassj];
+if ($row[pl_orbsmaxreflink])
+    echo " (".$row[pl_orbsmaxreflink].")";
+echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Radius (Jupiter Radii)</TH><TD>".$row[pl_radj];
-if ($row[rad_from_mass])
-    echo " (estimated from mass)\n";
-echo"</TD></TR>\n";
+if ($row[pl_radreflink])
+    echo " (".$row[pl_radreflink].")";
+echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Periapsis Passage Time (JD)</TH><TD>".$row[pl_orbtper]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Longitude of Periapsis (deg)</TH><TD>".$row[pl_orblper]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Equilibrium Temperature (K)</TH><TD>".$row[pl_eqt]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Insolation Flux (Earth fluxes)</TH><TD>".$row[pl_insor]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Angular Separation (mas)</TH><TD>".$row[pl_angsep]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Angular Separation @ sma (mas)</TH><TD>".
+    number_format((float)$row[pl_angsep], 2, '.', '')."</TD></TR>\n";
 //echo "<TR><TH style='width:".$wd."%'>Minimum Angular Separation (mas)</TH><TD>".$row[pl_minangsep]."</TD></TR>\n";
 //echo "<TR><TH style='width:".$wd."%'>Maximum Angular Separation (mas)</TH><TD>".$row[pl_maxangsep]."</TD></TR>\n";
 echo "</TABLE>\n";
@@ -211,6 +223,8 @@ if ($resultp){
     } else{
         echo '<div style="float: left; margin-right: 2em" id="chart_div"></div>';
         echo '<div style="float: left;" id="chart_div2"></div>';
+        echo '<div style="clear: both;"></div>';
+        echo "<p>Note: if no inclination available, orbit is assumed edge-on. Phase and magnitude plot assumes cloud-free atmosphere at 550 nm.</p>";
     }
     $resultp->close();
 } else{
@@ -221,12 +235,11 @@ $conn->close();
 
 </DIV>
 
-<div style="clear: both;"></div>
 
 <?php  
 if ($resultc){
 
-    echo '<div id="compDiv" style="width:600px; height:480px; margin:auto;"></div>';
+    echo '<div id="compDiv" style="width:800px; height:640px; margin:auto;"></div>';
     echo "\n\n";
     echo "<script>\n";
     echo "var xsize = 400, ysize = 260, x = new Array(xsize), y = new Array(ysize), z = new Array(ysize), i, j;\n";
@@ -243,7 +256,7 @@ if ($resultc){
     echo "\n\n";
 
     echo "var box1 = {
-        x: [150, 150, 430, 430],
+        x: [100, 100, 500, 500],
         y: [0, 22.5, 22.5, 0],
         type: 'scatter'
     };\n";    
@@ -260,20 +273,18 @@ if ($resultc){
     };\n";
 
     echo "var layout = {
-        title: 'Total WFIRST Completeness = ".$row[completeness]."',
-        xaxis: {title: 'Separation (mas)'},
-        yaxis: {title: 'Delta mag'},
+        title: 'Completeness for \u03B1 \u2208 [0.1, 0.5] arcsec, \u0394 mag < 22.5  = ".$row[completeness]."',
+        xaxis: {title: 'Separation (mas)',range: [".$row[compMinWA].",".$row[compMaxWA]."]},
+        yaxis: {title: 'Delta mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]},
     };\n";
 
 
     echo "Plotly.newPlot('compDiv', [data,box1], layout);" ;
     echo "</script>\n";
+    echo "<p>Completeness assumes cloud-free atmosphere at 550 nm. All orbital parameters are using available values as the means and errors as the standard deviations of normal distributions.  If no errors are avaialble, the error is taken as 0.1 of the mean value.  Missing eccentricities are sampled from a Rayleigh distribution with geometric mean of 0.2. Missing inclinations are sampled from a sinusoidal distribution.  Missing longitudes of periapsis and ascending node are sampled from uniform distributions. Planet radii are directly sampled if the mean and error are available, otherwise mass is sampled and converted to radius via a modified Forecaster mean fit that disallows radii of greater than 1 R_J.</p>";
 
 }
-
 ?>
-
-
 
 <?php include "templates/footer.php"; ?>
 
