@@ -493,6 +493,51 @@ for j in range(len(goodinds)):
     minCdMag.append(np.floor(np.min(dMagcs[j][hs[j] != 0])))
     maxCdMag.append(np.ceil(np.max(dMagcs[j][hs[j] != 0])))
 
+###################################################################
+#build alias table
+from astroquery.simbad import Simbad
+
+starnames = data['pl_hostname'].unique()
+
+s = Simbad()
+s.add_votable_fields('ids')
+baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=aliastable&objname="
+
+ids = []
+aliases = []
+badstars = []
+for j,star in enumerate(starnames):
+    print(j,star)
+    r = s.query_object(star)
+    if r:
+        tmp = r['IDS'][0].split('|')
+    else:
+        tmp = []
+    r = requests.get(baseurl+star)
+    if "ERROR" not in r.content: 
+        tmp += r.content.strip().split("\n")
+    tmp = list(np.unique(tmp))
+    if 'aliasdis' in tmp: tmp.remove('aliasdis')
+    if len(tmp) == 0:
+        badstars.append(star)
+        continue
+    if star not in tmp: tmp.append(star)
+    ids.append([j]*len(tmp))
+    aliases.append(tmp)
+
+
+#toggleoff = ['notesel','messel','bibsel','fluxsel','sizesel','mtsel','spsel','rvsel','pmsel','cooN','otypesel']
+#url = """http://simbad.u-strasbg.fr/simbad/sim-id?output.format=ASCII&Ident=%s"""%starnames[j]
+#for t in toggleoff:
+#    url += "&obj.%s=off"%t
+
+
+
+
+out3 = pandas.DataFrame({'SID': np.hstack(ids),
+                         'Alias': np.hstack(aliases)
+                         })
+
 
 #------write to db------------
 namemxchar = np.array([len(n) for n in plannames]).max()
@@ -549,5 +594,14 @@ result = engine.execute("ALTER TABLE Completeness ENGINE=InnoDB")
 result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
 result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
+
+#---------------------------------------------------
+aliasmxchar = np.array([len(n) for n in out3['Alias'].values]).max()
+
+
+out3.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+result = engine.execute("ALTER TABLE Aliases ENGINE=InnoDB")
+result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
+result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
 
 

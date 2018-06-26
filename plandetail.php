@@ -9,7 +9,7 @@ if (empty($_GET["name"])){
     $name = $_GET["name"];
 }
 
-$sql = "SELECT pl_orbper,pl_orbperreflink,pl_discmethod,pl_orbsmax,pl_orbsmaxreflink,pl_orbeccenreflink,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_bmassreflink,pl_radj,pl_radreflink,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag FROM KnownPlanets WHERE pl_name='".$name."'";
+$sql = "SELECT pl_hostname,pl_orbper,pl_orbperreflink,pl_discmethod,pl_orbsmax,pl_orbsmaxreflink,pl_orbeccenreflink,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_bmassreflink,pl_radj,pl_radreflink,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag FROM KnownPlanets WHERE pl_name='".$name."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -147,6 +147,9 @@ if ($row[completeness]){
     $resultc = $conn->query($sql3);
 
 }
+$sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row[pl_hostname]."')";
+$resultaliases = $conn->query($sqlaliases);
+
 ?>
 
 <?php include "templates/headerclose.php"; ?>
@@ -212,6 +215,16 @@ echo "<TR><TH style='width:".$wd."%'>Luminosity  (Solar Luminosities)</TH><TD>".
 echo "<TR><TH style='width:".$wd."%'>Metallicity (dex)</TH><TD>".$row[st_metfe]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Age (Gyr)</TH><TD>".$row[st_age]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>B-V (Johnson) (mag)</TH><TD>".$row[st_bmvj]."</TD></TR>\n";
+
+if ($resultaliases){
+    if ($resultaliases->num_rows > 0) {
+        echo "<TR><TH style='width:".$wd."%'>Aliases</TH><TD>";
+        while($rowa = $resultaliases->fetch_assoc()) {
+            echo $rowa['Alias']."; &nbsp; ";
+        }
+        echo "</TD></TR>\n";
+    }
+}
 
 echo "</TABLE>\n";
     
