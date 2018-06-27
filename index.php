@@ -20,9 +20,14 @@ else {
 echo "$sql";
 ?>
 </textarea><br>
-        <input type="submit">
-    </form>
+<!--<input type="submit">--!>
+
+<button type="submit" name="submit" formaction="index.php">Submit</button>
+<button type="submit" name="save" formaction="plansave.php">Save to CSV</button>
+
+</form>
 </p>
+
 
 
 <?php include("config.php"); ?>
