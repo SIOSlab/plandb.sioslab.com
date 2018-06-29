@@ -50,7 +50,7 @@ $resultp = $conn->query($sql2);
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script type="text/javascript">
 
-google.charts.load('current', {'packages':['line']});
+google.charts.load('current', {'packages':['line','corechart']});
 google.charts.setOnLoadCallback(drawChart1);
 google.charts.setOnLoadCallback(drawChart2);
 
@@ -99,8 +99,10 @@ if ($resultp && ($resultp->num_rows > 0)){
 function drawChart2() {
 var data = new google.visualization.DataTable();
 data.addColumn('number', 'Mean Anomaly (rad)');
-data.addColumn('number', '\u0394 mag');
-data.addColumn('number', '\u03A6 (\u03B2) ');
+data.addColumn('number', '\u0394 mag No Clouds 575 nm');
+data.addColumn('number', '\u0394 mag Full Clouds 575 nm');
+data.addColumn('number', '\u03A6 (\u03B2) No Clouds 575 nm');
+data.addColumn('number', '\u03A6 (\u03B2) Full Clouds 575 nm');
 
 
 <?php 
@@ -108,9 +110,9 @@ if ($resultp && ($resultp->num_rows > 0)){
     echo "data.addRows([\n";
     $resultp->data_seek(0);
     $row = $resultp->fetch_assoc();
-    echo "[".$row[M].", ".$row[dMag].", ".$row[pphi]."]";
+    echo "[".$row[M].", ".$row[dMag_000C_575NM].", ".$row[dMag_100C_575NM].", ".$row[pPhi_000C_575NM].", ".$row[pPhi_100C_575NM]."]";
     while($row = $resultp->fetch_assoc()) {
-    echo ",\n[".$row[M].", ".$row[dMag].", ".$row[pphi]."]";
+    echo ",\n[".$row[M].", ".$row[dMag_000C_575NM].", ".$row[dMag_100C_575NM].", ".$row[pPhi_000C_575NM].", ".$row[pPhi_100C_575NM]."]";
     }
     echo "]);\n\n";
 }
@@ -121,9 +123,11 @@ if ($resultp && ($resultp->num_rows > 0)){
     'height':400,
     series: {
         0: {targetAxisIndex: 0, color: 'green'},
-        1: {targetAxisIndex: 1, color: 'purple'},
+        1: {targetAxisIndex: 0, color: 'green', lineDashStyle: [5, 5] },
+        2: {targetAxisIndex: 1, color: 'purple'},
+        3: {targetAxisIndex: 1, color: 'purple',lineDashStyle: [5, 5] },
     },
-    legend: {position: 'none'},
+    legend: {position: 'bottom'},
 
     vAxes: {
         0: {title: '\u0394 mag',textStyle: {color: 'green'}},  
@@ -131,8 +135,8 @@ if ($resultp && ($resultp->num_rows > 0)){
     } 
   };
 
-  var chart = new google.charts.Line(document.getElementById('chart_div2'));
-  chart.draw(data, google.charts.Line.convertOptions(options));
+  var chart = new google.visualization.LineChart(document.getElementById('chart_div2'));
+  chart.draw(data,options);
 }
 
 </script>

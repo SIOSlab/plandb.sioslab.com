@@ -8,9 +8,9 @@ from sqlalchemy import create_engine
 import getpass,keyring
 import numpy as np
 import os
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
 import sqlalchemy.types 
-
+import re
 
 #grab the data
 query = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=compositepars&select=*&format=csv"""
@@ -185,6 +185,8 @@ minWA = np.arctan(s/(data['st_dist'].values*u.pc)).to('mas')
 data = data.assign(pl_minangsep=minWA.value)
 
 
+#data.to_pickle('data_062818.pkl')
+
 ##############################################################################################################################
 # grab photometry data 
 enginel = create_engine('sqlite:///' + os.path.join(os.getenv('HOME'),'Documents','AFTA-Coronagraph','ColorFun','AlbedoModels.db'))
@@ -192,8 +194,22 @@ enginel = create_engine('sqlite:///' + os.path.join(os.getenv('HOME'),'Documents
 # getting values
 meta_alb = pandas.read_sql_table('header',enginel)
 metallicities = meta_alb.metallicity.unique()
+metallicities.sort()
 betas = meta_alb.phase.unique()
+betas.sort()
 dists = meta_alb.distance.unique()
+dists.sort()
+clouds = meta_alb.cloud.unique()
+clouds.sort()
+cloudstr = clouds.astype(str)
+for j in range(len(cloudstr)):
+    cloudstr[j] = 'f'+cloudstr[j]
+cloudstr[cloudstr == 'f0.0'] = 'NC'
+cloudstr[cloudstr == 'f1.0'] = 'f1'
+
+tmp = pandas.read_sql_table('g25_t150_m0.0_d0.5_NC_phang000',enginel)
+wavelns = tmp.WAVELN.values
+
 
 def makeninterp(vals):
     ii =  interp1d(vals.unique(),vals.unique(),kind='nearest',bounds_error=False,fill_value=(vals.min(),vals.max()))
@@ -202,6 +218,7 @@ def makeninterp(vals):
 distinterp = makeninterp(meta_alb.distance)
 betainterp = makeninterp(meta_alb.phase)
 feinterp = makeninterp(meta_alb.metallicity)
+cloudinterp = makeninterp(meta_alb.cloud)
 
 
 photdata550 = np.zeros((meta_alb.metallicity.unique().size,meta_alb.distance.unique().size, meta_alb.phase.unique().size))
@@ -219,13 +236,70 @@ for i,fe in enumerate(meta_alb.metallicity.unique()):
             ind = np.argmin(np.abs(tmp['WAVELN']-0.550))
             pval = tmp['GEOMALB'][ind]
             photdata550[i,j,k] = pval
-            
 
 photinterps = {}
 for i,fe in enumerate(meta_alb.metallicity.unique()):
     photinterps[fe] = {}
     for j,d in enumerate(meta_alb.distance.unique()):
         photinterps[fe][d] = interp1d(betas[np.isfinite(photdata550[i,j,:])],photdata550[i,j,:][np.isfinite(photdata550[i,j,:])],kind='cubic')
+
+
+allphotdata = np.zeros((metallicities.size, dists.size, clouds.size, betas.size, wavelns.size))
+for i,fe in enumerate(metallicities):
+    basename = 'g25_t150_m'+str(fe)+'_d'
+    for j,d in enumerate(dists):
+        basename2 = basename+str(d)+'_'
+        for k,cloud in enumerate(clouds):
+            basename3 = basename2+cloudstr[k]+'_phang'
+            print(basename3)
+            for l,beta in enumerate(betas):
+                name = basename3+"%03d"%beta
+                try:
+                    tmp = pandas.read_sql_table(name,enginel)
+                except:
+                    print("Missing: %s"%name)
+                    allphotdata[i,j,k,l,:] = np.nan
+                    continue
+                pvals = tmp['GEOMALB'].values
+                if len(tmp) != len(wavelns):
+                    missing = list(set(wavelns) - set(tmp.WAVELN.values))
+                    inds  = numpy.searchsorted(tmp['WAVELN'].values,missing)
+                    pvals = np.insert(pvals,inds,np.nan)
+                    assert np.isnan(pvals[wavelns==missing[0]])
+                    print("Filled value: %s"%name)
+                allphotdata[i,j,k,l,:] = pvals
+
+
+
+#patch individual nans
+for i,fe in enumerate(metallicities):
+    for j,d in enumerate(dists):
+        for k,cloud in enumerate(clouds):
+            for l,beta in enumerate(betas):
+                nans = np.isnan(allphotdata[i,j,k,l,:])
+                if np.any(nans) & ~np.all(nans):
+                    tmp = interp1d(wavelns[~nans],allphotdata[i,j,k,l,~nans],kind='cubic')
+                    allphotdata[i,j,k,l,nans] = tmp(wavelns[nans])
+
+
+photinterps2 = {}
+for i,fe in enumerate(metallicities):
+    photinterps2[fe] = {}
+    for j,d in enumerate(dists):
+        photinterps2[fe][d] = {}
+        for k,cloud in enumerate(clouds):
+            if np.any(np.isnan(allphotdata[i,j,k,:,:])):
+                #remove whole rows of betas
+                goodbetas = np.array(list(set(range(len(betas))) - set(np.unique(np.where(np.isnan(allphotdata[i,j,k,:,:]))[0]))))
+                photinterps2[fe][d][cloud] = RectBivariateSpline(betas[goodbetas],wavelns,allphotdata[i,j,k,goodbetas,:])
+                #photinterps2[fe][d][cloud] = interp2d(betas[goodbetas],wavelns,allphotdata[i,j,k,goodbetas,:].transpose(),kind='cubic')
+            #photinterps2[fe][d][cloud] = interp2d(betas,wavelns,allphotdata[i,j,k,:,:].transpose(),kind='cubic')
+            photinterps2[fe][d][cloud] = RectBivariateSpline(betas,wavelns,allphotdata[i,j,k,:,:])
+
+
+#np.savez('allphotdata',metallicities=metallicities,dists=dists,clouds=clouds,cloudstr=cloudstr,betas=betas,wavelns=wavelns,allphotdata=allphotdata)
+#tmp = np.load('allphotdata.npz')
+#allphotdata = tmp['allphotdata']
 
 ##############################################################################################################################
 
@@ -236,6 +310,9 @@ import EXOSIMS.Prototypes.PlanetPhysicalModel
 PPMod = EXOSIMS.Prototypes.PlanetPhysicalModel.PlanetPhysicalModel()
 M = np.linspace(0,2*np.pi,100)
 plannames = data['pl_name'].values
+
+#wavelengths of interest
+lambdas = np.array([575, 635, 660, 706, 760, 825])
 
 orbdata = None
 #row = data.iloc[71] 
@@ -273,27 +350,41 @@ for j in range(len(plannames)):
     s = np.linalg.norm(r[:,0:2], axis=1)
     beta = np.arccos(r[:,2]/d)*u.rad
 
-    pphi = np.array([ photinterps[float(feinterp(fe))][float(distinterp(di))](bi) for di,bi in zip(d,beta.to(u.deg).value) ])
-    dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
+    WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
+    print(j,plannames[j],WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
+
+    outdict = {'Name': [plannames[j]]*len(M),
+                'M': M,
+                'r': d,
+                's': s,
+                'WA': WA,
+                'beta': beta.to(u.deg).value}
+
+    inds = np.argsort(beta)
+    for c in clouds:
+        for l in lambdas:
+            pphi = photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],float(l)/1000.)[np.argsort(inds)].flatten()
+            pphi[np.isinf(pphi)] = np.nan
+            outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = pphi 
+            dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
+            dMag[np.isinf(dMag)] = np.nan
+            outdict['dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = dMag
+
+    #pphi = np.array([ photinterps[float(feinterp(fe))][float(distinterp(di))](bi) for di,bi in zip(d,beta.to(u.deg).value) ])
+    #dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
 
     #phi = PPMod.calc_Phi(np.arccos(r[:,2]/d)*u.rad) 
     #dMag = deltaMag(0.5, Rp*u.R_jupiter, d*u.AU, phi)
 
-    WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
 
-    print(j,plannames[j],WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
-
-    out = pandas.DataFrame({'Name': [plannames[j]]*len(M),
-                            'M': M,
-                            'r': d,
-                            's': s,
-                            'pphi': pphi,
-                            'dMag': dMag,
-                            'WA': WA})
+    out = pandas.DataFrame(outdict)
+    
     if orbdata is None:
         orbdata = out.copy()
     else:
         orbdata = orbdata.append(out)
+
+
 
 ##############################################################################################################################
 
@@ -537,6 +628,39 @@ for j,star in enumerate(starnames):
 out3 = pandas.DataFrame({'SID': np.hstack(ids),
                          'Alias': np.hstack(aliases)
                          })
+
+
+###################################################################
+#add comments
+coldefs = pandas.ExcelFile('coldefs.xlsx')
+coldefs = coldefs.parse('Sheet1')
+cols = coldefs['Column'][coldefs['Definition'].notnull()].values
+cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
+
+
+result = engine.execute("show create table KnownPlanets")
+res = result.fetchall()
+res = res[0]['Create Table']
+res = res.split("\n")
+
+p = re.compile('`(\S+)`[\s\S]+')
+keys = []
+defs = []
+for r in res:
+  r = r.strip().strip(',')
+  if "COMMENT" in r: continue
+  m = p.match(r)
+  if m:
+    keys.append(m.groups()[0])
+    defs.append(r)
+
+
+for key,d in zip(keys,defs):
+  if not key in cols: continue
+  comm =  """ALTER TABLE `KnownPlanets` CHANGE `%s` %s COMMENT "%s";"""%(key,d,cdefs[cols == key][0])
+  print comm
+  r = engine.execute(comm)
+
 
 
 #------write to db------------
