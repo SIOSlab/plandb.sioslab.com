@@ -45,24 +45,118 @@ if ($result->num_rows > 1) {
 $sql2 = "select * from PlanetOrbits where Name = '".$name."'";
 $resultp = $conn->query($sql2);
 
+?>
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+
+google.charts.load('current', {'packages':['line','corechart']});
+google.charts.setOnLoadCallback(drawChart1);
+google.charts.setOnLoadCallback(drawChart2);
+
+
+function drawChart1() {
+var data = new google.visualization.DataTable();
+data.addColumn('number', 'Mean Anomaly (rad)');
+data.addColumn('number', 'Orbital Radius (AU)');
+//data.addColumn('number', 'Projected Separation (AU)');
+data.addColumn('number', 'Angular Separation (mas)');
+
+<?php 
+if ($resultp && ($resultp->num_rows > 0)){
+    echo "data.addRows([\n";
+    $row = $resultp->fetch_assoc();
+    //echo "[".$row[M].", ".$row[r].", ".$row[s].", ".$row[WA]."]";
+    echo "[".$row[M].", ".$row[r].", ".$row[WA]."]";
+    while($row = $resultp->fetch_assoc()) {
+    //echo ",\n[".$row[M].", ".$row[r].", ".$row[s].", ".$row[WA]."]";
+        echo ",\n[".$row[M].", ".$row[r].", ".$row[WA]."]";
+    }
+    echo "]);\n\n";
+}
+?>
+
+  var options = {
+    'width':500,
+    'height':400,
+    series: {
+        0: {targetAxisIndex: 0, color: 'blue'},
+        //1: {targetAxisIndex: 0},
+        //2: {targetAxisIndex: 1}
+        1: {targetAxisIndex: 1, color: 'red'}
+    },
+    legend: {position: 'none'},
+    vAxes: {
+        0: {title: 'Orbital Radius (AU)',textStyle: {color: 'blue'}},  
+        1: {title: ' Angular Separation (mas)',textStyle: {color: 'red'}}
+    },
+  };
+
+  var chart = new google.charts.Line(document.getElementById('chart_div'));
+  chart.draw(data, google.charts.Line.convertOptions(options));
+}
+
+function drawChart2() {
+var data = new google.visualization.DataTable();
+data.addColumn('number', 'Mean Anomaly (rad)');
+data.addColumn('number', '\u0394 mag No Clouds 575 nm');
+data.addColumn('number', '\u0394 mag Full Clouds 575 nm');
+data.addColumn('number', '\u03A6 (\u03B2) No Clouds 575 nm');
+data.addColumn('number', '\u03A6 (\u03B2) Full Clouds 575 nm');
+
+
+<?php 
+if ($resultp && ($resultp->num_rows > 0)){
+    echo "data.addRows([\n";
+    $resultp->data_seek(0);
+    $row = $resultp->fetch_assoc();
+    echo "[".$row[M].", ".$row[dMag_000C_575NM].", ".$row[dMag_100C_575NM].", ".$row[pPhi_000C_575NM].", ".$row[pPhi_100C_575NM]."]";
+    while($row = $resultp->fetch_assoc()) {
+    echo ",\n[".$row[M].", ".$row[dMag_000C_575NM].", ".$row[dMag_100C_575NM].", ".$row[pPhi_000C_575NM].", ".$row[pPhi_100C_575NM]."]";
+    }
+    echo "]);\n\n";
+}
+?>
+
+  var options = {
+    'width':500,
+    'height':400,
+    series: {
+        0: {targetAxisIndex: 0, color: 'green'},
+        1: {targetAxisIndex: 0, color: 'green', lineDashStyle: [5, 5] },
+        2: {targetAxisIndex: 1, color: 'purple'},
+        3: {targetAxisIndex: 1, color: 'purple',lineDashStyle: [5, 5] },
+    },
+    legend: {position: 'bottom'},
+
+    vAxes: {
+        0: {title: '\u0394 mag',textStyle: {color: 'green'}},  
+        1: {title: 'p * \u03A6 (\u03B2) ',textStyle: {color: 'purple'}}
+    } 
+  };
+
+  var chart = new google.visualization.LineChart(document.getElementById('chart_div2'));
+  chart.draw(data,options);
+}
+
+</script>
+
+
+<?php 
 $row = $result->fetch_assoc();
 if ($row[completeness]){
+    echo '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>';
+
     $sql3 = "SELECT * FROM Completeness WHERE Name='".$name."'";
     $resultc = $conn->query($sql3);
 
 }
-
 $sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row[pl_hostname]."')";
 $resultaliases = $conn->query($sqlaliases);
 
-if (($resultp && ($resultp->num_rows > 0)) || $row[completeness]) {
-    echo '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>';
-}
-
-$result->close();
-
-include "templates/headerclose.php"; 
 ?>
+
+<?php include "templates/headerclose.php"; ?>
 
 <h2> Planet Detail for 
 <?php echo $name; ?>
@@ -141,124 +235,26 @@ if ($resultaliases){
         }
         echo "</TD></TR>\n";
     }
-    $resultaliases->close();
 }
 
 echo "</TABLE>\n";
     
 echo "</DIV><br><br>\n";
 
-echo '<DIV style="clear: both;"></DIV>';
-
 if ($resultp){
     if ($resultp->num_rows == 0){
         echo "No PlanetOrbit rows returned.";
     } else{
-        echo '<div id="plot1Div" style="width:500px; height:500px; float:left;"></div>';
-        echo '<div id="plot2Div" style="width:500px; height:500px; float:left;"></div>';
-        echo "\n\n";
-        echo "<script>\n";
-        echo "var xsize = 100, x = new Array(xsize), y1 = new Array(xsize),
-              y2 = new Array(xsize), y3 = new Array(xsize), y4 = new Array(xsize), 
-              y5 = new Array(xsize), y6 = new Array(xsize); \n";
-        $i = 0;
-        while($rowp = $resultp->fetch_assoc()) {
-            echo "x[".$i."]=".$rowp[M].";";
-            echo "y1[".$i."]=".$rowp[dMag_100C_575NM].";";
-            echo "y2[".$i."]=".$rowp[dMag_000C_575NM].";\n";
-            echo "y3[".$i."]=".$rowp[pPhi_000C_575NM].";";
-            echo "y4[".$i."]=".$rowp[pPhi_100C_575NM].";\n";
-            echo "y5[".$i."]=".$rowp[r].";";
-            echo "y6[".$i."]=".$rowp[WA].";\n";
-            $i++;
-        }
-
-        echo "var trace1 = {\n
-                x: x,
-                y: y1,
-                type: 'scatter',
-                name: '\u0394 mag Full Clouds 575 nm',
-                line: { color: 'red' }
-              };\n
-              var trace2 = {
-                x: x,
-                y: y2,
-                fill: 'tonexty',
-                type: 'scatter',
-                name: '\u0394 mag No Clouds 575 nm',
-                line: { color: 'red', dash: 'dot' }
-              };\n
-              var trace3 = {\n
-                x: x,
-                y: y3,
-                type: 'scatter',
-                name: 'p* \u03A6 (\u03B2) No Clouds 575 nm',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var trace4 = {
-                x: x,
-                y: y4,
-                fill: 'tonexty',
-                type: 'scatter',
-                name: 'p* \u0394 mag Full Clouds 575 nm',
-                line: { color: 'blue', dash: 'dot' },
-                yaxis: 'y2'
-              };\n
-
-
-             var data = [trace1, trace2, trace3, trace4];\n
-
-             var layout = {\n
-                xaxis: {title: 'Mean Anomaly (rad)',
-                        tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
-                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },
-                yaxis: {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
-                yaxis2: {title: 'p * \u03A6 (\u03B2)', titlefont: {color: 'blue'}, tickfont: {color: 'blue'}, overlaying: 'y', side: 'right'},
-                legend: {x: 0, y:-0.25, 'orientation': 'h'},
-                margin: { t: 30, b:0}
-             };\n
-
-             Plotly.newPlot('plot1Div', data, layout);\n";
-
-        echo "var trace5 = {\n
-                x: x,
-                y: y5,
-                type: 'scatter',
-                name: 'Orbital Radius (AU)',
-                line: { color: 'red' }
-              };\n
-              var trace6 = {\n
-                x: x,
-                y: y6,
-                type: 'scatter',
-                name: 'Angular Separation (mas)',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-
-             var data2 = [trace5, trace6];\n
-
-             var layout2 = {\n
-                xaxis: {title: 'Mean Anomaly (rad)',
-                        tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
-                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },
-                yaxis: {title: 'Orbital Radius (AU)', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
-                yaxis2: {title: 'Angular Separation (mas)', titlefont: {color: 'blue'}, tickfont: {color: 'blue'}, overlaying: 'y', side: 'right'},
-                showlegend: false,
-                margin: { t: 30, b:160}
-             };\n
-
-             Plotly.newPlot('plot2Div', data2, layout2);\n";
-
-
-        echo "</script>\n";
-        echo '<DIV style="clear: both;"></DIV>';
-
-        echo "<p>Note: if no inclination available, orbit is assumed edge-on. If no eccentricity is available, orbit is assumed circular.</p>";
+        echo '<div style="float: left; margin-right: 2em" id="chart_div"></div>';
+        echo '<div style="float: left;" id="chart_div2"></div>';
+        echo '<div style="clear: both;"></div>';
+        echo "<p>Note: if no inclination available, orbit is assumed edge-on. If no eccentricity is available, orbit is assumed circular. Phase and magnitude curves assume cloud-free and fully cloudy atmospheres at 575 nm.</p>";
     }
     $resultp->close();
+} else{
+echo "Query Error:\n".$conn->error;
 }
+$conn->close();
 ?>
 
 </DIV>
@@ -305,20 +301,14 @@ if ($resultc){
         xaxis: {title: 'Separation (mas)',range: [".$row[compMinWA].",".$row[compMaxWA]."]},
         yaxis: {title: 'Delta mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]},
     };\n";
-    $resultc->close();
 
-    
+
     echo "Plotly.newPlot('compDiv', [data,box1], layout);" ;
     echo "</script>\n";
     echo "<p>Completeness assumes cloud-free atmosphere at 550 nm. All orbital parameters are using available values as the means and errors as the standard deviations of normal distributions.  If no errors are avaialble, the error is taken as 0.01 of the mean value.  Missing eccentricities are sampled from a Rayleigh distribution with geometric mean of 0.2. Missing inclinations are sampled from a sinusoidal distribution.  Missing longitudes of periapsis and ascending node are sampled from uniform distributions. Planet radii are directly sampled if the mean and error are available, otherwise mass is sampled and converted to radius via a modified Forecaster mean fit that disallows radii of greater than 1 R_J.</p>";
+
 }
 ?>
 
-<?php 
-$conn->close();
-include "templates/footer.php"; 
-?>
-
-
-
+<?php include "templates/footer.php"; ?>
 
