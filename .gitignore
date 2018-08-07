@@ -60,5 +60,7 @@ target/
 .DS_Store
 
 config.php
-datafordb.pkl
+*.pkl
 charttest.php
+*.npz
+*.xlsx
