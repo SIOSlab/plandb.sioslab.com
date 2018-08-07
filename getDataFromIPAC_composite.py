@@ -189,7 +189,8 @@ data = data.assign(pl_minangsep=minWA.value)
 
 ##############################################################################################################################
 # grab photometry data 
-enginel = create_engine('sqlite:///' + os.path.join(os.getenv('HOME'),'Documents','AFTA-Coronagraph','ColorFun','AlbedoModels.db'))
+#enginel = create_engine('sqlite:///' + os.path.join(os.getenv('HOME'),'Documents','AFTA-Coronagraph','ColorFun','AlbedoModels.db'))
+enginel = create_engine('sqlite:///' + os.path.join(os.getenv('HOME'),'Documents','AFTA-Coronagraph','ColorFun','AlbedoModels_2015.db'))
 
 # getting values
 meta_alb = pandas.read_sql_table('header',enginel)
@@ -206,6 +207,8 @@ for j in range(len(cloudstr)):
     cloudstr[j] = 'f'+cloudstr[j]
 cloudstr[cloudstr == 'f0.0'] = 'NC'
 cloudstr[cloudstr == 'f1.0'] = 'f1'
+cloudstr[cloudstr == 'f3.0'] = 'f3'
+cloudstr[cloudstr == 'f6.0'] = 'f6'
 
 tmp = pandas.read_sql_table('g25_t150_m0.0_d0.5_NC_phang000',enginel)
 wavelns = tmp.WAVELN.values
@@ -220,7 +223,8 @@ betainterp = makeninterp(meta_alb.phase)
 feinterp = makeninterp(meta_alb.metallicity)
 cloudinterp = makeninterp(meta_alb.cloud)
 
-
+##################
+#unnecessary if pulling all phot data
 photdata550 = np.zeros((meta_alb.metallicity.unique().size,meta_alb.distance.unique().size, meta_alb.phase.unique().size))
 for i,fe in enumerate(meta_alb.metallicity.unique()):
     basename = 'g25_t150_m'+str(fe)+'_d'
@@ -242,7 +246,7 @@ for i,fe in enumerate(meta_alb.metallicity.unique()):
     photinterps[fe] = {}
     for j,d in enumerate(meta_alb.distance.unique()):
         photinterps[fe][d] = interp1d(betas[np.isfinite(photdata550[i,j,:])],photdata550[i,j,:][np.isfinite(photdata550[i,j,:])],kind='cubic')
-
+#################
 
 allphotdata = np.zeros((metallicities.size, dists.size, clouds.size, betas.size, wavelns.size))
 for i,fe in enumerate(metallicities):
@@ -263,10 +267,10 @@ for i,fe in enumerate(metallicities):
                 pvals = tmp['GEOMALB'].values
                 if len(tmp) != len(wavelns):
                     missing = list(set(wavelns) - set(tmp.WAVELN.values))
-                    inds  = numpy.searchsorted(tmp['WAVELN'].values,missing)
+                    inds  = np.searchsorted(tmp['WAVELN'].values,missing)
                     pvals = np.insert(pvals,inds,np.nan)
                     assert np.isnan(pvals[wavelns==missing[0]])
-                    print("Filled value: %s"%name)
+                    print("Filled value: %s, %s"%(name,missing))
                 allphotdata[i,j,k,l,:] = pvals
 
 
@@ -280,6 +284,14 @@ for i,fe in enumerate(metallicities):
                 if np.any(nans) & ~np.all(nans):
                     tmp = interp1d(wavelns[~nans],allphotdata[i,j,k,l,~nans],kind='cubic')
                     allphotdata[i,j,k,l,nans] = tmp(wavelns[nans])
+
+
+##np.savez('allphotdata',metallicities=metallicities,dists=dists,clouds=clouds,cloudstr=cloudstr,betas=betas,wavelns=wavelns,allphotdata=allphotdata)
+#np.savez('allphotdata_2015',metallicities=metallicities,dists=dists,clouds=clouds,cloudstr=cloudstr,betas=betas,wavelns=wavelns,allphotdata=allphotdata)
+
+##tmp = np.load('allphotdata.npz')
+#tmp = np.load('allphotdata_2015.npz')
+#allphotdata = tmp['allphotdata']
 
 
 photinterps2 = {}
@@ -297,9 +309,6 @@ for i,fe in enumerate(metallicities):
             photinterps2[fe][d][cloud] = RectBivariateSpline(betas,wavelns,allphotdata[i,j,k,:,:])
 
 
-#np.savez('allphotdata',metallicities=metallicities,dists=dists,clouds=clouds,cloudstr=cloudstr,betas=betas,wavelns=wavelns,allphotdata=allphotdata)
-#tmp = np.load('allphotdata.npz')
-#allphotdata = tmp['allphotdata']
 
 ##############################################################################################################################
 
