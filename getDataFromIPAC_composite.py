@@ -12,6 +12,9 @@ from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
 import sqlalchemy.types 
 import re
 import scipy.interpolate as interpolate
+from EXOSIMS.util.eccanom import eccanom
+from EXOSIMS.util.deltaMag import deltaMag
+import EXOSIMS.Prototypes.PlanetPhysicalModel
 
 %pylab --no-import-all
 
@@ -353,6 +356,11 @@ for i,fe in enumerate(metallicities):
 wind = np.argmin(np.abs(wavelns - 0.575))
 dind = np.argmin(np.abs(dists - 1))
 
+
+wind = np.argmin(np.abs(wavelns - 0.825))
+dind = np.argmin(np.abs(dists - 5))
+
+
 ls = ["-","--","-.",":","o-","s-","d-","h-"]
 
 plt.figure()
@@ -363,6 +371,7 @@ plt.ylabel('$p\Phi(\\beta)$')
 plt.xlabel('Phase (deg)')
 plt.xlim([0,180])
 plt.legend()
+plt.title('Phase Curves for %4.4f $\mu$m at %3.1f AU'%(wavelns[wind],dists[dind]))
 
 ########
 #restore photdata fromdisk
@@ -406,23 +415,72 @@ for i,fe in enumerate(metallicities):
 
 ##############################################################################################################################
 
+## quadrature columns
+#wavelengths of interest
+#lambdas = np.array([575, 635, 660, 706, 760, 825])
+lambdas = [575,  660, 730, 760, 825]
+bps = [10,18,18,18,10]
+
+
+smas = data['pl_orbsmax'].values
+fes = data['st_metfe'].values
+fes[np.isnan(fes)] = 0.0
+Rps = data['pl_radj_forecastermod'].values
+
+tmpout = {}
+for c in clouds:
+    for l in lambdas:
+        tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = [] 
+        tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = [] 
+
+
+for Rp, fe,a in zip(Rps, fes,smas):
+    for c in clouds:
+        for l in lambdas:
+            pphi = photinterps2[float(feinterp(fe))][float(distinterp(a))][c](90.0,float(l)/1000.).flatten()
+            pphi[np.isinf(pphi)] = np.nan
+            pphi = pphi[0]
+            tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"].append(pphi) 
+            dMag = deltaMag(1, Rp*u.R_jupiter, a*u.AU, pphi)
+            if np.isinf(dMag): dMag =np.nan
+            tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"].append(dMag)
+
+
+for c in clouds:
+    for l in lambdas:
+        tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.array(tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"])
+        tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.array(tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"])
+
+
+
+#collect min/max/med for every wavelength
+for l in lambdas:
+    tmp = []
+    for c in clouds:
+        tmp.append(tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"])
+    tmp = np.vstack(tmp)
+    tmpout["quad_dMag_min_"+str(l)+"NM"] = np.nanmin(tmp,axis=0)
+    tmpout["quad_dMag_max_"+str(l)+"NM"] = np.nanmax(tmp,axis=0)
+    tmpout["quad_dMag_med_"+str(l)+"NM"] = np.nanmedian(tmp,axis=0)
+
+data = data.join(pandas.DataFrame(tmpout))
+
+
+#data.to_pickle('data2_062818.pkl')
+
+##############################################################################################################################
+#PPMod = EXOSIMS.Prototypes.PlanetPhysicalModel.PlanetPhysicalModel()
+
 #orbit info
-from EXOSIMS.util.eccanom import eccanom
-from EXOSIMS.util.deltaMag import deltaMag
-import EXOSIMS.Prototypes.PlanetPhysicalModel
-PPMod = EXOSIMS.Prototypes.PlanetPhysicalModel.PlanetPhysicalModel()
 M = np.linspace(0,2*np.pi,100)
 plannames = data['pl_name'].values
 
-#wavelengths of interest
-#lambdas = np.array([575, 635, 660, 706, 760, 825])
-labmdas = [575,  660, 730, 760, 825]
-bps = [10,18,18,18,10]
+minWA = data['pl_minangsep'].values*u.mas
+maxWA = data['pl_maxangsep'].values*u.mas
 
 orbdata = None
 #row = data.iloc[71] 
 for j in range(len(plannames)):
-    print(plannames[j])
     row = data.iloc[j] 
 
     a = row['pl_orbsmax']
@@ -433,7 +491,7 @@ for j in range(len(plannames)):
     w = row['pl_orblper']*np.pi/180.0
     if np.isnan(w): w = 0.0
     E = eccanom(M, e)                      
-    Rp = row['pl_radj']
+    Rp = row['pl_radj_forecastermod']
     dist = row['st_dist']
     fe = row['st_metfe']
     if np.isnan(fe): fe = 0.0
@@ -450,7 +508,7 @@ for j in range(len(plannames)):
     r1 = np.cos(E) - e
     r2 = np.sin(E)
 
-    r = (A*r1 + B*r2).T
+    r = (A*r1 + :math:`\mathbf r` B*r2).T
     d = np.linalg.norm(r, axis=1)
     s = np.linalg.norm(r[:,0:2], axis=1)
     beta = np.arccos(r[:,2]/d)*u.rad
@@ -490,9 +548,10 @@ for j in range(len(plannames)):
         orbdata = orbdata.append(out)
 
 
+#orbdata.to_pickle('orbdata_062818.pkl')
 
 ##############################################################################################################################
-
+## completeness calculation
 minangsep = 100
 maxangsep = 500
 
@@ -523,7 +582,7 @@ cs = []
 goodinds = []
 for j in inds:
     row = data.iloc[j] 
-    print row['pl_name']
+    print(j, row['pl_name'])
     
     amu = row['pl_orbsmax']
     astd = (row['pl_orbsmaxerr1'] - row['pl_orbsmaxerr2'])/2.
@@ -587,7 +646,7 @@ for j in inds:
         wbar = genwbar(n)
         w = O - wbar
 
-        if (row['pl_radreflink'] == "Calculated via modified Forecaster disallowing radii > 1 R_J."):
+        if (row['pl_radreflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>'):
             if row['pl_bmassprov'] == 'Msini':
                 Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
                 Mp = Mp/np.sin(I)
@@ -625,7 +684,11 @@ for j in inds:
         beta = np.arccos(rvec[:,2]/rnorm)*u.rad
         #phi = PPMod.calc_Phi(np.arccos(rvec[:,2]/rnorm)*u.rad)    # planet phase
         #dMag = deltaMag(0.5, R*u.R_jupiter, rnorm*u.AU, phi)     # delta magnitude
-        pphi = photinterps[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))](beta.to(u.deg).value)
+        #pphi = photinterps[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))](beta.to(u.deg).value)
+            
+        binds = np.argsort(beta)
+        pphi = photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))][0.0](beta.to(u.deg).value[binds],575./1000.)[np.argsort(binds)].flatten()
+
         dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
 
         WA = np.arctan((s*u.AU)/(row['st_dist']*u.pc)).to('mas').value # working angle
@@ -689,6 +752,10 @@ for j in range(len(goodinds)):
     minCdMag.append(np.floor(np.min(dMagcs[j][hs[j] != 0])))
     maxCdMag.append(np.ceil(np.max(dMagcs[j][hs[j] != 0])))
 
+#np.savez('completeness_080718',cs=cs,goodinds=goodinds,minCWA=minCWA,maxCWA=maxCWA,minCdMag=minCdMag,maxCdMag=maxCdMag)
+#out2.to_pickle('completeness_080718.pkl')
+
+
 ###################################################################
 #build alias table
 from astroquery.simbad import Simbad
@@ -728,8 +795,6 @@ for j,star in enumerate(starnames):
 #    url += "&obj.%s=off"%t
 
 
-
-
 out3 = pandas.DataFrame({'SID': np.hstack(ids),
                          'Alias': np.hstack(aliases)
                          })
@@ -754,6 +819,7 @@ engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsav
 #proddb#################################################################################################
 
 
+##write KnownPlanets
 data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',
         dtype={'pl_name':sqlalchemy.types.String(namemxchar),
                'pl_hostname':sqlalchemy.types.String(namemxchar-2),
@@ -769,17 +835,19 @@ result = engine.execute("ALTER TABLE KnownPlanets ADD compMaxWA double COMMENT '
 result = engine.execute("ALTER TABLE KnownPlanets ADD compMindMag double COMMENT 'min non-zero completeness dMag'")
 result = engine.execute("ALTER TABLE KnownPlanets ADD compMaxdMag double COMMENT 'max non-zero completeness dMag'")
 
+for ind,c in zip(goodinds,cs):
+    result = engine.execute("UPDATE KnownPlanets SET completeness=%f where pl_name = '%s'"%(c,plannames[ind]))
 
-orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
-result = engine.execute("ALTER TABLE PlanetOrbits ENGINE=InnoDB")
-result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
-result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+for ind,minw,maxw,mind,maxd in zip(goodinds,minCWA,maxCWA,minCdMag,maxCdMag):
+    result = engine.execute("UPDATE KnownPlanets SET compMinWA=%f,compMaxWA=%f,compMindMag=%f,compMaxdMag=%f where pl_name = '%s'"%(minw,maxw,mind,maxd,plannames[ind]))
+
 
 #add comments
 coldefs = pandas.ExcelFile('coldefs.xlsx')
 coldefs = coldefs.parse('Sheet1')
 cols = coldefs['Column'][coldefs['Definition'].notnull()].values
 cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
+cnames =  coldefs['Name'][coldefs['Definition'].notnull()].values
 
 
 result = engine.execute("show create table KnownPlanets")
@@ -798,26 +866,22 @@ for r in res:
     keys.append(m.groups()[0])
     defs.append(r)
 
-
 for key,d in zip(keys,defs):
   if not key in cols: continue
-  comm =  """ALTER TABLE `KnownPlanets` CHANGE `%s` %s COMMENT "%s";"""%(key,d,cdefs[cols == key][0])
+  comm =  """ALTER TABLE `KnownPlanets` CHANGE `%s` %s COMMENT "%s %s";"""%(key,d,cnames[cols == key][0].strip('"'),cdefs[cols == key][0])
   print comm
   r = engine.execute(comm)
 
-
+#---------------------------------------------
+#write planetorbits table
+orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+result = engine.execute("ALTER TABLE PlanetOrbits ENGINE=InnoDB")
+result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
+result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
 
 #---------------------------------------------
 #write completeness table
-for ind,c in zip(goodinds,cs):
-    result = engine.execute("UPDATE KnownPlanets SET completeness=%f where pl_name = '%s'"%(c,plannames[ind]))
-
-for ind,minw,maxw,mind,maxd in zip(goodinds,minCWA,maxCWA,minCdMag,maxCdMag):
-    result = engine.execute("UPDATE KnownPlanets SET compMinWA=%f,compMaxWA=%f,compMindMag=%f,compMaxdMag=%f where pl_name = '%s'"%(minw,maxw,mind,maxd,plannames[ind]))
-
-
-
 out2.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
 result = engine.execute("ALTER TABLE Completeness ENGINE=InnoDB")
 result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")

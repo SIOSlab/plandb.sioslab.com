@@ -7,6 +7,7 @@
         <strong><nav>
           <ul class="menu">
             <li><a href="planquery.php">Planet Query</a></li>
+            <li><a href="docs/html/index.html">Documentation</a></li>
           </ul>
         </nav></strong>
       </div>
