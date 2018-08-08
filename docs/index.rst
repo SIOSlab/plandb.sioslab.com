@@ -205,6 +205,9 @@ For each row in KnownPlanets, orbital data is generated as follows:
 6. ``st_dist`` is taken to be the target distance :math:`d`.
 7. ``st_metfe`` is taken to be the stellar metallicity; if it is undefined it is set to zero.
 8. The eccentric anomaly :math:`E` is calculated from the eccentricity for 100 equally spaced mean anomaly points :math:`M` between 0 and 360 degrees, inclusive.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion.
+
+.. _orbcalcref:
+
 9. The Thiele-Innes constants are calculated as:
 
     .. math::
@@ -253,6 +256,10 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 5. The longitude of the ascending node is sampled from a uniform distribution between 0 and 360 degrees.
 6. The stellar metallicity is not sampled, but taken as a constant value equal to ``st_metfe``, or 0.0, if undefined. 
 7. If the planet radius in KnownPlanets was calculated from the mass, and the mass (``pl_bmassj``) represents :math:`M\sin I`, the mass sample is defined as ``pl_bmassj``:math:`/sin(I)`.
+8. The mean anomaly is sampled from a uniform distribution between 0 and 360 degrees.
+
+The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOribts table (see :ref:`Steps 9 - 13<orbcalcref>`).  Photometry is only calculated for 575 nm and the cloud-free grid.  **This should be updated when we come to a concensus on reasonalbe median cloud conditions, or a prior on clouds!** 
+ 
 
 
 
