@@ -255,7 +255,7 @@ if ($resultp){
         echo "</script>\n";
         echo '<DIV style="clear: both;"></DIV>';
 
-        echo "<p>Note: if no inclination available, orbit is assumed edge-on. If no eccentricity is available, orbit is assumed circular.</p>";
+        echo "<p>Note: if no inclination available, orbit is assumed edge-on. If no eccentricity is available, orbit is assumed circular. For full documentation see <a href=docs/html/index.html#planetorbits-table>here</a>.</p>";
     }
     $resultp->close();
 }
@@ -310,7 +310,7 @@ if ($resultc){
     
     echo "Plotly.newPlot('compDiv', [data,box1], layout);" ;
     echo "</script>\n";
-    echo "<p>Completeness assumes cloud-free atmosphere at 550 nm. All orbital parameters are using available values as the means and errors as the standard deviations of normal distributions.  If no errors are avaialble, the error is taken as 0.01 of the mean value.  Missing eccentricities are sampled from a Rayleigh distribution with geometric mean of 0.2. Missing inclinations are sampled from a sinusoidal distribution.  Missing longitudes of periapsis and ascending node are sampled from uniform distributions. Planet radii are directly sampled if the mean and error are available, otherwise mass is sampled and converted to radius via a modified Forecaster mean fit that disallows radii of greater than 1 R_J.</p>";
+    echo "<p>Completeness assumes cloud-free atmosphere at 575 nm. For full documentation see <a href=docs/html/index.html#completeness-table>here</a>.</p>";
 }
 ?>
 

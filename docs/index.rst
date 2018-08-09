@@ -125,10 +125,10 @@ The KnownPlanets table contains all of the target star and known planet properti
 
    .. math::
     
-    \begin{align*}
+    
     \mathcal{C} &= [ 0.00346053, -0.06613329,  0.48091861,  1.04956612, -2.84926757] \\
     \mathcal{S} &= [0.279, 0.50376436, 0.22725968, 0., 0.881]
-    \end{align*}
+    
 
  for Earth mass/radius units with mass intervals:
 
@@ -149,7 +149,11 @@ The KnownPlanets table contains all of the target star and known planet properti
 10. The second radius fit is based on the planet density models from [Fortney2007]_. The relevant masses are converted to radii as follows:
 
     * For masses  :math:`\le 17_\oplus`, Eq. 8 (the rock/iron mixture density, as corrected in paper erratum) is used with a rock fraction of 0.67 (such that 1 Earth Mass gives 1 Earth radius). 
-    * For masses :math:`> 17 M_\oplus`, Table 4 (mass-radius relationship for 4.5 Gyr planets) are interpolated, assuming a constant core mass of :math:`< 10 M_\oplus`. The mean age of stars in the subset of rows being considered here (for which age is available) is 4.64 Gyr (median of 4.27).  To avoid extrapolating beyond the available grid, semi-major axis values in the inputs are strictly truncated to the range (0.02, 9.5) AU (**this truncation only affects a small subset of known planets, but if any of these end up on a target list, this needs to be revisited**).
+    * For masses :math:`> 17 M_\oplus`, Table 4 (mass-radius relationship for 4.5 Gyr planets) are interpolated, assuming a constant core mass of :math:`< 10 M_\oplus`. The mean age of stars in the subset of rows being considered here (for which age is available) is 4.64 Gyr (median of 4.27).  To avoid extrapolating beyond the available grid, semi-major axis values in the inputs are strictly truncated to the range (0.02, 9.5) AU.
+    
+    .. note::
+
+        This truncation only affects a small subset of known planets, but if any of these end up on a target list, this needs to be revisited.
 
    A duplicate column is created from ``pl_radj`` called ``pl_radj_fortney`` and those rows that originally contained fit radii are overwritten with the modified fit.
 
@@ -185,7 +189,13 @@ The KnownPlanets table contains all of the target star and known planet properti
         
         \Delta\textrm{mag} = -2.5\log_{10}\left(p\Phi(\beta) \left(\frac{R}{r}\right)^2 \right)
     
-    For planet radius :math:`R` and orbital radius :math:`r`. **Currently, the planet radius is taken from** ``pl_radj_forecastermod``.  **This can be updated to another fit, or an additional 80 columns can be generated for each new fit.**  For each wavelength, three columns are also add representing the minimum, maximum, and median :math:`\Delta\textrm{mag}` value across all cloud fractions.  These are named: ``quad_dMag_min_YYYNM``, ``quad_dMag_max_YYYNM``, and  ``quad_dMag_med_YYYNM``, respectively. As noted in :ref:`photometry`, it is important to remember that these do not correspond to the same :math:`f_\textrm{sed}` level in all cases.
+    for planet radius :math:`R` and orbital radius :math:`r`. 
+    
+    .. note::
+
+        Currently, the planet radius is taken from ``pl_radj_forecastermod``.  This can be updated to another fit, or an additional 80 columns can be generated for each new fit.
+        
+    For each wavelength, three columns are also add representing the minimum, maximum, and median :math:`\Delta\textrm{mag}` value across all cloud fractions.  These are named: ``quad_dMag_min_YYYNM``, ``quad_dMag_max_YYYNM``, and  ``quad_dMag_med_YYYNM``, respectively. As noted in :ref:`photometry`, it is important to remember that these do not correspond to the same :math:`f_\textrm{sed}` level in all cases.
 
 
 .. _planetorbits_table:
@@ -200,8 +210,18 @@ For each row in KnownPlanets, orbital data is generated as follows:
 1. From KnownPlanets ``pl_orbsmax`` is taken as the semi-major axis :math:`a`.
 2. ``pl_orbeccen`` is taken as the eccentricity :math:`e`.  If the eccentricity is undefined, it is set to zero. 
 3. ``pl_orbincl`` is taken as the inclination :math:`I`; if it is undefined it is set to 90 degrees. 
-4. ``pl_orblper`` is taken as the argument of periapsis :math:`\omega`; if it is undefined it is set to zero. **N.B: this is forcing the assumption of longitude of the ascending node equaling zero.** 
-5. ``pl_radj_forecastermod`` is taken to be the planet radius :math:`R`. **We can replace another mass fit here.** 
+4. ``pl_orblper`` is taken as the argument of periapsis :math:`\omega`; if it is undefined it is set to zero. 
+
+   .. warning::
+ 
+    **N.B: this is forcing the assumption of longitude of the ascending node equaling zero.** 
+
+5. ``pl_radj_forecastermod`` is taken to be the planet radius :math:`R`. 
+   
+   .. note::
+
+    We can replace another mass fit here.
+    
 6. ``st_dist`` is taken to be the target distance :math:`d`.
 7. ``st_metfe`` is taken to be the stellar metallicity; if it is undefined it is set to zero.
 8. The eccentric anomaly :math:`E` is calculated from the eccentricity for 100 equally spaced mean anomaly points :math:`M` between 0 and 360 degrees, inclusive.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion.
@@ -245,7 +265,7 @@ For each row in KnownPlanets, orbital data is generated as follows:
 Completeness Table
 --------------------------
 
-The Completeness table contains 2D frequency maps of the joint distribution of planet projected separation and :math:`\Delta\textrm{mag}`.  Currently, values are only generated for planets where ``pl_maxangsep`` is greater or equal to 100 mas and ``pl_minangsep`` is less than or equal to 500 mas, **however this calculation can be extended to all planets**.
+The Completeness table contains 2D frequency maps of the joint distribution of planet projected separation and :math:`\Delta\textrm{mag}` (for excruciating detail see [Brown2005]_ and [Garrett2016]_).  Currently, values are only generated for planets where ``pl_maxangsep`` is greater or equal to 100 mas and ``pl_minangsep`` is less than or equal to 500 mas, **however this calculation can be extended to all planets**.
 
 For each planet meeting this condition, the following samples are drawn, :math:`n=1\times10^{6}` at a time:
 
@@ -257,14 +277,55 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 6. The stellar metallicity is not sampled, but taken as a constant value equal to ``st_metfe``, or 0.0, if undefined. 
 7. If the planet radius in KnownPlanets was calculated from the mass, and the mass (``pl_bmassj``) represents :math:`M\sin I`, the mass sample is defined as ``pl_bmassj``:math:`/sin(I)`.
 8. The mean anomaly is sampled from a uniform distribution between 0 and 360 degrees.
+9. The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOribts table (see :ref:`Steps 9 - 13<orbcalcref>`).  
 
-The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOribts table (see :ref:`Steps 9 - 13<orbcalcref>`).  Photometry is only calculated for 575 nm and the cloud-free grid.  **This should be updated when we come to a concensus on reasonalbe median cloud conditions, or a prior on clouds!** 
- 
+.. note:: 
+    Photometry is only calculated for 575 nm and the cloud-free grid.  **This should be updated when we come to a concensus on reasonalbe median cloud conditions, or a prior on clouds!**
+    
+10. A 2D histogram is constructed from the phase angle and :math:`\Delta\textrm{mag}` sampled on a predefined grid with angular separation sampled from 100 to 500 mas in increments of 1 mas and  :math:`\Delta\textrm{mag}` sampled from 0 to 26 in increments of 0.1.
+11. A single completeness value is calculated by finding the fraction of sampled points such that the angular separation falls between 100 and 500 mas and the  :math:`\Delta\textrm{mag}` is less than or equal to 22.5.
+12. The sampling procedure is repeated (drawing :math:`n` samples at a time) and the histogram and bulk completeness value are updated until the completeness converges to within 0.01%.
+13. The Completeness table is defined with the following columns:
+
+    * Name: Planet Name, references KnownPlanets ``pl_name``
+    * alpha: Angular Separations at grid centers (mas)
+    * dMag: :math:`\Delta\textrm{mag}` values at grid centers
+    * H: Frequency
+    * iind: Horizontal index of entry in 2D histogram grid
+    * jind: Vertical index of entry in 2D histogram grid
+
+   The iind and jind values are stored only to make it simpler to reconstruct the 2D grid for plotting.14. For each planet whose completeness is calculated, we also calculate the minimum and maximum angular separations and :math:`\Delta\textrm{mag}` values for which the frequency grid is non-zero.  These values are then stored in new columns appended to the KnownPlanets table, named: ``compMinWA``, ``compMaxWA``, ``compMindMag``, and ``compMaxdMag``, respectively. The bulk completeness is stored in the KnownPlanets table in a new column named ``completeness``.
 
 
+Alias Table
+--------------------------
 
+The Alias table contains all available alternate target names to simplify identification.  The aliases are found by scraping the alias table in the Exoplanet Archive, and via the SIMBAD name resolver.
+
+For the subset of unique ``pl_hostname`` entries in KnownPlanets:
+
+1. SIMBAD is queried with the star name in ``pl_hostname``.
+2. The Exoplanet Archive is queried via ::
+
+    https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=aliastable&objname=starname
+
+3. The two queries are concatenated and a unique list of aliases generated from the unified list. 
+4. A unique id number is assigned to the target and the alias table is defined as:
+
+   * 'SID': Target ID
+   * 'Alias': Target Name
+
+The alias list for every target is guaranteed to include the name in ``pl_hostname`` and so every target's aliases can be resolved by querying on its own name.
+
+
+Database Structure
+====================
+
+The database is composed of four tables: KnownPlanets, PlanetOrbits, Completeness, and Alias.  All tables use the InnoDB engine. ``pl_name`` and ``pl_hostname`` are set as indexes for KnownPlanets.  ``Name`` is set as an index for both PlanetOrbits and Completeness and as a foreign key referencing ``pl_name`` in KnownPlanets.  Both columns in Alias are set as indexes.
+
+   
 References
------------------
+=============
 .. [Chen2016] Chen, J. and Kipping, D. M. (2016) Probabilistic Forecasting of the Masses and Radii of Other Worlds, ApJ 834(1)
 .. [Fortney2007] Fortney, J. J., Marley, M. S. and Barnes, J. W. (2007) Planetary Radii across Five Orders of Magnitude in Mass and Stellar Insolation: Application to Transits, ApJ 659, 2
 .. [Brown2005] Brown, R. A. (2005) Single-visit photometric and obscurational completeness, ApJ 624
@@ -272,9 +333,4 @@ References
 
     
 
-Indices and tables
-==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
