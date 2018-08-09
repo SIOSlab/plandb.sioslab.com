@@ -111,6 +111,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 
 8. The composite data table has radius values computed from available masses using the Forecaster best-fit ([Chen2016]_).  This tends to overestimate the radius for many Jovian-size planets, so we provide two additional mass estimates (but leave the original column).  We will only carry along masses in units of :math:`M_J`, and so drop columns ``pl_rade,  pl_radelim, pl_radserr2, pl_radeerr1, pl_rads, pl_radslim, pl_radeerr2, pl_radserr1``.
 
+.. _forecastermodref:
 
 9. The original Forecaster ([Chen2016]_) best fit is composed of linear (in log-log space) segments of the form  :math:`R = 10^{\mathcal{C} + \log_{10}(M)\mathcal{S}}` where :math:`R` and :math:`M` are the radius and mass, respectively, and  :math:`\mathcal{C}` and :math:`\mathcal{S}` are fit coefficients defined in four intervals of mass (Terran, Neptunian, Jovian and Stellar Worlds).  We modify the Forecaster fit as follows:
    
@@ -145,6 +146,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 
  A duplicate column is created from ``pl_radj`` called ``pl_radj_forecastermod`` and those rows that originally contained fit radii are overwritten with the modified fit.
 
+.. _fortneyref:
 
 10. The second radius fit is based on the planet density models from [Fortney2007]_. The relevant masses are converted to radii as follows:
 
