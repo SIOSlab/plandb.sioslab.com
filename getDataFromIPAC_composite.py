@@ -157,6 +157,8 @@ plt.loglog(m4,r4)
 plt.loglog(m5,r5)
 plt.xlabel('Mass ($M_\oplus$)')
 plt.ylabel('Radius ($R_\oplus$)')
+plt.loglog(m,Rf,'.',zorder=0)
+
 ##################################################################
 
 
@@ -237,7 +239,6 @@ plt.xlim([0,12])
 plt.ylim([0,12])
 plt.xlabel('Modified Forecster Fit ($R_\oplus$)')
 plt.ylabel('Fortney et al. (2007) Fit ($R_\oplus$)')
-
 #######
 
 

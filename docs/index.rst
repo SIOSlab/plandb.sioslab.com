@@ -171,9 +171,12 @@ The KnownPlanets table contains all of the target star and known planet properti
 
         This truncation only affects a small subset of known planets, but if any of these end up on a target list, this needs to be revisited.
 
-   A duplicate column is created from ``pl_radj`` called ``pl_radj_fortney`` and those rows that originally contained fit radii are overwritten with the modified fit.
+   A duplicate column is created from ``pl_radj`` called ``pl_radj_fortney`` and those rows that originally contained fit radii are overwritten with the modified fit. This fit effectively recreates the 'Terran' world leg of the modified forecaster, but extends it well into 'Neptunian' worlds.  Similarly, while the fits agree for Jovian and Super-Jovian objects, they have different behaviours around the location of Saturn:
+    .. image:: massfits.png
+        :scale: 100 %
+        :alt: modified Forecaster fit vs. Fortney fit
 
-   This approach consistently produces smaller radii for 'rocky' planets, as compared with the modified Forecaster fit, and consistently produces larger radii for giants, as can seen in the figure below:  
+   This approach consistently produces smaller radii for Super-Earth - Neptune planets, as compared with the modified Forecaster fit, and consistently produces larger radii for giants, as can seen in the figure below:  
 
     .. image:: modified_forecaster_v_Fortney.png
         :scale: 50 %
