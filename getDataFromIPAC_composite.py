@@ -11,6 +11,7 @@ import os
 from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
 import sqlalchemy.types 
 import re
+import scipy.integrate
 import scipy.interpolate as interpolate
 from EXOSIMS.util.eccanom import eccanom
 from EXOSIMS.util.deltaMag import deltaMag
@@ -257,6 +258,10 @@ data = data.assign(pl_minangsep=minWA.value)
 
 
 #data.to_pickle('data_062818.pkl')
+##############################
+##restore from disk:
+data = pandas.read_pickle('data_080718.pkl')
+
 
 ##############################################################################################################################
 # grab photometry data 
@@ -398,18 +403,23 @@ cloudinterp = makeninterp(clouds)
 
 
 photinterps2 = {}
+quadinterps = {}
 for i,fe in enumerate(metallicities):
     photinterps2[fe] = {}
+    quadinterps[fe] = {}
     for j,d in enumerate(dists):
         photinterps2[fe][d] = {}
+        quadinterps[fe][d] = {}
         for k,cloud in enumerate(clouds):
             if np.any(np.isnan(allphotdata[i,j,k,:,:])):
                 #remove whole rows of betas
                 goodbetas = np.array(list(set(range(len(betas))) - set(np.unique(np.where(np.isnan(allphotdata[i,j,k,:,:]))[0]))))
                 photinterps2[fe][d][cloud] = RectBivariateSpline(betas[goodbetas],wavelns,allphotdata[i,j,k,goodbetas,:])
                 #photinterps2[fe][d][cloud] = interp2d(betas[goodbetas],wavelns,allphotdata[i,j,k,goodbetas,:].transpose(),kind='cubic')
-            #photinterps2[fe][d][cloud] = interp2d(betas,wavelns,allphotdata[i,j,k,:,:].transpose(),kind='cubic')
-            photinterps2[fe][d][cloud] = RectBivariateSpline(betas,wavelns,allphotdata[i,j,k,:,:])
+            else:
+                #photinterps2[fe][d][cloud] = interp2d(betas,wavelns,allphotdata[i,j,k,:,:].transpose(),kind='cubic')
+                photinterps2[fe][d][cloud] = RectBivariateSpline(betas,wavelns,allphotdata[i,j,k,:,:])
+            quadinterps[fe][d][cloud] = interp1d(wavelns,allphotdata[i,j,k,9,:].flatten())
 
 
 
@@ -418,9 +428,23 @@ for i,fe in enumerate(metallicities):
 ## quadrature columns
 #wavelengths of interest
 #lambdas = np.array([575, 635, 660, 706, 760, 825])
-lambdas = [575,  660, 730, 760, 825]
-bps = [10,18,18,18,10]
+lambdas = [575,  660, 730, 760, 825] #nm
+bps = [10,18,18,18,10] #percent
+bands = []
+bandws = []
+bandwsteps = []
 
+for lam,bp in zip(lambdas,bps):
+    band = np.array([-1,1])*float(lam)/1000.*bp/200.0 + lam/1000.
+    bands.append(band)
+    [ws,wstep] = np.linspace(band[0],band[1],100,retstep=True)
+    bandws.append(ws)
+    bandwsteps.append(wstep)
+
+bands = np.vstack(bands) #um
+bws = np.diff(bands,1).flatten() #um
+bandws = np.vstack(bandws)
+bandwsteps = np.array(bandwsteps)
 
 smas = data['pl_orbsmax'].values
 fes = data['st_metfe'].values
@@ -430,27 +454,28 @@ Rps = data['pl_radj_forecastermod'].values
 tmpout = {}
 for c in clouds:
     for l in lambdas:
-        tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = [] 
-        tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = [] 
+        tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape)
+        tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape) 
 
 
-for Rp, fe,a in zip(Rps, fes,smas):
+for j, (Rp, fe,a) in enumerate(zip(Rps, fes,smas)):
+    print(j)
     for c in clouds:
-        for l in lambdas:
-            pphi = photinterps2[float(feinterp(fe))][float(distinterp(a))][c](90.0,float(l)/1000.).flatten()
-            pphi[np.isinf(pphi)] = np.nan
-            pphi = pphi[0]
-            tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"].append(pphi) 
+        for l,band,bw,ws,wstep in zip(lambdas,bands,bws,bandws,bandwsteps):
+            #pphi = photinterps2[float(feinterp(fe))][float(distinterp(a))][c](90.0,float(l)/1000.).flatten()
+            #pphi = scipy.integrate.quad(quadinterps[float(feinterp(fe))][float(distinterp(a))][c],band[0],band[1])[0]/bw
+            pphi = quadinterps[float(feinterp(fe))][float(distinterp(a))][c](ws).sum()*wstep/bw
+            if np.isinf(pphi):
+                print("Inf value encountered in pphi")
+                pphi = np.nan
+            #pphi[np.isinf(pphi)] = np.nan
+            #pphi = pphi[0]
+            tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"][j] = pphi
             dMag = deltaMag(1, Rp*u.R_jupiter, a*u.AU, pphi)
-            if np.isinf(dMag): dMag =np.nan
-            tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"].append(dMag)
-
-
-for c in clouds:
-    for l in lambdas:
-        tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.array(tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"])
-        tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.array(tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"])
-
+            if np.isinf(dMag): 
+                print("Inf value encountered in dmag")
+                dMag = np.nan
+            tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"][j] = dMag
 
 
 #collect min/max/med for every wavelength
@@ -466,7 +491,8 @@ for l in lambdas:
 data = data.join(pandas.DataFrame(tmpout))
 
 
-#data.to_pickle('data2_062818.pkl')
+#data.to_pickle('data2_080718.pkl') #incorrect bw calculation
+#data.to_pickle('data3_080718.pkl') #corrected bw calculation
 
 ##############################################################################################################################
 #PPMod = EXOSIMS.Prototypes.PlanetPhysicalModel.PlanetPhysicalModel()
@@ -508,7 +534,7 @@ for j in range(len(plannames)):
     r1 = np.cos(E) - e
     r2 = np.sin(E)
 
-    r = (A*r1 + :math:`\mathbf r` B*r2).T
+    r = (A*r1 + B*r2).T
     d = np.linalg.norm(r, axis=1)
     s = np.linalg.norm(r[:,0:2], axis=1)
     beta = np.arccos(r[:,2]/d)*u.rad
@@ -525,8 +551,9 @@ for j in range(len(plannames)):
 
     inds = np.argsort(beta)
     for c in clouds:
-        for l in lambdas:
-            pphi = photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],float(l)/1000.)[np.argsort(inds)].flatten()
+        for l,band,bw,ws,wstep in zip(lambdas,bands,bws,bandws,bandwsteps):
+            #pphi = photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],float(l)/1000.)[np.argsort(inds)].flatten()
+            pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
             pphi[np.isinf(pphi)] = np.nan
             outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = pphi 
             dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
@@ -548,8 +575,8 @@ for j in range(len(plannames)):
         orbdata = orbdata.append(out)
 
 
-#orbdata.to_pickle('orbdata_062818.pkl')
-
+#orbdata.to_pickle('orbdata_080718.pkl') #incorrect bw calculation
+#orbdata.to_pickle('orbdata2_080718.pkl')  #corrected bw calculation
 ##############################################################################################################################
 ## completeness calculation
 minangsep = 100
@@ -756,6 +783,17 @@ for j in range(len(goodinds)):
 #out2.to_pickle('completeness_080718.pkl')
 
 
+#####
+#restore
+out2 = pandas.read_pickle('completeness_080718.pkl')
+tmp = np.load('completeness_080718.npz')
+goodinds = tmp['goodinds']
+minCdMag = tmp['minCdMag']
+maxCWA = tmp['maxCWA']
+minCWA = tmp['minCWA']
+maxCdMag = tmp['maxCdMag']
+cs = tmp['cs']
+
 ###################################################################
 #build alias table
 from astroquery.simbad import Simbad
@@ -818,6 +856,10 @@ if passwd is None:
 engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsavrans_plandb',echo=False)
 #proddb#################################################################################################
 
+
+##cleanup as necessar
+result = engine.execute("DROP TABLE IF EXISTS PlanetOrbits")
+result = engine.execute("DROP TABLE IF EXISTS Completeness")
 
 ##write KnownPlanets
 data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',

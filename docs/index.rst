@@ -51,6 +51,20 @@ Because of these inherent non-linearities, it is not technically correct to inte
 
 This list may be extended in the future to support additional filters.
 
+Integration over filter bandpasses is currently implemented as a left-Riemann sum, so that:
+
+    .. math::
+        
+        p\Phi(\beta)(\lambda, \Delta\lambda) = \frac{1}{\Delta\lambda} \frac{\Delta\lambda}{n-1}\sum_{i = 0}^{n-1} f_{m,c,d,\beta}\left(\lambda - \frac{\Delta\lambda}{2} + i\frac{\Delta\lambda}{n-1}  \right)
+
+where :math:`f_{m,c,d,\beta}` is the relevant interpolant over the model grid on the metallicity, cloud, orbital distance and phase angle axes, and :math:`n` is taken to be 100.
+
+    .. note::
+        
+        This is a pretty crude integral approximation, but the associated error is significantly lower than all other errors involved here, so there's not much point in changing it to something more complex.  Straight quadrature over the interpolant is very fragile given the grids, and takes excessively long to compute.
+
+
+
 
 KnownPlanets Table
 -------------------------------
