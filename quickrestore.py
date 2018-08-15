@@ -20,7 +20,7 @@ import EXOSIMS.Prototypes.PlanetPhysicalModel
 %pylab --no-import-all
 
 
-data = pandas.read_pickle('data_080718.pkl')
+data = pandas.read_pickle('data3_080718.pkl')
 
 tmp = np.load('allphotdata_2015.npz')
 allphotdata = tmp['allphotdata']
@@ -60,4 +60,24 @@ for i,fe in enumerate(metallicities):
             quadinterps[fe][d][cloud] = interp1d(wavelns,allphotdata[i,j,k,9,:].flatten())
 
 
+
+orbdata = pandas.read_pickle('orbdata2_080718.pkl') 
+
+lambdas = [575,  660, 730, 760, 825] #nm
+bps = [10,18,18,18,10] #percent
+bands = []
+bandws = []
+bandwsteps = []
+
+for lam,bp in zip(lambdas,bps):
+    band = np.array([-1,1])*float(lam)/1000.*bp/200.0 + lam/1000.
+    bands.append(band)
+    [ws,wstep] = np.linspace(band[0],band[1],100,retstep=True)
+    bandws.append(ws)
+    bandwsteps.append(wstep)
+
+bands = np.vstack(bands) #um
+bws = np.diff(bands,1).flatten() #um
+bandws = np.vstack(bandws)
+bandwsteps = np.array(bandwsteps)
 

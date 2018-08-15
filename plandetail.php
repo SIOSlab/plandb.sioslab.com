@@ -52,6 +52,10 @@ if ($row[completeness]){
 
 }
 
+$sql4 = "select * from AltPlanetOrbits where Name = '".$name."'";
+$resultap = $conn->query($sql4);
+
+
 $sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row[pl_hostname]."')";
 $resultaliases = $conn->query($sqlaliases);
 
@@ -369,7 +373,82 @@ if ($resultp){
     }
     $resultp->close();
 }
+
+if ($resultap){
+    if ($resultap->num_rows > 0){
+        echo '<div id="plot3Div" style="width:800px; height:640px; margin:auto;"></div>';
+        echo "\n\n";
+        echo "<script>\n";
+        echo "var xsize = ".$resultap->num_rows.", WA90 = new Array(xsize), dMag90 = new Array(xsize),
+              WA60 = new Array(xsize), dMag60 = new Array(xsize),
+              WA30 = new Array(xsize), dMag30 = new Array(xsize),
+              WAcrit = new Array(xsize), dMagcrit = new Array(xsize); \n";
+
+        $i = 0;
+        while($rowp = $resultap->fetch_assoc()) {
+            if ($i == 0){ $Icrit = round($rowp[Icrit] * 180.0/pi(), 2); }
+            echo "WA90[".$i."]=".$rowp[WA_I90].";";
+            echo "WA60[".$i."]=".$rowp[WA_I60].";";
+            echo "WA30[".$i."]=".$rowp[WA_I30].";";
+            echo "WAcrit[".$i."]=".$rowp[WA_Icrit].";";
+            echo "dMag90[".$i."]="; if ($rowp[dMag_300C_575NM_I90]){ echo $rowp[dMag_300C_575NM_I90]; } else{ echo "NaN";} echo";";
+            echo "dMag60[".$i."]="; if ($rowp[dMag_300C_575NM_I60]){ echo $rowp[dMag_300C_575NM_I60]; } else{ echo "NaN";} echo";";
+            echo "dMag30[".$i."]="; if ($rowp[dMag_300C_575NM_I30]){ echo $rowp[dMag_300C_575NM_I30]; } else{ echo "NaN";} echo";";
+            echo "dMagcrit[".$i."]="; if ($rowp[dMag_300C_575NM_Icrit]){ echo $rowp[dMag_300C_575NM_Icrit]; } else{ echo "NaN";} echo";\n";
+            $i++;
+        }
+
+        echo "var d1 = {\n
+                x: WA90,
+                y: dMag90,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'I = 90\u00B0',
+                line: { color: 'red' }
+              };\n
+              var d2 = {\n
+                x: WA60,
+                y: dMag60,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'I = 60\u00B0',
+                line: { color: 'blue' }
+              };\n
+              var d3 = {\n
+                x: WA30,
+                y: dMag30,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'I = 30\u00B0',
+                line: { color: 'green' }
+              };\n
+              var d4 = {\n
+                x: WAcrit,
+                y: dMagcrit,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'I = ".$Icrit."\u00B0',
+                line: { color: 'orange' }
+              };\n
+
+             var data = [d1,d2,d3,d4];\n
+
+             var layout = {\n
+                xaxis: {title: 'Angular Separation (mas)'},
+                yaxis: {title: '\u0394 mag'},
+                showlegend: true,
+                margin: { t: 30, b:50, l:75, r:50}
+             };\n
+
+             Plotly.newPlot('plot3Div', data, layout);\n";
+
+        echo "</script>\n";
+        echo "<p>575 nm, f<sub>sed</sub> = 3.0 photometry for different orbit inclinations. If no eccentricity is available, orbit is assumed circular. Time between points is 30 days.</p>";
+    }
+    $resultap->close();
+}
 ?>
+
 
 </DIV>
 

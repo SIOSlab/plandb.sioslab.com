@@ -577,7 +577,128 @@ for j in range(len(plannames)):
 
 #orbdata.to_pickle('orbdata_080718.pkl') #incorrect bw calculation
 #orbdata.to_pickle('orbdata2_080718.pkl')  #corrected bw calculation
-##############################################################################################################################
+#############################################################################################################################
+
+##variable inclination orbits
+plannames = data['pl_name'].values
+Isglob = np.array([90,60,30])
+(l,band,bw,ws,wstep) = (lambdas[0],bands[0],bws[0],bandws[0],bandwsteps[0])
+c = 3.0
+
+altorbdata = None
+#row = data.iloc[71] 
+for j in range(len(plannames)):
+    row = data.iloc[j]
+    print(j,plannames[j])
+
+    if not np.isnan(row['pl_orbincl']):
+        continue
+    
+    if row['pl_bmassprov'] == 'Msini':
+            Icrit = np.arcsin( ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value/((0.0800*u.M_sun).to(u.M_earth)).value )
+    else:
+        Icrit = 10*np.pi/180.0
+
+    Is = np.hstack((Isglob*np.pi/180.0,Icrit))
+
+    a = row['pl_orbsmax']
+    e = row['pl_orbeccen'] 
+    if np.isnan(e): e = 0.0
+    w = row['pl_orblper']*np.pi/180.0
+    if np.isnan(w): w = 0.0                    
+    Rp = row['pl_radj_forecastermod']
+    dist = row['st_dist']
+    fe = row['st_metfe']
+    if np.isnan(fe): fe = 0.0
+
+    Tp = row['pl_orbper'] #days
+    Mstar = row['st_mass'] #solar masses
+
+    if (np.isnan(Tp) or Tp == 0.0) and np.isnan(Mstar):
+        print("No period or star mass for: %s")%(plannames[j])
+        continue
+
+    mu = const.G*(Mstar*u.solMass).decompose()
+    if np.isnan(Tp) or (Tp == 0.0):
+        Tp = (2*np.pi*np.sqrt(((a*u.AU)**3.0)/mu)).decompose().to(u.d).value
+
+    if Tp > 10*365.25:
+        print("Too long period for: %s")%(plannames[j])
+        continue
+
+    if np.isnan(mu):
+        mu = ( (a*u.AU)**3.0 * (2*np.pi/(Tp*u.d))**2. ).decompose() 
+
+    n = 2*np.pi/Tp
+
+    M = np.arange(0,Tp,30)*n
+
+    E = eccanom(M, e)  
+    nu = 2*np.arctan(np.sqrt((1.0 + e)/(1.0 - e))*np.tan(E/2.0));
+    d0 = a*(1.0 - e**2.0)/(1 + e*np.cos(nu))
+
+    a1 = np.cos(w) 
+    b1 = -np.sqrt(1 - e**2)*np.sin(w)
+
+    outdict = {'Name': [plannames[j]]*len(M),
+                'M': M,
+                'r': d0,
+                'Icrit': [Icrit]*len(M)
+               }
+
+
+    for k,I in enumerate(Is):
+    
+        a2 = np.cos(I)*np.sin(w)
+        a3 = np.sin(I)*np.sin(w)
+        A = a*np.vstack((a1, a2, a3))
+
+        b2 = np.sqrt(1 - e**2)*np.cos(I)*np.cos(w)
+        b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
+        B = a*np.vstack((b1, b2, b3))
+        r1 = np.cos(E) - e
+        r2 = np.sin(E)
+
+        r = (A*r1 + B*r2).T
+        d = np.linalg.norm(r, axis=1)
+        s = np.linalg.norm(r[:,0:2], axis=1)
+        beta = np.arccos(r[:,2]/d)*u.rad
+
+        WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
+
+        if I == Icrit:
+            Itag = "crit"
+        else:
+            Itag = "%02d"%(Isglob[k])
+
+        outdict["s_I"+Itag] = s
+        outdict["WA_I"+Itag] =  WA
+        outdict["beta_I"+Itag] = beta.to(u.deg).value
+
+        inds = np.argsort(beta)
+        pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
+        pphi[np.isinf(pphi)] = np.nan
+        outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM_I"+Itag] = pphi 
+        dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
+        dMag[np.isinf(dMag)] = np.nan
+        outdict['dMag_'+"%03dC_"%(c*100)+str(l)+"NM_I"+Itag] = dMag
+
+
+    out = pandas.DataFrame(outdict)
+    
+    if altorbdata is None:
+        altorbdata = out.copy()
+    else:
+        altorbdata = altorbdata.append(out)
+
+
+#altorbdata.to_pickle('altorbdata_080718.pkl')
+
+
+
+#############################################################################################################################
+
+
 ## completeness calculation
 minangsep = 100
 maxangsep = 500
@@ -928,6 +1049,14 @@ out2.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name
 result = engine.execute("ALTER TABLE Completeness ENGINE=InnoDB")
 result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
 result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+
+#---------------------------------------------
+#write altplanetorbits table
+altorbdata.to_sql('AltPlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+result = engine.execute("ALTER TABLE AltPlanetOrbits ENGINE=InnoDB")
+result = engine.execute("ALTER TABLE AltPlanetOrbits ADD INDEX (Name)")
+result = engine.execute("ALTER TABLE AltPlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
 
 #---------------------------------------------------
