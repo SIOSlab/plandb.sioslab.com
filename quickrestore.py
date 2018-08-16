@@ -81,3 +81,37 @@ bws = np.diff(bands,1).flatten() #um
 bandws = np.vstack(bandws)
 bandwsteps = np.array(bandwsteps)
 
+
+
+plannames = data['pl_name'].values
+
+
+def RfromM(m):
+    m = np.array(m,ndmin=1)
+    R = np.zeros(m.shape)
+
+
+    S = np.array([0.2790,0,0,0,0.881])
+    C = np.array([np.log10(1.008), 0, 0, 0, 0])
+    T = np.array([2.04,95.16,(u.M_jupiter).to(u.M_earth),((0.0800*u.M_sun).to(u.M_earth)).value])
+
+    Rj = u.R_jupiter.to(u.R_earth)
+    Rs = 8.522 #saturn radius
+
+    S[1] = (np.log10(Rs) - (C[0] + np.log10(T[0])*S[0]))/(np.log10(T[1]) - np.log10(T[0]))
+    C[1] = np.log10(Rs) - np.log10(T[1])*S[1]
+
+    S[2] = (np.log10(Rj) - np.log10(Rs))/(np.log10(T[2]) - np.log10(T[1]))
+    C[2] = np.log10(Rj) - np.log10(T[2])*S[2]
+
+    C[3] = np.log10(Rj)
+
+    C[4] = np.log10(Rj) - np.log10(T[3])*S[4]
+
+
+    inds = np.digitize(m,np.hstack((0,T,np.inf)))
+    for j in range(1,inds.max()+1):
+        R[inds == j] = 10.**(C[j-1] + np.log10(m[inds == j])*S[j-1])
+
+    return R
+

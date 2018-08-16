@@ -64,3 +64,5 @@ config.php
 charttest.php
 *.npz
 *.xlsx
+*.txt
+

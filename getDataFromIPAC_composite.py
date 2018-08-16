@@ -699,10 +699,16 @@ for j in range(len(plannames)):
 
 #############################################################################################################################
 
+wfirstcontr = np.genfromtxt('WFIRST_pred_imaging.txt')
+contr = wfirstcontr[:,1]
+angsep = wfirstcontr[:,0] #l/D
+angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
+wfirstc = interp1d(angsep,contr,bounds_error = False, fill_value = 'extrapolate')
+
 
 ## completeness calculation
-minangsep = 100
-maxangsep = 500
+minangsep = 150
+maxangsep = 450
 
 inds = np.where((data['pl_maxangsep'].values > minangsep) & (data['pl_minangsep'].values < maxangsep))[0]
 
@@ -720,6 +726,8 @@ dMaginds = np.arange(dMagbins0.size-1)
 WAinds,dMaginds = np.meshgrid(WAinds,dMaginds)
 WAinds = WAinds.T
 dMaginds = dMaginds.T
+
+dMaglimsc = wfirstc(WAc[:,0])
 
 names = []
 WAcs = []
@@ -781,7 +789,6 @@ for j in inds:
     c = 0.
     h = np.zeros((len(WAbins)-3, len(dMagbins)-2))
     k = 0.0
-
     cprev = 0.0
     pdiff = 1.0
 
@@ -794,6 +801,8 @@ for j in inds:
         O = np.random.uniform(size=n,low=0.0,high=2*np.pi)
         wbar = genwbar(n)
         w = O - wbar
+
+        cl = cloudinterp(np.random.randn(n)*2 + 3)
 
         if (row['pl_radreflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>'):
             if row['pl_bmassprov'] == 'Msini':
@@ -834,9 +843,18 @@ for j in inds:
         #phi = PPMod.calc_Phi(np.arccos(rvec[:,2]/rnorm)*u.rad)    # planet phase
         #dMag = deltaMag(0.5, R*u.R_jupiter, rnorm*u.AU, phi)     # delta magnitude
         #pphi = photinterps[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))](beta.to(u.deg).value)
-            
-        binds = np.argsort(beta)
-        pphi = photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))][0.0](beta.to(u.deg).value[binds],575./1000.)[np.argsort(binds)].flatten()
+                    
+        pphi = np.zeros(n)
+        for clevel in np.unique(cl):
+            tmpinds = cl == clevel
+            betatmp = beta[tmpinds]
+            binds = np.argsort(betatmp)
+            pphi[tmpinds] = photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))][clevel](betatmp.to(u.deg).value[binds],575./1000.)[np.argsort(binds)].flatten()
+        
+        pphi[pphi <= 0.0] = 1e-16
+
+        #binds = np.argsort(beta)
+        #pphi = photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))][0.0](beta.to(u.deg).value[binds],575./1000.)[np.argsort(binds)].flatten()
 
         dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
 
@@ -844,7 +862,11 @@ for j in inds:
 
         h += np.histogram2d(WA,dMag,bins=(WAbins,dMagbins))[0][1:-1,0:-1]
         k += 1.0
-        currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= 22.5))[0]))/n
+
+        dMaglimtmp = -2.5*np.log10(wfirstc(WA))
+        currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= dMaglimtmp))[0]))/n
+
+        #currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= 22.5))[0]))/n
         cprev = c
         if k == 1.0:
             c = currc
@@ -979,7 +1001,7 @@ engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsav
 #proddb#################################################################################################
 
 
-##cleanup as necessar
+##cleanup as necessary
 result = engine.execute("DROP TABLE IF EXISTS PlanetOrbits")
 result = engine.execute("DROP TABLE IF EXISTS Completeness")
 
