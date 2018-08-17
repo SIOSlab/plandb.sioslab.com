@@ -296,15 +296,12 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 6. The stellar metallicity is not sampled, but taken as a constant value equal to ``st_metfe``, or 0.0, if undefined. 
 7. If the planet radius in KnownPlanets was calculated from the mass, and the mass (``pl_bmassj``) represents :math:`M\sin I`, the mass sample is defined as ``pl_bmassj``:math:`/sin(I)`.
 8. The mean anomaly is sampled from a uniform distribution between 0 and 360 degrees.
-9. The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOribts table (see :ref:`Steps 9 - 13<orbcalcref>`).  
-
-.. note:: 
-    Photometry is only calculated for 575 nm and the cloud-free grid.  **This should be updated when we come to a concensus on reasonalbe median cloud conditions, or a prior on clouds!**
-    
-10. A 2D histogram is constructed from the phase angle and :math:`\Delta\textrm{mag}` sampled on a predefined grid with angular separation sampled from 100 to 500 mas in increments of 1 mas and  :math:`\Delta\textrm{mag}` sampled from 0 to 26 in increments of 0.1.
-11. A single completeness value is calculated by finding the fraction of sampled points such that the angular separation falls between 100 and 500 mas and the  :math:`\Delta\textrm{mag}` is less than or equal to 22.5.
-12. The sampling procedure is repeated (drawing :math:`n` samples at a time) and the histogram and bulk completeness value are updated until the completeness converges to within 0.01%.
-13. The Completeness table is defined with the following columns:
+9. The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOrbits table (see :ref:`Steps 9 - 13<orbcalcref>`). 
+10. The cloud :math:`f_\textrm{sed}` is sampled from a normal distribution with mean 3.0 and standard deviation 2.
+11. A 2D histogram is constructed from the phase angle and :math:`\Delta\textrm{mag}` sampled on a predefined grid with angular separation sampled from 150 to 450 mas in increments of 1 mas and  :math:`\Delta\textrm{mag}` sampled from 0 to 26 in increments of 0.1.
+12. A single completeness value is calculated by finding the fraction of sampled points such that the angular separation falls between 150 and 450 mas and the  :math:`\Delta\textrm{mag}` is less than or equal to a curve defined from the 575 nm WFIRST predicted performance.
+13. The sampling procedure is repeated (drawing :math:`n` samples at a time) and the histogram and bulk completeness value are updated until the completeness converges to within 0.01%.
+14. The Completeness table is defined with the following columns:
 
     * Name: Planet Name, references KnownPlanets ``pl_name``
     * alpha: Angular Separations at grid centers (mas)
@@ -313,7 +310,9 @@ For each planet meeting this condition, the following samples are drawn, :math:`
     * iind: Horizontal index of entry in 2D histogram grid
     * jind: Vertical index of entry in 2D histogram grid
 
-   The iind and jind values are stored only to make it simpler to reconstruct the 2D grid for plotting.14. For each planet whose completeness is calculated, we also calculate the minimum and maximum angular separations and :math:`\Delta\textrm{mag}` values for which the frequency grid is non-zero.  These values are then stored in new columns appended to the KnownPlanets table, named: ``compMinWA``, ``compMaxWA``, ``compMindMag``, and ``compMaxdMag``, respectively. The bulk completeness is stored in the KnownPlanets table in a new column named ``completeness``.
+   The iind and jind values are stored only to make it simpler to reconstruct the 2D grid for plotting.
+
+15. For each planet whose completeness is calculated, we also calculate the minimum and maximum angular separations and :math:`\Delta\textrm{mag}` values for which the frequency grid is non-zero.  These values are then stored in new columns appended to the KnownPlanets table, named: ``compMinWA``, ``compMaxWA``, ``compMindMag``, and ``compMaxdMag``, respectively. The bulk completeness is stored in the KnownPlanets table in a new column named ``completeness``.
 
 
 Alias Table

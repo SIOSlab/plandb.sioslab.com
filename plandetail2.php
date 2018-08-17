@@ -9,7 +9,7 @@ if (empty($_GET["name"])){
     $name = $_GET["name"];
 }
 
-$sql = "SELECT pl_hostname,pl_orbper,pl_orbperreflink,pl_discmethod,pl_orbsmax,pl_orbsmaxreflink,pl_orbeccenreflink,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_bmassreflink,pl_radj,pl_radreflink,pl_radj_fortney,pl_radj_forecastermod,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag,st_elat,st_elon FROM KnownPlanets WHERE pl_name='".$name."'";
+$sql = "SELECT pl_hostname,pl_orbper,pl_orbperreflink,pl_discmethod,pl_orbsmax,pl_orbsmaxreflink,pl_orbeccenreflink,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_bmassreflink,pl_radj,pl_radreflink,pl_radj_fortney,pl_radj_forecastermod,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag FROM KnownPlanets WHERE pl_name='".$name."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -127,7 +127,6 @@ echo "</TABLE>\n";
 echo "<TABLE class='results'>\n";
 echo "<TR><TH colspan='2'> Star Properties</TH></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>RA, DEC</TH><TD>".$row[ra_str].", ".$row[dec_str]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Ecliptic Lat, Lon</TH><TD>".$row[st_elat].", ".$row[st_elon]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Distance (GAIA Distance) (pc)</TH><TD>".$row[st_dist]." (".$row[gaia_dist].")</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Parallax (GAIA Parallax) (mas)</TH><TD>".$row[st_plx]." (".$row[gaia_plx].")</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Proper Motion RA/DEC (GAIA PM) (mas/yr)</TH><TD>".$row[st_pmra].", ".$row[st_pmdec]." (".$row[gaia_pmra].", ".$row[gaia_pmdec].")</TD></TR>\n";
@@ -432,16 +431,6 @@ if ($resultap){
                 line: { color: 'orange' }
               };\n
 
-              var dmaglim = {
-                x: [150, 155.1337625 , 180.1553371 , 210.18122662, 250.21574597,
-               300.25889517, 350.30204436, 395.34087864, 450],
-                y: [22.01610885074595, 22.05977185, 22.30204688, 22.57879263, 22.98455007, 23.03667541,
-               23.11031286, 23.11031286, 23.110312860818773],
-                type: 'scatter',
-                name: '\u0394 mag limit',
-                line: {color: 'black'}
-               };\n    
-
              var data = [d1,d2,d3,d4];\n
 
              var layout = {\n
@@ -470,8 +459,8 @@ if ($resultc){
     echo '<div id="compDiv" style="width:800px; height:640px; margin:auto;"></div>';
     echo "\n\n";
     echo "<script>\n";
-    echo "var xsize = 300, ysize = 260, x = new Array(xsize), y = new Array(ysize), z = new Array(ysize), i, j;\n";
-    echo "x[0] = 150.5;\n";
+    echo "var xsize = 400, ysize = 260, x = new Array(xsize), y = new Array(ysize), z = new Array(ysize), i, j;\n";
+    echo "x[0] = 100.5;\n";
     echo "for(var i = 1; i < xsize; i++) {x[i] = x[i-1]+1;}\n";
     echo "y[0] = 0.05;\n";
     echo "for(var i = 1; i < ysize; i++) {y[i] = y[i-1]+0.1;}\n";
@@ -484,12 +473,9 @@ if ($resultc){
     echo "\n\n";
 
     echo "var box1 = {
-        x: [150, 155.1337625 , 180.1553371 , 210.18122662, 250.21574597,
-       300.25889517, 350.30204436, 395.34087864, 450],
-        y: [22.01610885074595, 22.05977185, 22.30204688, 22.57879263, 22.98455007, 23.03667541,
-       23.11031286, 23.11031286, 23.110312860818773],
-        type: 'scatter',
-        name: '\u0394 mag limit'
+        x: [100, 100, 500, 500],
+        y: [0, 22.5, 22.5, 0],
+        type: 'scatter'
     };\n";    
 
     echo "var data = {
@@ -498,23 +484,22 @@ if ($resultc){
 		y: y,
         type: 'contour',
         colorscale: 'Hot',
-        name: 'Normalized Frequency',
         colorbar:{
             title: 'log(Frequency)',
         }
     };\n";
 
     echo "var layout = {
-        title: 'Completeness at 575 nm for \u03B1 \u2208 [0.15, 0.45] arcsec = ".$row[completeness]."',
+        title: 'Completeness for \u03B1 \u2208 [0.1, 0.5] arcsec, \u0394 mag < 22.5  = ".$row[completeness]."',
         xaxis: {title: 'Separation (mas)',range: [".$row[compMinWA].",".$row[compMaxWA]."]},
-        yaxis: {title: '\u0394 mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]},
+        yaxis: {title: 'Delta mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]},
     };\n";
     $resultc->close();
 
     
     echo "Plotly.newPlot('compDiv', [data,box1], layout);" ;
     echo "</script>\n";
-    echo "<p>For full documentation see <a href=docs/html/index.html#completeness-table target=_blank>here</a>.</p>";
+    echo "<p>Completeness assumes cloud-free atmosphere at 575 nm. For full documentation see <a href=docs/html/index.html#completeness-table target=_blank>here</a>.</p>";
 }
 ?>
 

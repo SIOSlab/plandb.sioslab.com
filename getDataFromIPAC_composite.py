@@ -824,7 +824,8 @@ for j in inds:
         
         M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
         E = eccanom(M0, e)                     
-        
+        nu = 2*np.arctan(np.sqrt((1+e)/(1-e))*np.tan(E/2))
+
         a1 = np.cos(O)*np.cos(w) - np.sin(O)*np.cos(I)*np.sin(w)
         a2 = np.sin(O)*np.cos(w) + np.cos(O)*np.cos(I)*np.sin(w)
         a3 = np.sin(I)*np.sin(w)
@@ -929,8 +930,8 @@ for j in range(len(goodinds)):
 
 #####
 #restore
-out2 = pandas.read_pickle('completeness_080718.pkl')
-tmp = np.load('completeness_080718.npz')
+out2 = pandas.read_pickle('completeness2_080718.pkl')
+tmp = np.load('completeness2_080718.npz')
 goodinds = tmp['goodinds']
 minCdMag = tmp['minCdMag']
 maxCWA = tmp['maxCWA']
@@ -1005,6 +1006,13 @@ engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsav
 result = engine.execute("DROP TABLE IF EXISTS PlanetOrbits")
 result = engine.execute("DROP TABLE IF EXISTS Completeness")
 
+result = engine.execute("UPDATE KnownPlanets SET completeness=NULL")
+result = engine.execute("UPDATE KnownPlanets SET compMinWA=NULL")
+result = engine.execute("UPDATE KnownPlanets SET compMaxWA=NULL")
+result = engine.execute("UPDATE KnownPlanets SET compMindMag=NULL")
+result = engine.execute("UPDATE KnownPlanets SET compMaxdMag=NULL")
+
+
 ##write KnownPlanets
 data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',
         dtype={'pl_name':sqlalchemy.types.String(namemxchar),
@@ -1014,7 +1022,7 @@ data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',
 result = engine.execute("ALTER TABLE KnownPlanets ENGINE=InnoDB")
 result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_name)")
 result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_hostname)")
-result = engine.execute("ALTER TABLE KnownPlanets ADD completeness double COMMENT 'completeness in 0.1 to 0.5 as, 22.5 dMag bin'")
+result = engine.execute("ALTER TABLE KnownPlanets ADD completeness double COMMENT 'completeness in 0.1 to 0.5 as bin'")
 result = engine.execute("UPDATE KnownPlanets SET completeness=NULL where completeness is not NULL")
 result = engine.execute("ALTER TABLE KnownPlanets ADD compMinWA double COMMENT 'min non-zero completeness WA'")
 result = engine.execute("ALTER TABLE KnownPlanets ADD compMaxWA double COMMENT 'max non-zero completeness WA'")

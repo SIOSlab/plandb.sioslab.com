@@ -15,7 +15,7 @@ if (!empty($_GET["querytext"])){
 elseif (!empty($_POST["querytext"])){
     $sql = $_POST["querytext"]; }
 else {
-    $sql = "select pl_name, pl_angsep, completeness,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where pl_maxangsep > 100 AND pl_minangsep < 500 order by completeness DESC";}
+    $sql = "select pl_name, pl_angsep, completeness,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where pl_maxangsep > 150 AND pl_minangsep < 450 order by completeness DESC";}
     
 echo "$sql";
 ?>
