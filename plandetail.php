@@ -383,11 +383,13 @@ if ($resultap){
         echo "var xsize = ".$resultap->num_rows.", WA90 = new Array(xsize), dMag90 = new Array(xsize),
               WA60 = new Array(xsize), dMag60 = new Array(xsize),
               WA30 = new Array(xsize), dMag30 = new Array(xsize),
-              WAcrit = new Array(xsize), dMagcrit = new Array(xsize); \n";
+              WAcrit = new Array(xsize), dMagcrit = new Array(xsize), msizes = 7, txtvals = new Array(xsize); \n";
 
         $i = 0;
         while($rowp = $resultap->fetch_assoc()) {
             if ($i == 0){ $Icrit = round($rowp[Icrit] * 180.0/pi(), 2); }
+            #echo "msizes[".$i."]=".(($i+1)/5).";";
+            echo "txtvals[".$i."]='JD".sprintf("%2.3g",$rowp[M])."';";
             echo "WA90[".$i."]=".$rowp[WA_I90].";";
             echo "WA60[".$i."]=".$rowp[WA_I60].";";
             echo "WA30[".$i."]=".$rowp[WA_I30].";";
@@ -402,8 +404,10 @@ if ($resultap){
         echo "var d1 = {\n
                 x: WA90,
                 y: dMag90,
+                text: txtvals, 
                 type: 'scatter',
                 mode: 'lines+markers',
+                marker: {size: msizes},
                 name: 'I = 90\u00B0',
                 line: { color: 'red' }
               };\n
@@ -412,6 +416,7 @@ if ($resultap){
                 y: dMag60,
                 type: 'scatter',
                 mode: 'lines+markers',
+                marker: {size: msizes},
                 name: 'I = 60\u00B0',
                 line: { color: 'blue' }
               };\n
@@ -420,6 +425,7 @@ if ($resultap){
                 y: dMag30,
                 type: 'scatter',
                 mode: 'lines+markers',
+                marker: {size: msizes},
                 name: 'I = 30\u00B0',
                 line: { color: 'green' }
               };\n
@@ -428,6 +434,7 @@ if ($resultap){
                 y: dMagcrit,
                 type: 'scatter',
                 mode: 'lines+markers',
+                marker: {size: msizes},
                 name: 'I = ".$Icrit."\u00B0',
                 line: { color: 'orange' }
               };\n

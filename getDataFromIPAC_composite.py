@@ -16,9 +16,12 @@ import scipy.interpolate as interpolate
 from EXOSIMS.util.eccanom import eccanom
 from EXOSIMS.util.deltaMag import deltaMag
 import EXOSIMS.Prototypes.PlanetPhysicalModel
+from astropy.time import Time
 
 %pylab --no-import-all
 
+
+t0 = Time('2026-01-01T00:00:00', format='isot', scale='utc')
 
 #grab the data
 query = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=compositepars&select=*&format=csv"""
@@ -614,6 +617,7 @@ for j in range(len(plannames)):
 
     Tp = row['pl_orbper'] #days
     Mstar = row['st_mass'] #solar masses
+    taup = row['pl_orbtper']
 
     if (np.isnan(Tp) or Tp == 0.0) and np.isnan(Mstar):
         print("No period or star mass for: %s")%(plannames[j])
@@ -632,7 +636,10 @@ for j in range(len(plannames)):
 
     n = 2*np.pi/Tp
 
-    M = np.arange(0,Tp,30)*n
+    #M = np.arange(0,Tp,30)*n
+    ttmp = np.arange(t0.jd,t0.jd+Tp,30)
+    M = np.mod(ttmp*n,2*np.pi)
+
 
     E = eccanom(M, e)  
     nu = 2*np.arctan(np.sqrt((1.0 + e)/(1.0 - e))*np.tan(E/2.0));
