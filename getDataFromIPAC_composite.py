@@ -706,6 +706,19 @@ for j in range(len(plannames)):
 
 #############################################################################################################################
 
+#from Mark: 
+#f_sed             Frequency
+#0.000000         0.099
+#0.010000         0.001
+#0.030000         0.005
+#0.100000         0.010
+#0.300000         0.025
+#1.000000         0.280
+#3.000000         0.300
+#6.000000         0.280
+
+
+
 wfirstcontr = np.genfromtxt('WFIRST_pred_imaging.txt')
 contr = wfirstcontr[:,1]
 angsep = wfirstcontr[:,0] #l/D
@@ -988,6 +1001,7 @@ for j,star in enumerate(starnames):
 out3 = pandas.DataFrame({'SID': np.hstack(ids),
                          'Alias': np.hstack(aliases)
                          })
+#out3.to_pickle('aliases_080718.pkl')
 
 ###################################################################
 
