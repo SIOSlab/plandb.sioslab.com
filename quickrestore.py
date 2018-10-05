@@ -16,8 +16,10 @@ import scipy.interpolate as interpolate
 from EXOSIMS.util.eccanom import eccanom
 from EXOSIMS.util.deltaMag import deltaMag
 import EXOSIMS.Prototypes.PlanetPhysicalModel
+from astropy.time import Time
 
 %pylab --no-import-all
+t0 = Time('2026-01-01T00:00:00', format='isot', scale='utc')
 
 
 data = pandas.read_pickle('data3_080718.pkl')
@@ -114,4 +116,20 @@ def RfromM(m):
         R[inds == j] = 10.**(C[j-1] + np.log10(m[inds == j])*S[j-1])
 
     return R
+
+
+altorbdata = pandas.read_pickle('altorbdata_080718.pkl') 
+
+out2 = pandas.read_pickle('completeness2_080718.pkl')
+tmp = np.load('completeness2_080718.npz')
+goodinds = tmp['goodinds']
+minCdMag = tmp['minCdMag']
+maxCWA = tmp['maxCWA']
+minCWA = tmp['minCWA']
+maxCdMag = tmp['maxCdMag']
+cs = tmp['cs']
+
+
+out3 = pandas.read_pickle('aliases_080718.pkl') 
+
 

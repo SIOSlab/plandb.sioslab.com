@@ -526,22 +526,28 @@ for j in range(len(plannames)):
     fe = row['st_metfe']
     if np.isnan(fe): fe = 0.0
 
-    a1 = np.cos(w) 
-    a2 = np.cos(I)*np.sin(w)
-    a3 = np.sin(I)*np.sin(w)
-    A = a*np.vstack((a1, a2, a3))
+#    a1 = np.cos(w) 
+#    a2 = np.cos(I)*np.sin(w)
+#    a3 = np.sin(I)*np.sin(w)
+#    A = a*np.vstack((a1, a2, a3))
+#
+#    b1 = -np.sqrt(1 - e**2)*np.sin(w)
+#    b2 = np.sqrt(1 - e**2)*np.cos(I)*np.cos(w)
+#    b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
+#    B = a*np.vstack((b1, b2, b3))
+#    r1 = np.cos(E) - e
+#    r2 = np.sin(E)
+#
+#    r = (A*r1 + B*r2).T
+#    d = np.linalg.norm(r, axis=1)
+#    s = np.linalg.norm(r[:,0:2], axis=1)
+#    beta = np.arccos(r[:,2]/d)*u.rad
 
-    b1 = -np.sqrt(1 - e**2)*np.sin(w)
-    b2 = np.sqrt(1 - e**2)*np.cos(I)*np.cos(w)
-    b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
-    B = a*np.vstack((b1, b2, b3))
-    r1 = np.cos(E) - e
-    r2 = np.sin(E)
+    nu = 2*np.arctan(np.sqrt((1.0 + e)/(1.0 - e))*np.tan(E/2.0));
+    d = a*(1.0 - e**2.0)/(1 + e*np.cos(nu))
+    s = d*np.sqrt(4.0*np.cos(2*I) + 4*np.cos(2*nu + 2.0*w) - 2.0*np.cos(-2*I + 2.0*nu + 2*w) - 2*np.cos(2*I + 2*nu + 2*w) + 12.0)/4.0
+    beta = np.arccos(np.sin(I)*np.sin(nu+w))*u.rad
 
-    r = (A*r1 + B*r2).T
-    d = np.linalg.norm(r, axis=1)
-    s = np.linalg.norm(r[:,0:2], axis=1)
-    beta = np.arccos(r[:,2]/d)*u.rad
 
     WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
     print(j,plannames[j],WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
@@ -967,29 +973,52 @@ starnames = data['pl_hostname'].unique()
 
 s = Simbad()
 s.add_votable_fields('ids')
-baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=aliastable&objname="
+baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI"
 
 ids = []
 aliases = []
+noipacalias = []
+nosimbadalias = []
 badstars = []
+priname = []
 for j,star in enumerate(starnames):
     print(j,star)
+    #get aliases from IPAC
+    r = requests.get(baseurl,{'table':'aliastable','objname':star})
+    if "ERROR" not in r.content: 
+        tmp = r.content.strip().split("\n")
+    else:
+        noipacalias.append(star)
+        tmp = [star]
+    
+    #get aliases from SIMBAD
     r = s.query_object(star)
     if r:
-        tmp = r['IDS'][0].split('|')
+        tmp += r['IDS'][0].split('|')
     else:
-        tmp = []
-    r = requests.get(baseurl+star)
-    if "ERROR" not in r.content: 
-        tmp += r.content.strip().split("\n")
-    tmp = list(np.unique(tmp))
-    if 'aliasdis' in tmp: tmp.remove('aliasdis')
-    if len(tmp) == 0:
+        if (len(noipacalias) == 0) or (noipacalias[-1] != star):
+            for t in tmp:
+                if (t not in['aliasdis',star]):
+                    r = s.query_object(t)
+                    if r:
+                        tmp += r['IDS'][0].split('|')
+                        break
+            if not r:
+                nosimbadalias.append(star)
+        else:
+            nosimbadalias.append(star)
+
+    #track stars with no records
+    if (len(noipacalias) > 0) and (len(nosimbadalias) > 0) and (noipacalias[-1] == star) and (nosimbadalias[-1] == star):
         badstars.append(star)
-        continue
+
     if star not in tmp: tmp.append(star)
+    if 'aliasdis' in tmp: tmp.remove('aliasdis')
+    tmp = list(np.unique(tmp))
+        
     ids.append([j]*len(tmp))
     aliases.append(tmp)
+    priname.append(list((np.array(tmp) == star).astype(int)))
 
 
 #toggleoff = ['notesel','messel','bibsel','fluxsel','sizesel','mtsel','spsel','rvsel','pmsel','cooN','otypesel']
@@ -999,7 +1028,8 @@ for j,star in enumerate(starnames):
 
 
 out3 = pandas.DataFrame({'SID': np.hstack(ids),
-                         'Alias': np.hstack(aliases)
+                         'Alias': np.hstack(aliases),
+                         'NEAName':np.hstack(priname)
                          })
 #out3.to_pickle('aliases_080718.pkl')
 
