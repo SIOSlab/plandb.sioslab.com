@@ -17,11 +17,42 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 } 
 
+$sql0 = "select * from BlindTargs WHERE Name='".$name."'";
+$result = $conn->query($sql0);
+if (!$result){
+    include "templates/headerclose.php"; 
+    echo "Query Error:\n".$conn->error;
+    $conn->close();
+    include "templates/footer.php"; 
+    exit;
+}
+if ($result->num_rows == 0) {
+    include "templates/headerclose.php"; 
+    echo "Target Not Found.";
+    $result->close();
+    $conn->close();
+    include "templates/footer.php"; 
+    exit;
+}
+if ($result->num_rows > 1) {
+    include "templates/headerclose.php"; 
+    echo "Multiple matches found.";
+    $result->close();
+    $conn->close();
+    include "templates/footer.php"; 
+    exit;
+}
+
 $sql = "SELECT * FROM DoS WHERE Name='".$name."'";
 $resultc = $conn->query($sql);
 
-echo '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>';
+$row = $result->fetch_assoc();
+$result->close();
 
+$sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row[Name]."')";
+$resultaliases = $conn->query($sqlaliases);
+
+echo '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>';
 include "templates/headerclose.php"; 
 ?>
 
@@ -29,7 +60,34 @@ include "templates/headerclose.php";
 <?php echo $name; ?>
 </h2>
 
-<?php  
+<div class="container">
+<?php
+$wd = '50';
+echo " <div style='float: left; width: 90%; margin-bottom: 2em;'>\n";
+echo "<TABLE class='results'>\n";
+echo "<TR><TH colspan='2'> Target Properties</TH></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>RA, DEC (deg)</TH><TD>".$row[RA].", ".$row[DEC]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Distance (pc)</TH><TD>".$row[dist]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>V band Magnitude</TH><TD>".$row[Vmag]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Spectral Type</TH><TD>".$row[spec]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Luminosity  (Solar Luminosities)</TH><TD>".$row[L]."</TD></TR>\n";
+if ($resultaliases){
+    if ($resultaliases->num_rows > 0) {
+        echo "<TR><TH style='width:".$wd."%'>Aliases</TH><TD>";
+        while($rowa = $resultaliases->fetch_assoc()) {
+            echo $rowa['Alias']."; &nbsp; ";
+        }
+        echo "</TD></TR>\n";
+    }
+    $resultaliases->close();
+}
+echo "</TABLE>\n";
+    
+echo "</DIV><br><br>\n";
+
+echo '<DIV style="clear: both;"></DIV>';
+
+
 if ($resultc){
 
     echo '<div id="DoSDiv" style="width:800px; height:640px; margin:auto;"></div>';
@@ -62,19 +120,35 @@ if ($resultc){
         8.43128101,  9.35471396, 10.37928555, 11.51607298, 12.77736663,
        14.17680299, 15.72951212, 17.45228113, 19.36373579, 21.48454181];\n";
     echo "var xsize = 100, ysize = 30, z = new Array(ysize), i, j;\n";
-    echo "for (i = 0; i < ysize; i++) { z[i] = new Array(xsize).fill(0); }\n";
+    echo "for (i = 0; i < ysize; i++) { z[i] = new Array(xsize).fill(NaN); }\n";
 
     while($rowc = $resultc->fetch_assoc()) {
         echo "z[".$rowc[jind]."][".$rowc[iind]."]=".$rowc[vals].";";
     }
     echo "\n\n";
 
+    echo "var IWA = {
+        x: [".$row[dist]*0.150.",".$row[dist]*0.150."],
+        y: [1.05476232,21.48454181],
+        type: 'scatter',
+        name: 'Projected IWA'
+    };\n";    
+
+    echo "var OWA = {
+        x: [".$row[dist]*0.450.",".$row[dist]*0.450."],
+        y: [1.05476232,21.48454181],
+        type: 'scatter',
+        name: 'Projected OWA'
+    };\n";    
+
+
+
     echo "var data = {
 		z: z,
 		x: ac,
 		y: Rc,
         type: 'contour',
-        colorscale: 'Hot',
+        colorscale: 'Blackbody',
         name: 'Normalized DoS',
         colorbar:{
             title: 'log(DoS)',
@@ -83,12 +157,15 @@ if ($resultc){
 
     echo "var layout = {
         xaxis: {title: 'Semi-major Axis (AU)', type:'log'},
-        yaxis: {title: 'Planet Radius (R<sub>\u2295</sub>)',type:'log'},
+        yaxis: {title: 'Planet Radius (R<sub>\u2295</sub>)',
+                type:'log',
+                range:[0.023154606797951807,1.3321260961390506]},
+        showlegend: false
     };\n";
     $resultc->close();
 
     
-    echo "Plotly.newPlot('DoSDiv', [data], layout);" ;
+    echo "Plotly.newPlot('DoSDiv', [IWA,OWA,data], layout);" ;
     echo "</script>\n";
 }
 ?>
