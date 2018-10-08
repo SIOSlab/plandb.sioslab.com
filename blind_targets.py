@@ -53,7 +53,7 @@ blind_targs = pandas.DataFrame({'Name':names,
 
 
 ##############
-with open('DoS_10_2018/DoS.res', 'rb') as f:
+with open('DoS_10_2018_v2/DoS.res', 'rb') as f:
     dosdat = pickle.load(f)
 
 
@@ -71,12 +71,15 @@ adiffs = np.array(np.diff(abins),ndmin=2)
 Rdiffs = np.array(np.diff(Rbins),ndmin=2)
 binareas = Rdiffs.transpose()*adiffs
 
+Rnepind = np.where(Rc[:,0] < 3.883)[0].max()
+
 tnames = []
 acs = []
 Rcs = []
 iinds = []
 jinds = []
 DoS = []
+summedDoS = []
 
 for name in names:
     vals = dosdat['DoS'][name]
@@ -86,6 +89,7 @@ for name in names:
     DoS.append(vals.flatten())
     iinds.append(ainds.flatten())
     jinds.append(Rinds.flatten())
+    summedDoS.append(np.sum(vals[:Rnepind+1,:]))
 
 DoStable = pandas.DataFrame({'Name': np.hstack(tnames),
                             'sma': np.hstack(acs),
@@ -97,7 +101,7 @@ DoStable = pandas.DataFrame({'Name': np.hstack(tnames),
 DoStable = DoStable[DoStable['vals'].values != 0.]
 DoStable['vals'] = np.log10(DoStable['vals'].values)
 
-
+blind_targs['sumDoS'] = np.array(summedDoS)
 
 #------write to db------------
 namemxchar = np.array([len(n) for n in names]).max()
