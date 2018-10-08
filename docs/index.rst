@@ -243,29 +243,33 @@ For each row in KnownPlanets, orbital data is generated as follows:
     
 6. ``st_dist`` is taken to be the target distance :math:`d`.
 7. ``st_metfe`` is taken to be the stellar metallicity; if it is undefined it is set to zero.
-8. The eccentric anomaly :math:`E` is calculated from the eccentricity for 100 equally spaced mean anomaly points :math:`M` between 0 and 360 degrees, inclusive.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion.
+8. The eccentric anomaly :math:`E` is calculated from the eccentricity for 100 equally spaced mean anomaly points :math:`M` between 0 and 360 degrees, inclusive.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion. True anomaly is calculated from the eccentric anomaly as:
+
+   .. math::
+
+        \nu = 2\tan^{-1}\left(\sqrt{\frac{1+e}{1 - e}}\tan\left(\frac{E}{2}\right)\right)
+  
 
 .. _orbcalcref:
 
-9. The Thiele-Innes constants are calculated as:
+9.  The orbital radius :math:`r` is calculated as:
 
     .. math::
 
-        A = a\begin{bmatrix} \cos\omega\\ \cos I \sin\omega \\ \sin I \sin \omega \end{bmatrix} \qquad B = a\sqrt{1 - e^2}\begin{bmatrix} -\sin\omega\\ \cos I \cos\omega \\ \sin I \cos \omega \end{bmatrix} 
+        r = \frac{a(1 - e^2)}{1 + e\cos\nu}
 
-   and the orbital radius vector is calculated for all 100 eccentric anomalies as:
+10. The projected separation :math:`s` is calculated as:
 
     .. math::
         
-        \mathbf r = A(\cos(E) - e) + B\sin(E)
+        s = \frac{r \sqrt{4 \cos{\left (2 I \right )} + 4 \cos{\left (2 \nu + 2 \omega \right )} - 2 \cos{\left (- 2 I + 2 \nu + 2 \omega \right )} - 2 \cos{\left (2 I + 2 \nu + 2 \omega \right )} + 12}}{4}
 
-10. The orbital radius :math:`r` is calculated as the norm of :math:`\mathbf r` and the projected separation :math:`s` is calculated as the norm of the first two rows of :math:`\mathbf r`.
 11. The phase angle for all anomaly values is calculated as 
     
     .. math::
-        \beta = \cos^{-1}\left(\frac{z}{r}\right)
+        \beta = \cos^{-1}\left(\sin I\sin\theta\right)
     
-   where :math:`z` is the third component of :math:`\mathbf r` and the angular separation is calculated as 
+   where :math:`\theta = \omega+\nu` and the angular separation is calculated as 
      
     .. math::
         \alpha = \tan^{-1}\left( \frac{s}{d} \right)
