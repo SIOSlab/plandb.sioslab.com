@@ -5,7 +5,10 @@ import astropy.units as u
 from sqlalchemy import create_engine
 import getpass,keyring
 import sqlalchemy.types 
-
+import astropy.io
+import re
+import scipy.interpolate
+import astropy.constants as const
 
 tmp = pandas.read_csv('blindsortedStars.txt')
 names = tmp['Name'].values 
@@ -27,7 +30,6 @@ with open('/Users/ds264/Downloads/forDaniel.txt', 'w') as f:
 knownplan2 = [ aliases['Alias'][aliases['SID'] == aliases['SID'][aliases['Alias'] == n].values[0]].values[np.where(aliases['NEAName'][aliases['SID'] == aliases['SID'][aliases['Alias'] == n].values[0]].values)[0]][0] for n in knownplan]
 
 
-
 for p in knownplan:
     tmp = tmp[tmp['Name'] != p]
 tmp = tmp.reset_index(drop=True)
@@ -35,6 +37,7 @@ tmp = tmp.rename(columns={'Count':'Priority'})
 tmp['Priority'] = tmp['Priority'].values/149000.
 
 
+#grab the catalog and identify the star indices
 from EXOSIMS.StarCatalog.EXOCAT1 import EXOCAT1
 cat = EXOCAT1()
 
@@ -42,14 +45,54 @@ names = tmp['Name'].values
 priorities = tmp['Priority'].values
 catinds = np.hstack([np.where(cat.Name == n)[0] for n in names])
 
+#grab the Mamajek table to fill in radii
+mamajektable = astropy.io.ascii.read('EEM_dwarf_UBVIJHK_colors_Teff.txt',fill_values=[('...',np.nan),('....',np.nan),('.....',np.nan)])
+
+specregex = re.compile('([OBAFGKMLTY])(\d*\.\d+|\d+)V')
+specregex2 = re.compile('([OBAFGKMLTY])(\d*\.\d+|\d+).*')
+
+#grab spectral types from table
+MK = []
+MKn = []
+for s in mamajektable['SpT'].data:
+    m = specregex.match(s)
+    MK.append(m.groups()[0])
+    MKn.append(m.groups()[1])
+MK = np.array(MK)
+MKn = np.array(MKn)
+
+#create interpolants for Radius
+Ri = {}
+for l in 'OBAFGKM':
+    Ri[l] = scipy.interpolate.interp1d(MKn[MK==l].astype(float),mamajektable['R_Rsun'][MK==l].data.astype(float),bounds_error=False,fill_value='extrapolate')
+
+#compute stellar radii
+specs = cat.Spec[catinds]
+specs[specs == 'APSREU(CR)'] = 'A7VpSrCrEu'
+radii = []
+for s in specs:
+    m = specregex2.match(s)
+    if m:
+        radii.append(Ri[m.groups()[0]](m.groups()[1]))
+    else:
+        radii.append(np.nan)
+        print(s)
+radii = np.array(radii)
+
+dists = cat.dist[catinds]
+angrad = np.arctan((radii*const.R_sun)/dists).to('mas')
+
+
 blind_targs = pandas.DataFrame({'Name':names,
                                 'Priority':priorities,
-                                'dist':cat.dist[catinds].to(u.pc).value,
-                                'spec':cat.Spec[catinds],
+                                'dist':dists.to(u.pc).value,
+                                'spec':specs,
                                 'Vmag':cat.Vmag[catinds],
                                 'L':cat.L[catinds],
                                 'RA':cat.coords[catinds].ra.to(u.deg).value,
-                                'DEC':cat.coords[catinds].dec.to(u.deg).value})
+                                'DEC':cat.coords[catinds].dec.to(u.deg).value,
+                                'radius':radii,
+                                'angrad':angrad.value})
 
 
 ##############

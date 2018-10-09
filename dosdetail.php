@@ -71,6 +71,8 @@ echo "<TR><TH style='width:".$wd."%'>Distance (pc)</TH><TD>".$row[dist]."</TD></
 echo "<TR><TH style='width:".$wd."%'>V band Magnitude</TH><TD>".$row[Vmag]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Spectral Type</TH><TD>".$row[spec]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Luminosity  (Solar Luminosities)</TH><TD>".$row[L]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Calculated Stellar Radius (Solar radii) (mas) </TH><TD>".$row[radius]." (".number_format((float)$row[angrad], 4, '.', '').")</TD></TR>\n";
+
 if ($resultaliases){
     if ($resultaliases->num_rows > 0) {
         echo "<TR><TH style='width:".$wd."%'>Aliases</TH><TD>";
