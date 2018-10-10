@@ -12,9 +12,6 @@ Known Planets Database
 
 The Known Planets Database is a merge of the information in the NASA Exoplanet Science Institute Exoplanet Archive (hosted at IPAC) with calculated photometric, orbital, and direct imaging completeness information for planets of interest to the direct imaging community.  This documentation is intended to unambiguously define exactly how the database is generated and list all assumptions made.  It will also (eventually) contain use cases and sample queries. 
 
-Database Generation
-=============================
-
 .. _photometry:
 
 Planet Photometry
@@ -63,7 +60,8 @@ where :math:`f_{m,c,d,\beta}` is the relevant interpolant over the model grid on
         
         This is a pretty crude integral approximation, but the associated error is significantly lower than all other errors involved here, so there's not much point in changing it to something more complex.  Straight quadrature over the interpolant is very fragile given the grids, and takes excessively long to compute.
 
-
+Known Planet Tables
+=============================
 
 
 KnownPlanets Table
@@ -243,29 +241,33 @@ For each row in KnownPlanets, orbital data is generated as follows:
     
 6. ``st_dist`` is taken to be the target distance :math:`d`.
 7. ``st_metfe`` is taken to be the stellar metallicity; if it is undefined it is set to zero.
-8. The eccentric anomaly :math:`E` is calculated from the eccentricity for 100 equally spaced mean anomaly points :math:`M` between 0 and 360 degrees, inclusive.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion.
+8. The eccentric anomaly :math:`E` is calculated from the eccentricity for 100 equally spaced mean anomaly points :math:`M` between 0 and 360 degrees, inclusive.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion. True anomaly is calculated from the eccentric anomaly as:
+
+   .. math::
+
+        \nu = 2\tan^{-1}\left(\sqrt{\frac{1+e}{1 - e}}\tan\left(\frac{E}{2}\right)\right)
+  
 
 .. _orbcalcref:
 
-9. The Thiele-Innes constants are calculated as:
+9.  The orbital radius :math:`r` is calculated as:
 
     .. math::
 
-        A = a\begin{bmatrix} \cos\omega\\ \cos I \sin\omega \\ \sin I \sin \omega \end{bmatrix} \qquad B = a\sqrt{1 - e^2}\begin{bmatrix} -\sin\omega\\ \cos I \cos\omega \\ \sin I \cos \omega \end{bmatrix} 
+        r = \frac{a(1 - e^2)}{1 + e\cos\nu}
 
-   and the orbital radius vector is calculated for all 100 eccentric anomalies as:
+10. The projected separation :math:`s` is calculated as:
 
     .. math::
         
-        \mathbf r = A(\cos(E) - e) + B\sin(E)
+        s = \frac{r \sqrt{4 \cos{\left (2 I \right )} + 4 \cos{\left (2 \nu + 2 \omega \right )} - 2 \cos{\left (- 2 I + 2 \nu + 2 \omega \right )} - 2 \cos{\left (2 I + 2 \nu + 2 \omega \right )} + 12}}{4}
 
-10. The orbital radius :math:`r` is calculated as the norm of :math:`\mathbf r` and the projected separation :math:`s` is calculated as the norm of the first two rows of :math:`\mathbf r`.
 11. The phase angle for all anomaly values is calculated as 
     
     .. math::
-        \beta = \cos^{-1}\left(\frac{z}{r}\right)
+        \beta = \cos^{-1}\left(\sin I\sin\theta\right)
     
-   where :math:`z` is the third component of :math:`\mathbf r` and the angular separation is calculated as 
+   where :math:`\theta = \omega+\nu` and the angular separation is calculated as 
      
     .. math::
         \alpha = \tan^{-1}\left( \frac{s}{d} \right)
@@ -280,6 +282,7 @@ For each row in KnownPlanets, orbital data is generated as follows:
 
 13. For each row, for each cloud level in the :ref:`photometry` grids, and for each wavelength of interest, the :math:`p\Phi(\beta)` value is interpolated and a :math:`\Delta\textrm{mag}` value is calculated as described in :ref:`Step 13<photcalcref>` of the KnownPlanets generation procedure. These values are stored in new columns ``pPhi_XXXC_YYYNM`` and ``dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm. 
 
+.. _comptable:
 
 Completeness Table
 --------------------------
@@ -306,7 +309,7 @@ For each planet meeting this condition, the following samples are drawn, :math:`
     * Name: Planet Name, references KnownPlanets ``pl_name``
     * alpha: Angular Separations at grid centers (mas)
     * dMag: :math:`\Delta\textrm{mag}` values at grid centers
-    * H: Frequency
+    * H: :math:`\log_{10}(\mathrm{Frequency})`
     * iind: Horizontal index of entry in 2D histogram grid
     * jind: Vertical index of entry in 2D histogram grid
 
@@ -314,11 +317,80 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 
 15. For each planet whose completeness is calculated, we also calculate the minimum and maximum angular separations and :math:`\Delta\textrm{mag}` values for which the frequency grid is non-zero.  These values are then stored in new columns appended to the KnownPlanets table, named: ``compMinWA``, ``compMaxWA``, ``compMindMag``, and ``compMaxdMag``, respectively. The bulk completeness is stored in the KnownPlanets table in a new column named ``completeness``.
 
+.. _blindsearch:
+
+Blind Search Tables
+=============================
+
+
+BlindTargs Table
+-----------------------
+
+To identify top priority targets for WFIRST CGI imaging where no planets are yet known to exist (known as 'Blind Search Targets'), we start by analyzing the results of all currently available EXOSIMS blind search simulations using a consistent description of the optical system (based on Cycle 6 values).  This data set is made up of approximately 149,000 individual end-to-end mission simulations with identical observatory and optical system descriptions and input target catalog (ExoCat-1 [Turnbull2015]_) but varying planet population models, planet physical models, mission durations, mission operating rules, and target scheduling/prioritization algorithms.  
+
+Of this corpus of data, we identify the distinct number of times a sub-Neptune class planet (:math:`R < 3.883 R_\oplus`) is detected about each target star.  This total number of detections is normalized by the total number of simulations used, and the resulting value is designated the target priority.  The target priority thus encodes not only the likelihood of observing a sub-Neptune planet about a given star, but also the schedulability and the ability to achieve high contrast in the observing time available for that target.  The priority does *not* map directly to the probability of WFIRST CGI detecting a sub-Neptune planet about a given target, given that one exists, but is a closely related metric that can be used for blind search target prioritization. 
+
+This analysis yields a total of 120 targets without known planets for which the priority is non-zero. In addition to the priority and target data available from ExoCat-1, we add two additional calculated columns:
+
+1. Using the tabulated data from Erik Mamajek [Mamajek2018]_ (based in part on [Pecaut2013]_), we create interpolants for stellar radius as a function of spectral type (the interpolant is on the numerical subtype, with a separate interpolant for each spectral class).  The stellar radius for each of the targets is then calculated via the relevant interpolant based on the spectral type listed for the target in ExoCat-1.
+2. From the target radius (:math:`R`) and distance (:math:`d`), the target angular radius is then calculated as:
+
+   .. math::
+        \tan^{-1}\left( \frac{R}{d} \right)
+
+We define the BlindTargs Table as follows:
+
+   * Name: Target name (from ExoCat-1)
+   * Priority: Target Priority
+   * dist: Target Distance (pc; from ExoCat-1)
+   * spec: Target spectral type (from ExoCat-1)
+   * Vmag: Target V band apparent magnitude (from ExoCat-1)
+   * L: Target luminosity in solar luminosities (from ExoCat-1)
+   * RA: Target RA (deg; from ExoCat-1)
+   * DEC: Target DEC (deg; from ExoCat-1)
+   * radius: Target radius (solar radii)
+   * angrad: Target angular radius (mas)
+
+
+DoS Table
+----------------
+
+For each target in BlindTargs, we also wish to calculate the depth of search for the WFIRST CGI, as defined in [Garrett2017]_. We establish a grid uniform in :math:`\log(a),\log(R)` where :math:`a` is the semi-major axis and :math:`R` is the planet radius, such that :math:`a \in [0.1, 100]` AU, with 100 bins, and :math:`R \in [1,22.6] \, R_\oplus` with 30 bins. For each bin, we define an average contrast limit by taking the WFIRST CGI predicted performance curve at the 575 nm band and finding the expectation value of the value of this curve for the distribution of angular separations for that bin.
+
+For each bin, the depth of search (DoS) is calculated by averaging the completeness over the bin area, as defined in equation (64) of [Garrett2017]_, using the individual average contrast limits in each bin, and marginalizing over the photometric model grids (see  :ref:`photometry`).
+
+   .. note::
+
+    The DoS calculation assumes only circular orbits, which is why the DoS does not extend past the IWA in semi-major axis.  Semi-major axis values larger than the OWA are still possible with circular orbits due to projection effects.  The inclusion of non-zero eccentricities does not significantly affect the results of this calculation, save that a very small number of detections become possible for smas within the IWA.
+
+The DoS values are stored in the database in the same way as the :ref:`comptable`:
+
+    * Name: Target Name, references BlindTargs ``Name``
+    * sma: Semi-major axes at grid geometric centers (AU)
+    * Rp: Planet radii at grid geometric centers (:math:`R_\oplus`)
+    * vals: :math:`\log_{10}(DoS)`
+    * iind: Horizontal index of entry in 2D grid
+    * jind: Vertical index of entry in 2D grid
+
+The iind and jind values are stored only to make it simpler to reconstruct the 2D grid for plotting.
+
+Finally, an additional column is added to BlindTargs:  ``sumDoS``, equal to the sum over all DoS bins for that target where :math:`R < 3.883 R_\oplus` (a total of 130 bins).  This value represents the expected number of planet observable about a given target upon the first observation *if* we were able to achieve the assumed average bin contrast for all bins *and* the target had one planet in each of those bins.  
+
+   .. note::
+   
+    It is important to note that while the Priority and sumDoS columns generally track one another, they are not monotonically related.  There are several instances (especially for dimmer targets) where the sumDoS would prioritize a target much higher than its Priority value.  This is due to the fact that, in practice, the contrast floors are probably unachievable for those star with the available integration and target visibility times.
+
+
+
+
+
+Utility Tables
+=================
 
 Alias Table
 --------------------------
 
-The Alias table contains all available alternate target names to simplify identification.  The aliases are found by scraping the alias table in the Exoplanet Archive, and via the SIMBAD name resolver.
+The Alias table contains all available alternate target names to simplify identification.  The aliases are found by scraping the alias table in the Exoplanet Archive (for known planet targets), and via the SIMBAD name resolver.
 
 For the subset of unique ``pl_hostname`` entries in KnownPlanets:
 
@@ -330,16 +402,19 @@ For the subset of unique ``pl_hostname`` entries in KnownPlanets:
 3. The two queries are concatenated and a unique list of aliases generated from the unified list. 
 4. A unique id number is assigned to the target and the alias table is defined as:
 
-   * 'SID': Target ID
-   * 'Alias': Target Name
+   * SID: Target ID
+   * Alias: Target Name
+   * NEAName: Binary flag, true for entry matching NASA Exoplanet Archive default name (or EXOCAT default name)
 
 The alias list for every target is guaranteed to include the name in ``pl_hostname`` and so every target's aliases can be resolved by querying on its own name.
+
+
 
 
 Database Structure
 ====================
 
-The database is composed of four tables: KnownPlanets, PlanetOrbits, Completeness, and Alias.  All tables use the InnoDB engine. ``pl_name`` and ``pl_hostname`` are set as indexes for KnownPlanets.  ``Name`` is set as an index for both PlanetOrbits and Completeness and as a foreign key referencing ``pl_name`` in KnownPlanets.  Both columns in Alias are set as indexes.
+All tables use the InnoDB engine. ``pl_name`` and ``pl_hostname`` are set as indexes for KnownPlanets.  ``Name`` is set as an index for both PlanetOrbits and Completeness and as a foreign key referencing ``pl_name`` in KnownPlanets.  ``SID`` and ``Alias`` in Alias are set as indexes.
 
    
 References
@@ -347,7 +422,11 @@ References
 .. [Chen2016] Chen, J. and Kipping, D. M. (2016) Probabilistic Forecasting of the Masses and Radii of Other Worlds, ApJ 834(1)
 .. [Fortney2007] Fortney, J. J., Marley, M. S. and Barnes, J. W. (2007) Planetary Radii across Five Orders of Magnitude in Mass and Stellar Insolation: Application to Transits, ApJ 659, 2
 .. [Brown2005] Brown, R. A. (2005) Single-visit photometric and obscurational completeness, ApJ 624
-.. [Garrett2016] Garett, D. and Savransky, D. (2016) Analytical Formulation of the Single-visit Completeness Joint Probability Density Function, ApJ 828(1)
+.. [Garrett2016] Garett, D. and Savransky, D. (2016) Analytical Formulation of the Single-visit Completeness Joint Probability Density Function, ApJ 828(1); https://arxiv.org/abs/1607.01682
+.. [Turnbull2015] Turnbull, M. (2015) ExoCat-1: The Nearby Stellar Systems Catalog for Exoplanet Imaging Missions, https://arxiv.org/pdf/1510.01731.pdf
+.. [Mamajek2018] Mamajek, E. (2018) A Modern Mean Dwarf Stellar Color and Effective Temperature Sequence, http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
+.. [Pecaut2013] Pecaut, M. J. and  Mamajek, E. (2013) Intrinsic Colors, Temperatures, and Bolometric Corrections of Pre-main-sequence Stars, ApJS, 208, 9
+.. [Garrett2017] Garett, D., Savransky, D., and Macintosh, B. (2017) A Simple Depth-of-Search Metric for Exoplanet Imaging Surveys, AJ 154(2); https://arxiv.org/abs/1706.06132
 
     
 
