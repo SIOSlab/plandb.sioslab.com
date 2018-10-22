@@ -69,12 +69,13 @@ KnownPlanets Table
 
 The KnownPlanets table contains all of the target star and known planet properties that are needed to calculate direct imaging observables.  This describes the procedure for creating the table.
 
-1. All data is grabbed from the Exoplanet Archive from the exoplanets and composite tables via the following API queries: ::
+1. All data is grabbed from the Exoplanet Archive from the exoplanets, composite, and extended tables via the following API queries: ::
 
     https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=compositepars&select=*&format=csv"
     https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exoplanets&select=*&format=csv"
+    https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"
 
-2. The leading 'f' is stripped off all data column names for the composite table data to match the names in the exoplanets table data.
+2. The leading 'f' is stripped off all data column names for the composite table data and the leading 'm' is stripped off all data column names for the extended table to match the names in the exoplanets table data.
    
 3. Composite table columns with different names from the exoplanets table are renamed to match the exoplanets table naming as follows: ::
     
@@ -94,16 +95,51 @@ The KnownPlanets table contains all of the target star and known planet properti
     'st_metreflink':'st_metfereflink'
     'st_metlim':'st_metfelim'
 
-4. The two data sets are merged with the composite table values used preferentially when both are populated.
+4. The composite and exoplanet data sets are merged with the composite table values used preferentially when both are populated.
 
-5. The data is filtered such that the remaining rows have:
+
+5. For planets that were previously calculated to have a completeness larger than 0, data is substituted in from the extended table. For each planet of interest, we categorize each source according to the priority listing below. We then substitute data into the joined data from the source with the highest priority.  If two sources are tied for the highest priority, then the most recent one is chosen.
+
+
+   1. Satisfies the criteria described in step 6 (barring the existance of stellar distance) and has non-null eccentricity, time of periaps passage, argument of periapsis, and inclination. 
+   
+   2. Satisfies the criteria described in step 6 (barring the existance of stellar distance) and has non-null eccentricity, time of periaps passage, and argument of periapsis.
+   
+   3. Satisfies the criteria described in step 6, (barring the existance of stellar distance) has non-null eccentricity, and has either non-null time of periaps passage or longitude of periapsis.
+	
+   4. Satisfies the criteria described in step 6 (barring the existance of stellar distance) and has non-null eccentricity.
+	
+   5. Satisfies the criteria described in step 6 (barring the existance of stellar distance).
+
+
+   The following columns along with their respective errors and limits (where applicable) are substituted from the extended table: ::
+		
+   'pl_orbper'
+   'pl_orbsmax'
+   'pl_orbeccen'
+   'pl_orbtper'
+   'pl_orblper'
+   'pl_bmassj'
+   'pl_bmassprov'
+   'pl_radj'
+   'pl_orbincl'
+   'pl_orbperreflink'
+   'pl_orbsmaxreflink'
+   'pl_orbeccenreflink'
+   'pl_bmassreflink'
+   'pl_radreflink'
+
+   For the last 5 columns denoting reference link columns, data is copied from the 'mpl_reflink' column to populate these 5 columns, since these columns do not exist in the extended table.  Additionally, if 'st_mass' has a non-null value in the row that is being substituted in, then 'st_mass' and its associated error, limit, and reference link columns are also substituted.
+
+
+6. The data is filtered such that the remaining rows have:
     
     |   Star Distance AND
     |   (Planet Semi-Major Axis OR (Planet Period AND Star Mass)) AND 
     |   (Planet Radius OR Planet Mass OR Planet :math:`m\sin(I))`.
 
 
-6. For the remaining rows that do not have a planet semi-major axis, it is filled in as follows: The `st_mass` value is taken to be the stellar mass (:math:`M_S`) in units of :math:`M_\odot` and the gravitational parameter is calculated as :math:`\mu = G M_S`. The ``pl_orbper`` value is taken to be the orbital period (:math:`T`) in units of days. The semi-major axis is then calculated as: 
+7. For the remaining rows that do not have a planet semi-major axis, it is filled in as follows: The `st_mass` value is taken to be the stellar mass (:math:`M_S`) in units of :math:`M_\odot` and the gravitational parameter is calculated as :math:`\mu = G M_S`. The ``pl_orbper`` value is taken to be the orbital period (:math:`T`) in units of days. The semi-major axis is then calculated as: 
    
    .. math::
 
@@ -112,7 +148,7 @@ The KnownPlanets table contains all of the target star and known planet properti
   The values are converted to AU and copied to the `pl_orbsmax`` column.  The ``pl_orbsmaxreflink`` for these rows is updated to: "Calculated from stellar mass and orbital period."
 
 
-7. The angular separation (``pl_angsep``) is re-calculated for all rows based on the current entries of ``pl_orbsmax`` (:math:`a`) and ``st_dist`` (:math:`d`) as:
+8. The angular separation (``pl_angsep``) is re-calculated for all rows based on the current entries of ``pl_orbsmax`` (:math:`a`) and ``st_dist`` (:math:`d`) as:
     
    .. math::
     
@@ -121,11 +157,11 @@ The KnownPlanets table contains all of the target star and known planet properti
   with the result converted to miliarcseconds. 
 
 
-8. The composite data table has radius values computed from available masses using the Forecaster best-fit ([Chen2016]_).  This tends to overestimate the radius for many Jovian-size planets, so we provide two additional mass estimates (but leave the original column).  We will only carry along masses in units of :math:`M_J`, and so drop columns ``pl_rade,  pl_radelim, pl_radserr2, pl_radeerr1, pl_rads, pl_radslim, pl_radeerr2, pl_radserr1``.
+9. The composite data table has radius values computed from available masses using the Forecaster best-fit ([Chen2016]_).  This tends to overestimate the radius for many Jovian-size planets, so we provide two additional mass estimates (but leave the original column).  We will only carry along masses in units of :math:`M_J`, and so drop columns ``pl_rade,  pl_radelim, pl_radserr2, pl_radeerr1, pl_rads, pl_radslim, pl_radeerr2, pl_radserr1``.
 
 .. _forecastermodref:
 
-9. The original Forecaster ([Chen2016]_) best fit is composed of linear (in log-log space) segments of the form  :math:`R = 10^{\mathcal{C} + \log_{10}(M)\mathcal{S}}` where :math:`R` and :math:`M` are the radius and mass, respectively, and  :math:`\mathcal{C}` and :math:`\mathcal{S}` are fit coefficients defined in four intervals of mass (Terran, Neptunian, Jovian and Stellar Worlds).  We modify the Forecaster fit as follows:
+10. The original Forecaster ([Chen2016]_) best fit is composed of linear (in log-log space) segments of the form  :math:`R = 10^{\mathcal{C} + \log_{10}(M)\mathcal{S}}` where :math:`R` and :math:`M` are the radius and mass, respectively, and  :math:`\mathcal{C}` and :math:`\mathcal{S}` are fit coefficients defined in four intervals of mass (Terran, Neptunian, Jovian and Stellar Worlds).  We modify the Forecaster fit as follows:
    
    * The 'Terran Worlds' fit is unchanged.
    * The 'Neptunian Worlds' fit is modified to end at the Saturn mass/radius point.  
@@ -160,7 +196,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 
 .. _fortneyref:
 
-10. The second radius fit is based on the planet density models from [Fortney2007]_. The relevant masses are converted to radii as follows:
+11. The second radius fit is based on the planet density models from [Fortney2007]_. The relevant masses are converted to radii as follows:
 
     * For masses  :math:`\le 17_\oplus`, Eq. 8 (the rock/iron mixture density, as corrected in paper erratum) is used with a rock fraction of 0.67 (such that 1 Earth Mass gives 1 Earth radius). 
     * For masses :math:`> 17 M_\oplus`, Table 4 (mass-radius relationship for 4.5 Gyr planets) are interpolated, assuming a constant core mass of :math:`< 10 M_\oplus`. The mean age of stars in the subset of rows being considered here (for which age is available) is 4.64 Gyr (median of 4.27).  To avoid extrapolating beyond the available grid, semi-major axis values in the inputs are strictly truncated to the range (0.02, 9.5) AU.
@@ -180,7 +216,7 @@ The KnownPlanets table contains all of the target star and known planet properti
         :scale: 50 %
         :alt: modified Forecaster fit vs. Fortney fit
 
-11. For rows with eccentricity information available, a maximum possible angular separation is calculated as:
+12. For rows with eccentricity information available, a maximum possible angular separation is calculated as:
 
     .. math::
         
@@ -188,7 +224,7 @@ The KnownPlanets table contains all of the target star and known planet properti
    
    where :math:`a` is the semi-major axis, :math:`d` is the target distance and  :math:`e` is the eccentricity. These values are assigned to a new column ``pl_maxangsep``, which equals ``pl_angsep`` for rows with no eccentricity available. 
 
-12. A minimum possible angular separation is calculated as:
+13. A minimum possible angular separation is calculated as:
 
     .. math::
         
@@ -198,7 +234,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 
 .. _photcalcref:
 
-13. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  Rather than employing a full orbital solution (which is done for the :ref:`planetorbits_table`), here we simply take the planet's semi-major axis to be the orbital radius and projected separation at the time of quadrature. The angular separation at quadrature is therefore equal to the value already calculated in the ``pl_angsep`` column, and so no additional column needs to be added.
+14. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  Rather than employing a full orbital solution (which is done for the :ref:`planetorbits_table`), here we simply take the planet's semi-major axis to be the orbital radius and projected separation at the time of quadrature. The angular separation at quadrature is therefore equal to the value already calculated in the ``pl_angsep`` column, and so no additional column needs to be added.
 
     For the photometry, we calculate the grid data (:math:`p\Phi(\beta)`) and resulting :math:`\Delta\textrm{mag}` for all combinations of cloud level and wavelength of interest (8x5) for 80 total photometry columns.  These columns are named ``quad_pPhi_XXXC_YYYNM`` and ``quad_dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm.  :math:`\Delta\textrm{mag}` is calculated as:
 
@@ -300,7 +336,17 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 7. If the planet radius in KnownPlanets was calculated from the mass, and the mass (``pl_bmassj``) represents :math:`M\sin I`, the mass sample is defined as ``pl_bmassj``:math:`/sin(I)`.
 8. The mean anomaly is sampled from a uniform distribution between 0 and 360 degrees.
 9. The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOrbits table (see :ref:`Steps 9 - 13<orbcalcref>`). 
-10. The cloud :math:`f_\textrm{sed}` is sampled from a normal distribution with mean 3.0 and standard deviation 2.
+10. The cloud :math:`f_\textrm{sed}` is sampled from the following distribution:
+
+* 0/9.9%
+* 0.01/0.1%
+* 0.03/0.5%
+* 0.1/1.0%
+* 0.3/2.5%
+* 1.0/28%
+* 3.0/30%
+* 6.0/28%
+
 11. A 2D histogram is constructed from the phase angle and :math:`\Delta\textrm{mag}` sampled on a predefined grid with angular separation sampled from 150 to 450 mas in increments of 1 mas and  :math:`\Delta\textrm{mag}` sampled from 0 to 26 in increments of 0.1.
 12. A single completeness value is calculated by finding the fraction of sampled points such that the angular separation falls between 150 and 450 mas and the  :math:`\Delta\textrm{mag}` is less than or equal to a curve defined from the 575 nm WFIRST predicted performance.
 13. The sampling procedure is repeated (drawing :math:`n` samples at a time) and the histogram and bulk completeness value are updated until the completeness converges to within 0.01%.

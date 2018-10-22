@@ -17,6 +17,7 @@ from EXOSIMS.util.eccanom import eccanom
 from EXOSIMS.util.deltaMag import deltaMag
 import EXOSIMS.Prototypes.PlanetPhysicalModel
 from astropy.time import Time
+from getDataFromIPAC_extended import substitute_data
 
 %pylab --no-import-all
 
@@ -46,41 +47,46 @@ data = data.rename(columns={'pl_smax':'pl_orbsmax',
                             'pl_eccenerr2':'pl_orbeccenerr2',
                             'pl_eccenlim':'pl_orbeccenlim',
                             'pl_eccenreflink':'pl_orbeccenreflink',
-                            'st_met':'st_metfe', 
-                            'st_meterr1':'st_metfeerr1', 
+                            'st_met':'st_metfe',
+                            'st_meterr1':'st_metfeerr1',
                             'st_meterr2':'st_metfeerr2',
                             'st_metreflink':'st_metfereflink',
-                            'st_metlim':'st_metfelim', 
+                            'st_metlim':'st_metfelim',
                             })
 
-#sort by planet name 
+#sort by planet name
 data = data.sort_values(by=['pl_name']).reset_index(drop=True)
 data2 = data2.sort_values(by=['pl_name']).reset_index(drop=True)
 
 #merge data sets
 data = data.combine_first(data2)
 
+# substitute data from the extended table.
+data = substitute_data(data)
+
+#sort by planet name 
+data = data.sort_values(by=['pl_name']).reset_index(drop=True)
 
 ###############################
 #some sanity checking
-data3 = data.combine_first(data2)
-
-ccols = np.array(list(set(data.keys()) & set(data2.keys())))
-ncols = np.array(list(set(data2.keys()) - set(data.keys())))
-
-#compare redundant cols
-diffcs = []
-diffinds = []
-for c in ccols:
-    tmp = (data[c].values == data2[c].values) | (data[c].isnull().values & data2[c].isnull().values)
-    if not np.all( tmp ):
-        diffcs.append(c)
-        diffinds.append(np.where(~tmp)[0])
-
-for c,inds in zip(diffcs,diffinds):
-    print c
-    tmp = data[c][inds].isnull().values & ~(data2[c][inds].isnull().values)
-    assert np.all(data3[c][inds][tmp] == data2[c][inds][tmp])
+# data3 = data.combine_first(data2)
+#
+# ccols = np.array(list(set(data.keys()) & set(data2.keys())))
+# ncols = np.array(list(set(data2.keys()) - set(data.keys())))
+#
+# #compare redundant cols
+# diffcs = []
+# diffinds = []
+# for c in ccols:
+#     tmp = (data[c].values == data2[c].values) | (data[c].isnull().values & data2[c].isnull().values)
+#     if not np.all( tmp ):
+#         diffcs.append(c)
+#         diffinds.append(np.where(~tmp)[0])
+#
+# for c,inds in zip(diffcs,diffinds):
+#     print c
+#     tmp = data[c][inds].isnull().values & ~(data2[c][inds].isnull().values)
+#     assert np.all(data3[c][inds][tmp] == data2[c][inds][tmp])
 ###############################
 
 
@@ -651,8 +657,8 @@ for j in range(len(plannames)):
     nu = 2*np.arctan(np.sqrt((1.0 + e)/(1.0 - e))*np.tan(E/2.0));
     d0 = a*(1.0 - e**2.0)/(1 + e*np.cos(nu))
 
-    a1 = np.cos(w) 
-    b1 = -np.sqrt(1 - e**2)*np.sin(w)
+    # a1 = np.cos(w)
+    # b1 = -np.sqrt(1 - e**2)*np.sin(w)
 
     outdict = {'Name': [plannames[j]]*len(M),
                 'M': M,
@@ -663,20 +669,25 @@ for j in range(len(plannames)):
 
     for k,I in enumerate(Is):
     
-        a2 = np.cos(I)*np.sin(w)
-        a3 = np.sin(I)*np.sin(w)
-        A = a*np.vstack((a1, a2, a3))
+        # a2 = np.cos(I)*np.sin(w)
+        # a3 = np.sin(I)*np.sin(w)
+        # A = a*np.vstack((a1, a2, a3))
+        #
+        # b2 = np.sqrt(1 - e**2)*np.cos(I)*np.cos(w)
+        # b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
+        # B = a*np.vstack((b1, b2, b3))
+        # r1 = np.cos(E) - e
+        # r2 = np.sin(E)
+        #
+        # r = (A*r1 + B*r2).T
+        # d = np.linalg.norm(r, axis=1)
+        # s = np.linalg.norm(r[:,0:2], axis=1)
+        # beta = np.arccos(r[:,2]/d)*u.rad
 
-        b2 = np.sqrt(1 - e**2)*np.cos(I)*np.cos(w)
-        b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
-        B = a*np.vstack((b1, b2, b3))
-        r1 = np.cos(E) - e
-        r2 = np.sin(E)
-
-        r = (A*r1 + B*r2).T
-        d = np.linalg.norm(r, axis=1)
-        s = np.linalg.norm(r[:,0:2], axis=1)
-        beta = np.arccos(r[:,2]/d)*u.rad
+        nu = 2 * np.arctan(np.sqrt((1.0 + e) / (1.0 - e)) * np.tan(E / 2.0));
+        d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
+        s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
+        beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
 
         WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
 
@@ -723,6 +734,25 @@ for j in range(len(plannames)):
 #3.000000         0.300
 #6.000000         0.280
 
+# Generates fsed based on a random number: 0 <= num < 1
+def get_fsed(num):
+    if num < .099:
+        r = 0
+    elif num < .1:
+        r = .01
+    elif num < .105:
+        r = .03
+    elif num < .115:
+        r = .1
+    elif num < .14:
+        r = .3
+    elif num < .42:
+        r = 1
+    elif num < .72:
+        r = 3
+    else:
+        r = 6
+    return float(r)
 
 
 wfirstcontr = np.genfromtxt('WFIRST_pred_imaging.txt')
@@ -828,7 +858,9 @@ for j in inds:
         wbar = genwbar(n)
         w = O - wbar
 
-        cl = cloudinterp(np.random.randn(n)*2 + 3)
+        # cl = cloudinterp(np.random.randn(n)*2 + 3)
+        vget_fsed = np.vectorize(get_fsed)
+        cl = vget_fsed(np.random.rand(n))
 
         if (row['pl_radreflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>'):
             if row['pl_bmassprov'] == 'Msini':
@@ -849,24 +881,30 @@ for j in inds:
             R = np.random.randn(n)*Rstd + Rmu
         
         M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
-        E = eccanom(M0, e)                     
+        E = eccanom(M0, e)
         nu = 2*np.arctan(np.sqrt((1+e)/(1-e))*np.tan(E/2))
 
-        a1 = np.cos(O)*np.cos(w) - np.sin(O)*np.cos(I)*np.sin(w)
-        a2 = np.sin(O)*np.cos(w) + np.cos(O)*np.cos(I)*np.sin(w)
-        a3 = np.sin(I)*np.sin(w)
-        A = a*np.vstack((a1, a2, a3))
-        b1 = -np.sqrt(1 - e**2)*(np.cos(O)*np.sin(w) + np.sin(O)*np.cos(I)*np.cos(w))
-        b2 = np.sqrt(1 - e**2)*(-np.sin(O)*np.sin(w) + np.cos(O)*np.cos(I)*np.cos(w))
-        b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
-        B = a*np.vstack((b1, b2, b3))
-        r1 = np.cos(E) - e
-        r2 = np.sin(E)
-        
-        rvec = (A*r1 + B*r2).T
-        rnorm = np.linalg.norm(rvec, axis=1)
-        s = np.linalg.norm(rvec[:,0:2], axis=1)
-        beta = np.arccos(rvec[:,2]/rnorm)*u.rad
+        # a1 = np.cos(O)*np.cos(w) - np.sin(O)*np.cos(I)*np.sin(w)
+        # a2 = np.sin(O)*np.cos(w) + np.cos(O)*np.cos(I)*np.sin(w)
+        # a3 = np.sin(I)*np.sin(w)
+        # A = a*np.vstack((a1, a2, a3))
+        # b1 = -np.sqrt(1 - e**2)*(np.cos(O)*np.sin(w) + np.sin(O)*np.cos(I)*np.cos(w))
+        # b2 = np.sqrt(1 - e**2)*(-np.sin(O)*np.sin(w) + np.cos(O)*np.cos(I)*np.cos(w))
+        # b3 = np.sqrt(1 - e**2)*np.sin(I)*np.cos(w)
+        # B = a*np.vstack((b1, b2, b3))
+        # r1 = np.cos(E) - e
+        # r2 = np.sin(E)
+        #
+        # rvec = (A*r1 + B*r2).T
+        # rnorm = np.linalg.norm(rvec, axis=1)
+        # s = np.linalg.norm(rvec[:,0:2], axis=1)
+        # beta = np.arccos(rvec[:,2]/rnorm)*u.rad
+
+        d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
+        s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
+        beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
+        rnorm = d
+
         #phi = PPMod.calc_Phi(np.arccos(rvec[:,2]/rnorm)*u.rad)    # planet phase
         #dMag = deltaMag(0.5, R*u.R_jupiter, rnorm*u.AU, phi)     # delta magnitude
         #pphi = photinterps[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))](beta.to(u.deg).value)
