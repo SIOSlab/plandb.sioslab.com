@@ -10,7 +10,7 @@ $sqlsel = "SELECT pl_name as Name, pl_angsep, st_optmag,completeness FROM KnownP
 $sqlord = "ORDER by completeness DESC";
 ?>
 
-<p>See <a href="index.php?querytext=show columns in KnownPlanets">"show columns in KnownPlanets"</a> for all available columsn to query on.
+<p>See <a href="index.php?querytext=show full columns in KnownPlanets">"show columns in KnownPlanets"</a> for all available columns to query on.
 This interface filters planets of interest and links to detail pages for the results.  Only enter the conditions clause of the query (the part after WHERE):</br></br>
 
 <?php echo "$sqlsel";?>

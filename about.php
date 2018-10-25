@@ -34,7 +34,7 @@ Publications and public presentations using data directly queried or otherwise d
 <li> Dmitry Savransky (ds264@cornell.edu)</li>
 <li> Nikole Lewis (nkl35@cornell.edu)</li>
 <li> Bruce Macintosh (bmacintosh@stanford.edu)</li>
-<li> Natasha Bathala (nbatalha@ucsc.edu)</li>
+<li> Natasha Batalha (nbatalha@ucsc.edu)</li>
 <li> Mark Marley (Mark.S.Marley@nasa.gov)</li>
 </ul>
 </p>

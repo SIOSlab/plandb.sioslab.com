@@ -11,6 +11,7 @@
             <li><a href="planquery.php">Known Planet Query</a></li>
             <li><a href="blindtargs.php">Blind Search Targets</a></li>
             <li><a href="docs/html/index.html" target="_blank" >Documentation</a></li>
+            <li><a href="docs/plandbschema/index.html" target="_blank" >Schema</a></li>
             <li style="float:right"><a href="about.php">Use Policy</a></li>
           </ul>
         </nav></strong>
