@@ -3,19 +3,19 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Known Planets Database
+Imaging Mission Database
 ==================================================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-The Known Planets Database is a merge of the information in the NASA Exoplanet Science Institute Exoplanet Archive (hosted at IPAC) with calculated photometric, orbital, and direct imaging completeness information for planets of interest to the direct imaging community.  This documentation is intended to unambiguously define exactly how the database is generated and list all assumptions made.  It will also (eventually) contain use cases and sample queries. 
+The Imaging Mission Database is a merge of the information in the NASA Exoplanet Science Institute Exoplanet Archive (hosted at IPAC) with calculated photometric, orbital, and direct imaging completeness information for planets of interest to the direct imaging community. It also includes potential blind search targets from the ExoCat-1 Catalog along with their depth of search values.   This documentation is intended to unambiguously define exactly how the database is generated and list all assumptions made.  It will also (eventually) contain use cases and sample queries. 
 
 .. _photometry:
 
 Planet Photometry
-------------------------------
+=====================
 
 For photometry, we will using model grids by Nikole Lewis et al. (publication pending). These grids represent values of geometric albedo scaled by phase function value (:math:`p\Phi(\beta)`), parametrized by:
 
@@ -60,7 +60,7 @@ where :math:`f_{m,c,d,\beta}` is the relevant interpolant over the model grid on
         
         This is a pretty crude integral approximation, but the associated error is significantly lower than all other errors involved here, so there's not much point in changing it to something more complex.  Straight quadrature over the interpolant is very fragile given the grids, and takes excessively long to compute.
 
-Known Planet Tables
+Known Planet Targets
 =============================
 
 
@@ -109,7 +109,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 
     \left( \frac{ \mu T^2 }{ 4\pi^2 }\right)^\frac{1}{3}
     
-  The values are converted to AU and copied to the `pl_orbsmax`` column.  The ``pl_orbsmaxreflink`` for these rows is updated to: "Calculated from stellar mass and orbital period."
+  The values are converted to AU and copied to the ``pl_orbsmax`` column.  The ``pl_orbsmaxreflink`` for these rows is updated to: "Calculated from stellar mass and orbital period."
 
 
 7. The angular separation (``pl_angsep``) is re-calculated for all rows based on the current entries of ``pl_orbsmax`` (:math:`a`) and ``st_dist`` (:math:`d`) as:
@@ -228,11 +228,6 @@ For each row in KnownPlanets, orbital data is generated as follows:
 2. ``pl_orbeccen`` is taken as the eccentricity :math:`e`.  If the eccentricity is undefined, it is set to zero. 
 3. ``pl_orbincl`` is taken as the inclination :math:`I`; if it is undefined it is set to 90 degrees. 
 4. ``pl_orblper`` is taken as the argument of periapsis :math:`\omega`; if it is undefined it is set to zero. 
-
-   .. warning::
- 
-    **N.B: this is forcing the assumption of longitude of the ascending node equaling zero.** 
-
 5. ``pl_radj_forecastermod`` is taken to be the planet radius :math:`R`. 
    
    .. note::
@@ -319,7 +314,7 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 
 .. _blindsearch:
 
-Blind Search Tables
+Blind Search Targets
 =============================
 
 
@@ -411,10 +406,29 @@ The alias list for every target is guaranteed to include the name in ``pl_hostna
 
 
 
-Database Structure
+Database Use
 ====================
 
-All tables use the InnoDB engine. ``pl_name`` and ``pl_hostname`` are set as indexes for KnownPlanets.  ``Name`` is set as an index for both PlanetOrbits and Completeness and as a foreign key referencing ``pl_name`` in KnownPlanets.  ``SID`` and ``Alias`` in Alias are set as indexes.
+A detailed schema of the full database is available at https://plandb.sioslab.com/docs/plandbschema/index.html
+
+You can also use the general query page to get information about the database by querying ``show tables`` for a list of all available tables and ``show full columns in TableName`` for a description of all columns in a table (e.g., ``show full columns in KnownPlanets``).
+
+A few sample queries:
+
+    * Select all known planets with non-zero WFIRST completeness and star magnitudes of less than 7:  ::
+
+        select pl_name,  completeness, st_optmag from KnownPlanets where completeness is not NULL and st_optmag <= 7 order by completeness DESC
+
+    * Select everything from the ``BlindTargs`` table: ::
+
+        select * from BlindTargs
+
+    * Get HD catalog numbers of all blind search targets: ::
+
+        select alias as HD from Aliases where SID  in (select SID from Aliases right join BlindTargs ON BlindTargs.Name = Aliases.Alias) and Alias like '%HD%' 
+        
+
+
 
    
 References
