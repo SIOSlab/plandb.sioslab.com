@@ -17,7 +17,7 @@ The Imaging Mission Database is a merge of the information in the NASA Exoplanet
 Planet Photometry
 =====================
 
-For photometry, we will using model grids by Nikole Lewis et al. (publication pending). These grids represent values of geometric albedo scaled by phase function value (:math:`p\Phi(\beta)`), parametrized by:
+For photometry, we will using model grids by Natasha Batalha and Nikole Lewis et al. ([Batalha2018]_). These grids represent values of geometric albedo scaled by phase function value (:math:`p\Phi(\beta)`), parametrized by:
 
    * Metallicity (dex) for values [0. , 0.5, 1. , 1.5, 1.7, 2. ]
    * Star-planet separation (orbital radius) (AU) for values [0.5 , 0.6 , 0.7 , 0.85, 1.  , 1.5 , 2.  , 3.  , 4.  , 5.  ]
@@ -59,6 +59,33 @@ where :math:`f_{m,c,d,\beta}` is the relevant interpolant over the model grid on
     .. note::
         
         This is a pretty crude integral approximation, but the associated error is significantly lower than all other errors involved here, so there's not much point in changing it to something more complex.  Straight quadrature over the interpolant is very fragile given the grids, and takes excessively long to compute.
+
+.. _sampleclouds:
+
+In the case where we wish to sample over a distribution of  :math:`f_\textrm{sed}` values, we adopt the following discrete density function:
+
+=========      ==============
+f_sed          Frequency
+=========      ==============
+0.000000       0.099
+0.010000       0.001
+0.030000       0.005
+0.100000       0.010
+0.300000       0.025
+1.000000       0.280
+3.000000       0.300
+6.000000       0.280
+=========      ==============
+
+This distribution is provided courtesy of Mark Marley (private communication) with the following explanation:
+
+The reflectivity of all types of planets, but especially gas giant planets, is extremely sensitive to cloud properties. The group of modeling codes for extrasolar giant planets developed by Marley and collaborators (e.g., [Marley1999a]_; [Marley1999b]_; [Ackerman2001]_; [Cahoy2010]_; [MacDonald2018]_) describes clouds height and optical depth with a parameter  :math:`f_\textrm{sed}`  which describes the relative importance of vertical transport and sedimentation of cloud particles. When  :math:`f_\textrm{sed}`  is small uplift dominates over sedimentation and clouds are vertically thick with small particles. When f_sed is large sedimentation dominates over upward mixing and particles are large and clouds are thinner. Studies of brown dwarfs and comparisons to solar system gas giants typically find  :math:`f_\textrm{sed}`  values of 1 to 5 best match observations. Efforts to match the vertically extended clouds apparently seen in transiting planets have relied on very small values of  :math:`f_\textrm{sed}`  (much less than 1). 
+
+To date the value of  :math:`f_\textrm{sed}`  has been set by comparison to models to data and there is little a priori basis to choose a particular value. However in the solar system gas giants Jupiter and Saturn, clouds are found in relatively distinct layers compatible with moderate values of  :math:`f_\textrm{sed}` . Given this context our prior expectation for the cool giants to be imaged by WFIRST is for distinct cloud decks compatible with moderate  :math:`f_\textrm{sed}`  (1 to 6). Very thick, extensive clouds such as found in young, warm Jupiters or highly irradiated hot Jupiters are not expected, but are possible. Likewise very thin or absent clouds, perhaps arising from unexpected atmospheric composition, thermal profile, or dynamics are likewise not expected but possible. 
+
+To capture this expectation we assign a frequency of about 30% each to moderate values of  :math:`f_\textrm{sed}`  (1 to 6), a frequency of just a few percent to small values (<1) seen in transiting planets, and the remainder (about 10%) to cloudless case. 
+
+We note that photochemistry and haze production may very well play a determinative role in forming atmospheric aerosols and controlling atmospheric reflectivity, but there are as yet no adequate models to handle this. The range of  :math:`f_\textrm{sed}` values considered here should encompass all types of reflectivity, including that produced by photochemical hazes.
 
 Known Planet Targets
 =============================
@@ -295,7 +322,7 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 7. If the planet radius in KnownPlanets was calculated from the mass, and the mass (``pl_bmassj``) represents :math:`M\sin I`, the mass sample is defined as ``pl_bmassj``:math:`/sin(I)`.
 8. The mean anomaly is sampled from a uniform distribution between 0 and 360 degrees.
 9. The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOrbits table (see :ref:`Steps 9 - 13<orbcalcref>`). 
-10. The cloud :math:`f_\textrm{sed}` is sampled from a normal distribution with mean 3.0 and standard deviation 2.
+10. The cloud :math:`f_\textrm{sed}` is sampled as described in the Planet Photometry discussion (:ref:`see above<sampleclouds>`).
 11. A 2D histogram is constructed from the phase angle and :math:`\Delta\textrm{mag}` sampled on a predefined grid with angular separation sampled from 150 to 450 mas in increments of 1 mas and  :math:`\Delta\textrm{mag}` sampled from 0 to 26 in increments of 0.1.
 12. A single completeness value is calculated by finding the fraction of sampled points such that the angular separation falls between 150 and 450 mas and the  :math:`\Delta\textrm{mag}` is less than or equal to a curve defined from the 575 nm WFIRST predicted performance.
 13. The sampling procedure is repeated (drawing :math:`n` samples at a time) and the histogram and bulk completeness value are updated until the completeness converges to within 0.01%.
@@ -433,6 +460,12 @@ A few sample queries:
    
 References
 =============
+.. [Batalha2018] Batalha, N. E., Smith, A. J. R. W., Lewis, N. K., Marley, M. S., Fortney, J. J. and Macintosh, B. (2018) Color Classification of Extrasolar Giant Planets: Prospects and Cautions, AJ 156(4)
+.. [Marley1999a] Marley, M. S., Gelino, C., Stephen, D., Lunine, J. I., and Freedman, R. (1999) Reflected spectra and albedos of extrasolar giant planets. I. Clear and cloudy atmospheres, ApJ 513(2)
+.. [Marley1999b] Marley, M. S. and McKay, C. P. (1999) Thermale Structure of Uranus' Atmosphere, Icarus 138
+.. [Ackerman2001] Ackerman, A. S. and Marley, M. S. (2001) Precipitating Condensation Clouds in Substellar Atmospheres, ApJ 556
+.. [Cahoy2010] Cahoy, K. L., Marley, M. S. and Fortney, J. J. (2010) Exoplanet albedo spectra and colors as a function of planet phase, separation, and metallicity, ApJ 724
+.. [MacDonald2018] MacDonald, R. J., Marley M. S., Fortney, J. J. and Lewis, N. K. (2018) Exploring H20 Prominence in Reflection Spectra of Cool Giant Planets, ApJ 858
 .. [Chen2016] Chen, J. and Kipping, D. M. (2016) Probabilistic Forecasting of the Masses and Radii of Other Worlds, ApJ 834(1)
 .. [Fortney2007] Fortney, J. J., Marley, M. S. and Barnes, J. W. (2007) Planetary Radii across Five Orders of Magnitude in Mass and Stellar Insolation: Application to Transits, ApJ 659, 2
 .. [Brown2005] Brown, R. A. (2005) Single-visit photometric and obscurational completeness, ApJ 624

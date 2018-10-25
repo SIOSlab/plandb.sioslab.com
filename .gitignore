@@ -65,6 +65,7 @@ charttest.php
 *.npz
 *.xlsx
 *.txt
+*.csv
 
 DoSplots
 DoS_10_2018*
