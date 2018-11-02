@@ -460,32 +460,71 @@ smas = data['pl_orbsmax'].values
 fes = data['st_metfe'].values
 fes[np.isnan(fes)] = 0.0
 Rps = data['pl_radj_forecastermod'].values
+inc = data['pl_orbincl'].values
+eccen = data['pl_orbeccen'].values
+arg_per = data['pl_orblper'].values
 
 tmpout = {}
 for c in clouds:
     for l in lambdas:
         tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape)
-        tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape) 
+        tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape)
+        tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"] = np.zeros(smas.shape)
 
 
-for j, (Rp, fe,a) in enumerate(zip(Rps, fes,smas)):
+for j, (Rp, fe,a, I, e, w) in enumerate(zip(Rps, fes,smas, inc, eccen, arg_per)):
     print(j)
     for c in clouds:
         for l,band,bw,ws,wstep in zip(lambdas,bands,bws,bandws,bandwsteps):
             #pphi = photinterps2[float(feinterp(fe))][float(distinterp(a))][c](90.0,float(l)/1000.).flatten()
             #pphi = scipy.integrate.quad(quadinterps[float(feinterp(fe))][float(distinterp(a))][c],band[0],band[1])[0]/bw
-            pphi = quadinterps[float(feinterp(fe))][float(distinterp(a))][c](ws).sum()*wstep/bw
-            if np.isinf(pphi):
-                print("Inf value encountered in pphi")
-                pphi = np.nan
-            #pphi[np.isinf(pphi)] = np.nan
-            #pphi = pphi[0]
-            tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"][j] = pphi
-            dMag = deltaMag(1, Rp*u.R_jupiter, a*u.AU, pphi)
+
+            #Only calc quadrature distance if known eccentricity and argument of periaps, and not face-on orbit
+            if not np.isnan(e) and not np.isnan(w) and I != 0:
+                nu1 = -w
+                nu2 = np.pi - w
+
+                r1 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu1))
+                r2 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu2))
+
+                pphi1 = quadinterps[float(feinterp(fe))][float(distinterp(r1))][c](ws).sum() * wstep / bw
+                pphi2 = quadinterps[float(feinterp(fe))][float(distinterp(r2))][c](ws).sum() * wstep / bw
+                if np.isinf(pphi1):
+                    print("Inf value encountered in pphi")
+                    pphi1 = np.nan
+                if np.isinf(pphi2):
+                    print("Inf value encountered in pphi")
+                    pphi2 = np.nan
+                # pphi[np.isinf(pphi)] = np.nan
+                # pphi = pphi[0]
+
+                dMag1 = deltaMag(1, Rp * u.R_jupiter, r1 * u.AU, pphi1)
+                dMag2 = deltaMag(1, Rp * u.R_jupiter, r2 * u.AU, pphi2)
+                if np.isnan(dMag2) or dMag1 < dMag2:
+                    dMag = dMag1
+                    pphi = pphi1
+                    r = r1
+                else:
+                    dMag = dMag2
+                    pphi = pphi2
+                    r = r2
+                tmpout['quad_pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = pphi
+                tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = r
+            else:
+                pphi = quadinterps[float(feinterp(fe))][float(distinterp(a))][c](ws).sum()*wstep/bw
+                if np.isinf(pphi):
+                    print("Inf value encountered in pphi")
+                    pphi = np.nan
+                #pphi[np.isinf(pphi)] = np.nan
+                #pphi = pphi[0]
+                tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"][j] = pphi
+                dMag = deltaMag(1, Rp*u.R_jupiter, a*u.AU, pphi)
+                tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = a
             if np.isinf(dMag): 
                 print("Inf value encountered in dmag")
                 dMag = np.nan
             tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"][j] = dMag
+
 
 
 #collect min/max/med for every wavelength

@@ -234,15 +234,29 @@ The KnownPlanets table contains all of the target star and known planet properti
 
 .. _photcalcref:
 
-14. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  Rather than employing a full orbital solution (which is done for the :ref:`planetorbits_table`), here we simply take the planet's semi-major axis to be the orbital radius and projected separation at the time of quadrature. The angular separation at quadrature is therefore equal to the value already calculated in the ``pl_angsep`` column, and so no additional column needs to be added.
+14. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  We have two approaches for calculating the quadrature radius depending on what data exists for the planet.  If the planet has data for eccentricity and argument of periapsis and the inclination data is either null or non-zero, then we calculate the true anomaly using the fact that :math:`\theta = \omega+\nu` and:
 
-    For the photometry, we calculate the grid data (:math:`p\Phi(\beta)`) and resulting :math:`\Delta\textrm{mag}` for all combinations of cloud level and wavelength of interest (8x5) for 80 total photometry columns.  These columns are named ``quad_pPhi_XXXC_YYYNM`` and ``quad_dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm.  :math:`\Delta\textrm{mag}` is calculated as:
+	.. math::
+			\theta = \sin^{-1}\left(\frac{\cos\beta}{\sin I}\right)
+
+   This gives us two solutions for the true anomaly, :math:`\nu = -\omega` and :math:`\nu = \pi - \omega`.  Two possible values for the radius at quadrature are calculated as: 
+
+	.. math::
+
+			r = \frac{a(1 - e^2)}{1 + e\cos\nu}
+			
+	
+   From these two radius values, we pick the radius that results in the smallest :math:`\Delta\textrm{mag}` (as calculated below) so that we determine the highest possible brightness for the planet.  
+   
+   In the case where eccentricity or argument of periapsis are null, or if the orbit is face-on, then we take the semi-major axis to be the orbial radius at quadrature.
+
+   For the photometry, we calculate the grid data (:math:`p\Phi(\beta)`) and resulting :math:`\Delta\textrm{mag}` for all combinations of cloud level and wavelength of interest (8x5) for 80 total photometry columns.  These columns are named ``quad_pPhi_XXXC_YYYNM`` and ``quad_dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm.  :math:`\Delta\textrm{mag}` is calculated as:
 
     .. math::
         
         \Delta\textrm{mag} = -2.5\log_{10}\left(p\Phi(\beta) \left(\frac{R}{r}\right)^2 \right)
     
-    for planet radius :math:`R` and orbital radius :math:`r`. 
+   for planet radius :math:`R` and orbital radius :math:`r`.  We store the radius at quadrature that is used in the final calculation in the ``quad_dmag`` column.
     
     .. note::
 
