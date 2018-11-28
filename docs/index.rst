@@ -165,13 +165,23 @@ The KnownPlanets table contains all of the target star and known planet properti
     |   (Planet Semi-Major Axis OR (Planet Period AND Star Mass)) AND 
     |   (Planet Radius OR Planet Mass OR Planet :math:`m\sin(I))`.
 
-#. For the remaining rows that do not have a planet semi-major axis, it is filled in as follows: The `st_mass` value is taken to be the stellar mass (:math:`M_S`) in units of :math:`M_\odot` and the gravitational parameter is calculated as :math:`\mu = G M_S`. The ``pl_orbper`` value is taken to be the orbital period (:math:`T`) in units of days. The semi-major axis is then calculated as: 
+#. For the remaining rows that do not have a planet semi-major axis, it is filled in as follows: The ``st_mass`` value is taken to be the stellar mass (:math:`M_S`) in units of :math:`M_\odot` and the gravitational parameter is calculated as :math:`\mu = G M_S`. The ``pl_orbper`` value is taken to be the orbital period (:math:`T`) in units of days. The semi-major axis is then calculated as: 
 
    .. math::
 
       \left( \frac{ \mu T^2 }{ 4\pi^2 }\right)^\frac{1}{3}
     
-   The values are converted to AU and copied to the ``pl_orbsmax`` column.  The ``pl_orbsmaxreflink`` for these rows is updated to: "Calculated from stellar mass and orbital period."
+   The values are converted to AU and copied to the ``pl_orbsmax`` column.  The ``pl_orbsmaxreflink`` for these rows is updated to: "Calculated from stellar mass and orbital period."  
+   
+   The semi-major axis errors for these calculations are taken to be the propagation of the errors in stellar mass and orbital period through a first-order linearization of the equation above, under the assumption of independence of these errors, such that:
+
+   .. math::
+
+      \sigma_a^2 = \frac{\partial}{\partial T}\left( \frac{ \mu T^2 }{ 4\pi^2 }\right)^\frac{1}{3} \sigma_T^2 + \frac{\partial}{\partial \mu}\left( \frac{ \mu T^2 }{ 4\pi^2 }\right)^\frac{1}{3} \sigma_\mu^2
+
+      = \frac{2^{\frac{2}{3}} \left(T^{2} \mu\right)^{\frac{2}{3}}}{9 \pi^{\frac{4}{3}} T^{2}}\sigma_T^2 + \frac{2^{\frac{2}{3}} \left(T^{2} \mu\right)^{\frac{2}{3}}}{36 \pi^{\frac{4}{3}} \mu^{2}}\sigma_\mu^2
+
+   where :math:`\sigma_T` and :math:`\sigma_\mu` are taken as the mean values from ``st_masserr1`` and ``st_masser2`` and ``pl_orbpererr1`` and ``pl_orbpererr2``, respectively.  The :math:`\sigma_a` values are then copied to the ``pl_orbsmaxerr1`` and (negative) ``pl_orbsmaxerr2`` columns for the missing semi-major axis rows. 
 
 #. The angular separation (``pl_angsep``) is re-calculated for all rows based on the current entries of ``pl_orbsmax`` (:math:`a`) and ``st_dist`` (:math:`d`) as:
     
@@ -179,7 +189,13 @@ The KnownPlanets table contains all of the target star and known planet properti
     
       \tan^{-1}\left( \frac{a}{d} \right)
 
-   with the result converted to miliarcseconds. 
+   with the result converted to miliarcseconds. As above, the errors are propagated via a first-order linearization of the equation, so that:
+
+   .. math::
+
+      \sigma_\alpha = \sqrt{\frac{a^{2} \sigma_{d}^{2} + d^{2} \sigma_{a}^{2}}{\left(a^{2} + d^{2}\right)^{2}}}
+   
+   where :math:`\sigma_a` and :math:`\sigma_d` are again taken from the ``pl_orbsmaxerr*`` and ``st_disterr*`` columns and the the resulting :math:`\sigma_\alpha` values are written to the ``pl_angseperr*`` columns. 
 
 
 #. The composite data table has radius values computed from available masses using the Forecaster best-fit ([Chen2016]_).  This tends to overestimate the radius for many Jovian-size planets, so we provide two additional mass estimates (but leave the original column).  We will only carry along masses in units of :math:`M_J`, and so drop columns ``pl_rade,  pl_radelim, pl_radserr2, pl_radeerr1, pl_rads, pl_radslim, pl_radeerr2, pl_radserr1``.
