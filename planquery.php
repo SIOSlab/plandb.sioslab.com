@@ -3,15 +3,15 @@ include "templates/header.php";
 include "templates/headerclose.php"; 
 ?>
 
-<h2> Planet Detail Query </h2>
+<h2> Known Planet Detail Query </h2>
 
 <?php 
 $sqlsel = "SELECT pl_name as Name, pl_angsep, st_optmag,completeness FROM KnownPlanets WHERE "; 
 $sqlord = "ORDER by completeness DESC";
 ?>
 
-<p>See the IPAC <a href='https://exoplanetarchive.ipac.caltech.edu/docs/API_exoplanet_columns.html'>schema here</a> for available column names.  Additional columns are: smax_from_orbper (bool: semi-major axis calculated from orbital period), pl_maxangsep, pl_minangsep, rad_from_mass (planet radius (pl_radj only) calculated from pl_bmassj using Forecaster). You can also query <a href="index.php?querytext=show columns in KnownPlanets">"show columns in KnownPlanets"</a>.
-This interface filters planets of interest and links to details pages for the results.  Only enter the conditions clause of the query (the part after WHERE):</br></br>
+<p>See <a href="index.php?querytext=show full columns in KnownPlanets">"show columns in KnownPlanets"</a> for all available columns to query on.
+This interface filters planets of interest and links to detail pages for the results.  Only enter the conditions clause of the query (the part after WHERE):</br></br>
 
 <?php echo "$sqlsel";?>
  <form action="planquery.php" method="POST">

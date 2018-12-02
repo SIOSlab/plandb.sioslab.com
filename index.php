@@ -6,8 +6,9 @@ include "templates/headerclose.php";
 <h2> General Query </h2>
 
 <p>
-This interface provides direct querying to the full database. See the IPAC <a href='https://exoplanetarchive.ipac.caltech.edu/docs/API_exoplanet_columns.html'>Confirmed Planet</a> and <a href='https://exoplanetarchive.ipac.caltech.edu/docs/API_compositepars_columns.html'>Composite Planet</a> table schemas for available column names.  You can also query <a href="index.php?querytext=show full columns in KnownPlanets">"show full columns in KnownPlanets"</a>.  Query must include selection of pl_name to create links to planet detail pages.
- <form action="index.php" method="POST">
+This interface provides direct querying to the full database. Queries including selection of pl_name will automatically create links to known planet detail pages. See the <a href="docs/plandbschema/index.html" target=_blank>Schema</a> for all available tables and columns.
+
+<form action="index.php" method="POST">
         <textarea name="querytext" rows="4" cols="100">
 <?php 
 if (!empty($_GET["querytext"])){

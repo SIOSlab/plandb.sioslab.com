@@ -6,7 +6,7 @@
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 
-	<title>Planet Database</title>
+	<title>Imaging Mission Database</title>
 
     <link rel="stylesheet" href="css/main.css">
 

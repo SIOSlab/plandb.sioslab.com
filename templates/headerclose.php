@@ -2,14 +2,17 @@
 
 <body>
     <header>
-      <div class="container">
-          <h1 class="logo"><a href="index.php">Known Planet Database</a></h1>
-        <strong><nav>
-          <ul class="menu">
-            <li><a href="planquery.php">Planet Query</a></li>
-            <li><a href="docs/html/index.html">Documentation</a></li>
-          </ul>
-        </nav></strong>
-      </div>
+    <h1 class="logo"><a href="index.php">Imaging Mission Database</a></h1><br><br>
     </header> 
 
+        <strong><nav>
+          <ul class="menu">
+            <li><a href="index.php">General Query</a></li>
+            <li><a href="planquery.php">Known Planet Query</a></li>
+            <li><a href="blindtargs.php">Blind Search Targets</a></li>
+            <li><a href="docs/html/index.html" target="_blank" >Documentation</a></li>
+            <li><a href="docs/plandbschema/index.html" target="_blank" >Schema</a></li>
+            <li style="float:right"><a href="about.php">Use Policy</a></li>
+          </ul>
+        </nav></strong>
+   

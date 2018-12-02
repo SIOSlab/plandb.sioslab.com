@@ -32,7 +32,7 @@ if ($result){
 
         echo "<div class='results-outer'>\n";
         echo "<table class='results' id='gentable'><thead><tr>\n";
-        echo "<th>Name</th><th>Priority</th><th>&Sigma; DoS(R &lt; R<sub>Nep</sub>)<th>Dist (pc)</th><th>V mag</th><th>Stellar Rad (mas)</th><th>DoS</th>";
+        echo "<th>Name</th><th>Priority</th><th>&Sigma; DoS(R &lt; R<sub>Nep</sub>)<th>Dist (pc)</th><th>V mag</th><th>Stellar Rad (mas)</th><th>Spectral Type</th><th>DoS</th>";
         echo "</tr></thead>\n";
         while($row = $result->fetch_assoc()) {
             echo "<tr><td>";
@@ -47,6 +47,8 @@ if ($result){
             echo $row["Vmag"];
             echo "</td><td>";
             echo number_format((float)$row[angrad], 4, '.', '');
+            echo "</td><td>";
+            echo $row[spec];
             echo "</td><td>";
             echo "<a href='DoSplots/".$row["Name"].".png'><img src='DoSplots/thumbs/".$row["Name"].".png'></a>";
             echo "</td></tr>";
