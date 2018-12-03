@@ -16,12 +16,13 @@ def substitute_data(original_data):
     r_ext = requests.get(query_ext)
     data_ext = pandas.read_csv(StringIO(r_ext.content))
 
-    planets_of_int = pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\output.csv")
-    names = planets_of_int[["pl_name"]]
+    # planets_of_int = pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\output.csv")
+    # names = planets_of_int[["pl_name"]]
 
     regex = re.compile(r"(<a.*f>)|(</a>)")
-    regex_year = re.compile(r"[A-Za-z\.&; \-]")
+    regex_year = re.compile(r"[A-Za-z'#\.&; \-]")
 
+    names = original_data[["pl_name"]]
     names = names.values
     extended = data_ext[data_ext["mpl_name"] == names[0][0]]
     # extended = extended.reset_index()
@@ -79,6 +80,9 @@ def substitute_data(original_data):
 
         extended_arr[n][num_cols] = regex.sub("", extended_arr[n][author])
         extended_arr[n][num_cols+1] = int(regex_year.sub("", extended_arr[n][num_cols]), 10)
+        # In order to catch issues where an extra number is added to the front of the year due to weird formatting
+        if extended_arr[n][num_cols+1] > 3000:
+            extended_arr[n][num_cols + 1] = extended_arr[n][num_cols+1] % 10000
 
         author_col.append(regex.sub("", extended_arr[n][author]))
         # print(int(regex_year.sub("", author_col[n], 10)))
@@ -101,6 +105,7 @@ def substitute_data(original_data):
 
     while n < len(names):
         planet_rows = extended.loc[extended["mpl_name"] == names[n][0]]
+        print(names[n])
 
         sorted_rows = planet_rows.sort_values(by=["publication_year"], axis=0, ascending=False)
         good_idx = sorted_rows.index[0]
@@ -136,7 +141,7 @@ def substitute_data(original_data):
                 good_idx = index
                 good_lvl = 1
             # 1st doesn't have basic info
-            elif index == good_idx and base_need:
+            elif index == good_idx and not base_need:
                 good_idx = -1
             # Previous row needed to be replaced
             elif good_idx == -1 and base_need:
@@ -148,9 +153,6 @@ def substitute_data(original_data):
 
         extended.at[good_idx, "best_data"] = 1
         n = n + 1
-
-    # extended2.columns = cols
-    extended_limited = extended[cols2]
 
     extended_data = extended
 
