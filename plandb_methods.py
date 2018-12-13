@@ -1036,3 +1036,53 @@ def genAliases(data):
     return out3
 
 
+# Separates data into pl_data and st_data
+def generateTables(data):
+    # Isolate the stellar columns from the planet columns
+    st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
+    st_cols.extend(["dec", "dec_str", "hd_name", "hip_name", "ra", "ra_str"])
+    pl_cols = np.setdiff1d(data.columns, st_cols)
+    st_cols.append("pl_hostname")
+    st_cols.remove("pl_st_npar")
+    st_cols.remove("pl_st_nref")
+    st_data = data[st_cols]
+    st_data.drop_duplicates(keep=False, inplace=True)
+    st_data.reset_index(drop=True)
+    pl_data = data[pl_cols]
+    st_data = st_data.rename(columns={'pl_hostname':'st_name'})
+    pl_data = pl_data.rename(columns={'pl_hostname': 'st_name'})
+
+    num_rows = len(st_data.index)
+    stars = pl_data['st_name']
+    stars.drop_duplicates(keep=False, inplace=True)
+    num_stars = len(stars.index)
+    # If these aren't equal, then two sources of data for a star don't agree.
+    assert num_rows == num_stars, "Stellar data for different planets not consistent"
+
+    idx_list = []
+    for idx, row in pl_data.iterrows():
+        st_idx = st_data[st_data['st_name'] == row['st_name']].index.values
+        # If there's no star associated with a planet, should have null index
+        if len(st_idx) == 0:
+            idx_list.append(None)
+        else:
+            idx_list.append(st_idx[0])
+
+    pl_data = pl_data.assign(st_id=idx_list)
+
+    return pl_data, st_data
+
+
+# Adds a pl_id column to data using the planet data specified by pl_data whose orignal column name is pl_name
+def add_pl_idx(data, pl_data, pl_name):
+    idx_list = []
+    data = data.rename(columns={pl_name: 'pl_name'})
+    for idx, row in data.iterrows():
+        pl_idx = pl_data[pl_data['pl_name'] == row['pl_name']].index.values
+        if len(pl_idx) == 0:
+            idx_list.append(None)
+        else:
+            idx_list.append(pl_idx[0])
+
+    data = data.assign(pl_id=idx_list)
+    return data
