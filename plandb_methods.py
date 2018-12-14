@@ -96,13 +96,18 @@ def getIPACdata():
     # substitute data from the extended table.
     #data = substitute_data(data)
 
-
+    #grab extended data table
     query_ext = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"""
     r_ext = requests.get(query_ext)
     data_ext = pandas.read_csv(StringIO(r_ext.content))
 
+    extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
+    
+    regex = re.compile(r"(<a.*f>)|(</a>)")
+    #regex_year = re.compile(r"[A-Za-z'#\.&; \-]")
 
-
+    refs = [regex.sub("", extended['mpl_reflink'][j]).strip() for j in range(len(extended))]
+    refyrs = [int(re.findall('(\d{4})', ref)[0]) for ref in refs]
 
 
 
