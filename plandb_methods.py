@@ -108,6 +108,7 @@ def getIPACdata():
 
     refs = [regex.sub("", extended['mpl_reflink'][j]).strip() for j in range(len(extended))]
     refyrs = [int(re.findall('(\d{4})', ref)[0]) for ref in refs]
+    extended = extended.assign(ref_author=refs,publication_year=refyrs)
 
 
 
