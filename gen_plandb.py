@@ -1,6 +1,8 @@
 from __future__ import print_function
 from __future__ import division
 from plandb_methods import *
+import getpass,keyring
+
 
 datestr = Time.now().datetime.strftime("%Y-%m-%d")
 cache = False
@@ -52,4 +54,5 @@ if passwd is None:
 engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsavrans_plandb',echo=False)
 #proddb#################################################################################################
 
-
+writeSQL(engine,data=data)
+writeSQL(engine,orbdata=orbdata,altorbdata=altorbdata,comps=comps)

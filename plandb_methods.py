@@ -15,6 +15,8 @@ import re
 import os
 from EXOSIMS.util.deltaMag import deltaMag
 from EXOSIMS.util.eccanom import eccanom
+from astroquery.simbad import Simbad
+from requests.exceptions import ConnectionError
 
 
 def RfromM(m):
@@ -1076,13 +1078,9 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     return out2,outdict,data
 
 
-def genAliases(data):
-    """ Grab all available aliases for all targets. """
-
-    from astroquery.simbad import Simbad
-    from requests.exceptions import ConnectionError
-    starnames = data['pl_hostname'].unique()
-
+def genAliases(starnames):
+    """ Grab all available aliases for list of targets. """
+    
     s = Simbad()
     s.add_votable_fields('ids')
     baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI"
@@ -1147,6 +1145,18 @@ def genAliases(data):
                              })
 
     return out3
+
+def genAllAliases(data):
+    starnames = data['pl_hostname'].unique()
+    return genAliases(starnames)
+
+def fillMissingAliases(engine,data):
+    result = engine.execute("select Alias from Aliases where NEAName=1")
+    dbnames = np.hstack(result.fetchall())
+    starnames = data['pl_hostname'].unique()
+    missing = list(set(starnames) - set(dbnames))
+
+    return genAliases(missing)
 
 
 def writeSQL(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=None):
