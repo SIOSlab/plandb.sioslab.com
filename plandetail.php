@@ -109,7 +109,7 @@ echo "<TR><TH style='width:".$wd."%'>Radius (Jupiter Radii)</TH><TD>".$row[pl_ra
 if ($row[pl_radreflink])
     echo " (".$row[pl_radreflink].")";
 echo "</TD></TR>\n";
-if ($row[pl_radreflink] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>'){
+if ($row[pl_radreflink] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>' or $row[pl_radreflink] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') {
     echo "<TR><TH style='width:".$wd."%'>Radius Based on Modified Forecaster (Jupiter Radii)</TH><TD>".$row[pl_radj_forecastermod]." (<a href='docs/html/index.html#forecastermodref' target=_blank>See here</a>)</TD></TR>\n";
     echo "<TR><TH style='width:".$wd."%'>Radius Based on Fortney et al., 2007 (Jupiter Radii)</TH><TD>".$row[pl_radj_fortney]." (<a href='docs/html/index.html#fortneyref' target=_blank>See here</a>)</TD></TR>\n";
 }
@@ -176,7 +176,10 @@ if ($resultp){
               r = new Array(xsize), WA = new Array(xsize); \n";
         $i = 0;
         while($rowp = $resultp->fetch_assoc()) {
-            echo "x[".$i."]=".$rowp[M].";";
+            if ($i == 0){ 
+                $havet = !(is_null($rowp[t]));
+            }
+            echo "x[".$i."]="; if ($havet){echo $rowp[t].";";} else{echo $rowp[M].";";}
             echo "d000[".$i."]="; if ($rowp[dMag_000C_575NM]){ echo $rowp[dMag_000C_575NM]; } else{ echo "NaN";} echo";";
             echo "d001[".$i."]="; if ($rowp[dMag_001C_575NM]){ echo $rowp[dMag_001C_575NM]; } else{ echo "NaN";} echo";";
             echo "d003[".$i."]="; if ($rowp[dMag_030C_575NM]){ echo $rowp[dMag_030C_575NM]; } else{ echo "NaN";} echo";";
@@ -325,10 +328,12 @@ if ($resultp){
              var data = [td1,td2,td3,td4,td5,td6,td7,td8,tp1,tp2,tp3,tp4,tp5,tp6,tp7,tp8];\n
 
              var layout = {\n
-                xaxis: {title: 'Mean Anomaly (rad)',
+                xaxis: {title:";
+                if ($havet){echo "'Time After 1/1/2016 (days)'},";}
+                else{echo "'Mean Anomaly (rad)',
                         tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
-                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },
-                yaxis: {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
+                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },";}
+                echo "yaxis: {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
                 yaxis2: {title: 'p * \u03A6 (\u03B2)', titlefont: {color: 'blue'}, tickfont: {color: 'blue'}, overlaying: 'y', side: 'right'},
                 margin: { t: 30, b:50, l:50, r:75},
                 showlegend: false,
@@ -355,10 +360,12 @@ if ($resultp){
              var data2 = [trace5, trace6];\n
 
              var layout2 = {\n
-                xaxis: {title: 'Mean Anomaly (rad)',
+                xaxis: {title:";
+                if ($havet){echo "'Time After 1/1/2016 (days)'},";}
+                else{echo "'Mean Anomaly (rad)',
                         tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
-                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },
-                yaxis: {title: 'Orbital Radius (AU)', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
+                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },";}
+                echo "yaxis: {title: 'Orbital Radius (AU)', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
                 yaxis2: {title: 'Angular Separation (mas)', titlefont: {color: 'blue'}, tickfont: {color: 'blue'}, overlaying: 'y', side: 'right'},
                 showlegend: false,
                 margin: { t: 30, b:50, l:75, r:50}
@@ -383,13 +390,14 @@ if ($resultap){
         echo "var xsize = ".$resultap->num_rows.", WA90 = new Array(xsize), dMag90 = new Array(xsize),
               WA60 = new Array(xsize), dMag60 = new Array(xsize),
               WA30 = new Array(xsize), dMag30 = new Array(xsize),
-              WAcrit = new Array(xsize), dMagcrit = new Array(xsize), msizes = 7, txtvals = new Array(xsize); \n";
+              WAcrit = new Array(xsize), dMagcrit = new Array(xsize), msizes = new Array(xsize), txtvals = new Array(xsize); \n";
 
+        $maxi = $resultap->num_rows;
         $i = 0;
         while($rowp = $resultap->fetch_assoc()) {
             if ($i == 0){ $Icrit = round($rowp[Icrit] * 180.0/pi(), 2); }
-            #echo "msizes[".$i."]=".(($i+1)/5).";";
-            echo "txtvals[".$i."]='JD".sprintf("%2.3g",$rowp[M])."';";
+            echo "msizes[".$i."]=".(-19/$maxi*$i + 20).";";
+            echo "txtvals[".$i."]='t=".sprintf("%2.3g",$rowp[t])."';";
             echo "WA90[".$i."]=".$rowp[WA_I90].";";
             echo "WA60[".$i."]=".$rowp[WA_I60].";";
             echo "WA30[".$i."]=".$rowp[WA_I30].";";
@@ -414,6 +422,7 @@ if ($resultap){
               var d2 = {\n
                 x: WA60,
                 y: dMag60,
+                text: txtvals, 
                 type: 'scatter',
                 mode: 'lines+markers',
                 marker: {size: msizes},
@@ -423,6 +432,7 @@ if ($resultap){
               var d3 = {\n
                 x: WA30,
                 y: dMag30,
+                text: txtvals, 
                 type: 'scatter',
                 mode: 'lines+markers',
                 marker: {size: msizes},
@@ -432,6 +442,7 @@ if ($resultap){
               var d4 = {\n
                 x: WAcrit,
                 y: dMagcrit,
+                text: txtvals, 
                 type: 'scatter',
                 mode: 'lines+markers',
                 marker: {size: msizes},
@@ -461,7 +472,7 @@ if ($resultap){
              Plotly.newPlot('plot3Div', data, layout);\n";
 
         echo "</script>\n";
-        echo "<p>575 nm, f<sub>sed</sub> = 3.0 photometry for different orbit inclinations. If no eccentricity is available, orbit is assumed circular. Time between points is 30 days.</p>";
+        echo "<p>575 nm, f<sub>sed</sub> = 3.0 photometry for different orbit inclinations. If no eccentricity is available, orbit is assumed circular. The curves cover the full planet orbit, or 10 years (whichever is shorter). Time between points is 30 days. Time starts at 1/1/2026.  In cases where the argument of periastron is unknown, the planet is assumed to be at periastron at t = 0. Markers decrease in size with time.</p>";
     }
     $resultap->close();
 }
