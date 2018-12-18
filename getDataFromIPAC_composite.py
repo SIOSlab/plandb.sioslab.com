@@ -1133,6 +1133,7 @@ engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@sioslab.com/dsav
 ##cleanup as necessary
 result = engine.execute("DROP TABLE IF EXISTS PlanetOrbits")
 result = engine.execute("DROP TABLE IF EXISTS Completeness")
+result = engine.execute("DROP TABLE IF EXISTS AltPlanetOrbits")
 
 result = engine.execute("UPDATE KnownPlanets SET completeness=NULL")
 result = engine.execute("UPDATE KnownPlanets SET compMinWA=NULL")

@@ -1,5 +1,5 @@
 body {
-   min-width:750px;        
+   min-width:825px;        
    width: auto !important;
 }
 
@@ -132,6 +132,9 @@ table.results thead tr .headerSortDown {
 table.results thead tr .headerSortDown, table.results thead tr .headerSortUp {
 background-color: #8dbdd8;
 }
+
+table.results tr:nth-child(even) {background: #CCC}
+table.results tr:nth-child(odd) {background: #FFF}
 
 div.results-outer{
     overflow-x: scroll;

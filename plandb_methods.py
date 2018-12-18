@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import division
 import requests
 import pandas
 from StringIO import StringIO
@@ -57,6 +59,7 @@ def getIPACdata():
     add additional column info and return/save to disk
     '''
 
+    print("Querying IPAC for all data.")
     query = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=compositepars&select=*&format=csv"""
     r = requests.get(query)
     data = pandas.read_csv(StringIO(r.content))
@@ -94,8 +97,7 @@ def getIPACdata():
     data = data.combine_first(data2)
 
     # substitute data from the extended table.
-    #data = substitute_data(data)
-
+    print("Querying extended data table.")
     #grab extended data table
     query_ext = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"""
     r_ext = requests.get(query_ext)
@@ -103,17 +105,115 @@ def getIPACdata():
 
     extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
     
-    regex = re.compile(r"(<a.*f>)|(</a>)")
-    #regex_year = re.compile(r"[A-Za-z'#\.&; \-]")
+    authregex = re.compile(r"(<a.*f>)|(</a>)")
 
-    refs = [regex.sub("", extended['mpl_reflink'][j]).strip() for j in range(len(extended))]
+    #create columns for short references and publication years, and separate columns of
+    #ref links for all attributes to be updated
+    shortrefs = [authregex.sub("", extended['mpl_reflink'][j]).strip() for j in range(len(extended))]
+    refs = extended["mpl_reflink"].values
     refyrs = [int(re.findall('(\d{4})', ref)[0]) for ref in refs]
-    extended = extended.assign(ref_author=refs,publication_year=refyrs)
+    extended = extended.assign(ref_author=shortrefs,\
+                               publication_year=refyrs,\
+                               best_data=np.zeros(len(extended)), \
+                               mpl_orbperreflink=refs,\
+                               mpl_orbsmaxreflink=refs,\
+                               mpl_orbeccenreflink=refs,\
+                               mpl_bmassreflink=refs,\
+                               mpl_radreflink=refs,\
+                               mst_massreflink=refs)
 
+    #pick best attribute row for each planet
+    print("Choosing best attributes for all planets.")
+    for j,name in enumerate(data['pl_name'].values):
+        print("%s: %d/%d"%(name,j+1,len(data)))
+
+        planet_rows = extended.loc[extended["mpl_name"] == name]
+
+        sorted_rows = planet_rows.sort_values(by=["publication_year"], axis=0, ascending=False)
+        good_idx = sorted_rows.index[0]
+        good_lvl = 0
+        for index, row in sorted_rows.iterrows():
+            base_need = (not pandas.isnull(row["mpl_orbsmax"]) or not pandas.isnull(row["mpl_orbper"])) and \
+                        (not pandas.isnull(row["mpl_bmassj"]) or not pandas.isnull(row["mpl_radj"]))
+
+            # Has everything
+            if good_lvl < 4 and (base_need
+                                 and not pandas.isnull(row["mpl_orbeccen"]) and not pandas.isnull(row["mpl_orbtper"])
+                                 and not pandas.isnull(row["mpl_orblper"]) and not pandas.isnull(row["mpl_orbincl"])):
+                good_idx = index
+                good_lvl = 4
+                break
+
+            # Has everything except inclination
+            if good_lvl < 3 and (base_need
+                                 and not pandas.isnull(row["mpl_orbeccen"]) and not pandas.isnull(row["mpl_orbtper"])
+                                 and not pandas.isnull(row["mpl_orblper"])):
+                good_idx = index
+                good_lvl = 3
+
+            # Has either periapsis time or argument of pariapsis
+            elif good_lvl < 2 and (base_need
+                                   and not pandas.isnull(row["mpl_orbeccen"]) and (not pandas.isnull(row["mpl_orbtper"])
+                                                                          or not pandas.isnull(row["mpl_orblper"]))):
+                good_idx = index
+                good_lvl = 2
+            # Has eccentricity
+            elif good_lvl < 1 and (base_need
+                                   and not pandas.isnull(row["mpl_orbeccen"])):
+                good_idx = index
+                good_lvl = 1
+            # 1st doesn't have basic info
+            elif index == good_idx and not base_need:
+                good_idx = -1
+            # Previous row needed to be replaced
+            elif good_idx == -1 and base_need:
+                good_idx = index
+                good_lvl = 1
+
+        if good_idx == -1:
+            good_idx = sorted_rows.index[0]
+
+        extended.at[good_idx, "best_data"] = 1
+
+    #strip leading 'm' from all col names
+    colmap = {k: k[1:] if (k.startswith('mst_') | k.startswith('mpl_')) else k for k in extended.keys()}
+    extended = extended.rename(columns=colmap)
+
+    columns_to_replace = ["pl_orbper", "pl_orbpererr1", "pl_orbpererr2", "pl_orbperlim", "pl_orbsmax",
+                          "pl_orbsmaxerr1", "pl_orbsmaxerr2", "pl_orbsmaxlim", "pl_orbeccen",
+                          "pl_orbeccenerr1", "pl_orbeccenerr2", "pl_orbeccenlim", "pl_orbtper",
+                          "pl_orbtpererr1", "pl_orbtpererr2", "pl_orbtperlim", "pl_orblper",
+                          "pl_orblpererr1", "pl_orblpererr2", "pl_orblperlim", "pl_bmassj",
+                          "pl_bmassjerr1", "pl_bmassjerr2", "pl_bmassjlim", "pl_radj", "pl_radjerr1",
+                          "pl_radjerr2", "pl_radjlim", "pl_orbincl", "pl_orbinclerr1", "pl_orbinclerr2",
+                          "pl_orbincllim", "pl_orbperreflink", "pl_orbsmaxreflink", "pl_orbeccenreflink",
+                          "pl_bmassreflink", "pl_radreflink", "pl_bmassprov"]
+    columns_to_replace_st = columns_to_replace + ["st_mass","st_masserr1","st_masserr2","st_masslim","st_massreflink"]
+
+
+    #update rows as needed
+    print("Updating planets with best attributes.")
+    data = data.assign(pl_def_override=np.zeros(len(data)))
+    for j,name in enumerate(data['pl_name'].values):
+        row_extended = extended.loc[(extended["best_data"] == 1) & (extended["pl_name"] == name)]
+        idx = data.loc[(data["pl_name"] == name)].index
+        if int(row_extended["pl_def"]) == 0:
+            if not np.isnan(row_extended["st_mass"].values):
+                final_columns = columns_to_replace_st
+            else:
+                final_columns = columns_to_replace
+            
+            row_extended.index = idx
+            row_extended_replace = row_extended[final_columns]
+            data.update(row_extended_replace,overwrite=True)
+            data.loc[idx,'pl_def_override'] = 1
+            print("%s: %d/%d"%(name,j+1,len(data)))
 
 
     #sort by planet name 
     data = data.sort_values(by=['pl_name']).reset_index(drop=True)
+
+    print("Filtering to useable planets and calculating additional properties.")
 
     # filter rows:
     # we need:
@@ -144,7 +244,6 @@ def getIPACdata():
                               'pl_msinieerr2',
                               'pl_msinielim'
                               ])
-
 
 
     #fill in missing smas from period & star mass
@@ -550,7 +649,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
 
         outdict = {'Name': [plannames[j]]*len(M),
                     'M': M,
-                    't': t,
+                    't': t-t0.jd,
                     'r': d,
                     's': s,
                     'WA': WA,
@@ -652,7 +751,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
 
         outdict = {'Name': [plannames[j]]*len(M),
                     'M': M,
-                    't': t,
+                    't': t-t0.jd,
                     'r': d,
                     'Icrit': [Icrit]*len(M)
                    }
@@ -974,14 +1073,14 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     tmp[goodinds] = maxCdMag
     data = data.assign(compMaxdMag=tmp)
 
-    return out2,outdict
+    return out2,outdict,data
 
 
 def genAliases(data):
     """ Grab all available aliases for all targets. """
 
     from astroquery.simbad import Simbad
-
+    from requests.exceptions import ConnectionError
     starnames = data['pl_hostname'].unique()
 
     s = Simbad()
@@ -995,7 +1094,8 @@ def genAliases(data):
     badstars = []
     priname = []
     for j,star in enumerate(starnames):
-        print(j,star)
+        print("%d/%d  %s"%(j+1,len(starnames),star))
+        
         #get aliases from IPAC
         r = requests.get(baseurl,{'table':'aliastable','objname':star})
         if "ERROR" not in r.content: 
@@ -1005,7 +1105,14 @@ def genAliases(data):
             tmp = [star]
         
         #get aliases from SIMBAD
-        r = s.query_object(star)
+        try:
+            r = s.query_object(star)
+        except ConnectionError as e:
+            try:
+                r = s.query_object(star)
+            except ConnectionError as e:
+                raise e
+
         if r:
             tmp += r['IDS'][0].split('|')
         else:
@@ -1041,4 +1148,89 @@ def genAliases(data):
 
     return out3
 
+
+def writeSQL(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=None):
+    """write outputs to sql database via engine"""
+
+    if data is not None:
+        print("Writing KnownPlanets")
+        namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
+        data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',
+                    dtype={'pl_name':sqlalchemy.types.String(namemxchar),
+                            'pl_hostname':sqlalchemy.types.String(namemxchar-2),
+                            'pl_letter':sqlalchemy.types.CHAR(1)})
+        #set indexes
+        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_name)")
+        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_hostname)")
+
+        #add comments
+        addSQLcomments(engine,'KnownPlanets')
+    
+    if orbdata is not None:
+        print("Writing PlanetOrbits")
+        namemxchar = np.array([len(n) for n in orbdata['Name'].values]).max()
+        orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine,'PlanetOrbits')
+
+    if altorbdata is not None:
+        print("Writing AltPlanetOrbits")
+        namemxchar = np.array([len(n) for n in altorbdata['Name'].values]).max()
+        altorbdata.to_sql('AltPlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD INDEX (Name)")
+        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine,'AltPlanetOrbits')
+
+    if comps is not None:
+        print("Writing Completeness")
+        namemxchar = np.array([len(n) for n in comps['Name'].values]).max()
+        comps.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
+        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine,'Completeness')
+
+
+    if aliases is not None:
+        print("Writing Alias")
+        aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
+        aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
+
+
+def addSQLcomments(engine,tablename):
+        """Add comments to table schema based on entries in spreadsheet"""
+        
+        #read in spreadsheet and grab data from appropriate sheet
+        coldefs = pandas.ExcelFile('coldefs.xlsx')
+        coldefs = coldefs.parse(tablename)
+        cols = coldefs['Column'][coldefs['Definition'].notnull()].values
+        cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
+        cnames =  coldefs['Name'][coldefs['Definition'].notnull()].values
+
+        result = engine.execute("show create table %s"%tablename)
+        res = result.fetchall()
+        res = res[0]['Create Table']
+        res = res.split("\n")
+
+        p = re.compile('`(\S+)`[\s\S]+')
+        keys = []
+        defs = []
+        for r in res:
+          r = r.strip().strip(',')
+          if "COMMENT" in r: continue
+          m = p.match(r)
+          if m:
+            keys.append(m.groups()[0])
+            defs.append(r)
+
+        for key,d in zip(keys,defs):
+          if not key in cols: continue
+          comm =  """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";"""%(tablename,key,d,cnames[cols == key][0].strip('"'),cdefs[cols == key][0])
+          print(comm)
+          r = engine.execute(comm)
 
