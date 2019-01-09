@@ -1,4 +1,7 @@
 from plandb_methods import *
+%pylab --no-import-all
+
+
 
 data = getIPACdata()
 
@@ -15,8 +18,8 @@ syms = 'os^pvD<';
 cmap = [[0,         0,    1.0000],
         [1.0000,         0,         0],
         [0,    0.4000,         0],
-        [0,    0.4000,    0.4000],
         [0.7500,    0.500,         0],
+        [0,    0.4000,    0.4000],
         [0.2500,    0.2500,   0.2500],
         [0.7500,         0,    0.7500]]
                 
@@ -29,7 +32,7 @@ Msun = GMsun/G
 MEarth = Msun/328900.56/(1+1/81.30059)
 Ms = np.hstack( (Msun/np.array([6023600.,408523.71]),MEarth,Msun/np.array([3098708.,1047.3486,3497.898,22902.98,19412.24,1.35e8])) )
 Ms = Ms/Ms[4]
-Rs = np.array([2440.,6052.,6378.,3397.,71492.,60268.,25559.,24766.,24766.])
+Rs = np.array([2440.,6052.,6378.,3397.,71492.,60268.,25559.,24766.,1188.])
 Rs = Rs/Rs[2]
 smas = np.array([0.3871,0.7233,	1,1.524,5.203,9.539,19.19,30.06,39.48])
 planetnames = ['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto']
@@ -59,7 +62,77 @@ ax2 = ax.twinx()
 ax2.set_yscale('log')
 ax2.set_ylim(np.array(ax.get_ylim())/Ms[2])
 ax2.set_ylabel('M$_\oplus$')
-plt.tight_layout()
+fig.set_size_inches([6.8,5.5])
+plt.savefig('/Users/ds264/Documents/Presentations/AAS233/popplot1.png')
+#plt.tight_layout()
+
+############# Second plot (highlight non-null completeness targs)
+fig,ax = plt.subplots()
+for m,s,c,o in zip(methods,syms,cmap,methodorder):
+    inds = data['pl_discmethod'] == m
+    psmas = data[inds]['pl_orbsmax'].values
+    pms = data[inds]['pl_bmassj'].values
+    comps = data[inds]['completeness'].values
+
+    ax.scatter(psmas[~np.isnan(comps)],pms[~np.isnan(comps)],marker=s,s=60,
+            facecolors=c,edgecolors='k',alpha=0.75,label=m,zorder=o)
+    ax.scatter(psmas[np.isnan(comps)],pms[np.isnan(comps)],marker=s,s=60,
+            facecolors='None',edgecolors='gray',alpha=0.75,zorder=-1,label=None)
+
+
+ax.scatter(smas,Ms,marker='o',s=60,facecolors='yellow',edgecolors='k',alpha=1,zorder = methodorder.max())
+for a,m,n,ha,off in zip(smas,Ms,planetnames,has,offs):
+    ax.annotate(n,(a,m),ha=ha,xytext=off,textcoords='offset points')
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlim([1e-2,1e3])
+ax.set_ylim([1e-3,40])
+ax.set_xlabel('Semi-Major Axis (AU)')
+ax.set_ylabel('(Minimum) Mass (M$_J$)')
+ax.legend(loc='lower right',scatterpoints=1,fancybox=True,prop={'size':14})
+ax2 = ax.twinx()
+ax2.set_yscale('log')
+ax2.set_ylim(np.array(ax.get_ylim())/Ms[2])
+ax2.set_ylabel('M$_\oplus$')
+fig.set_size_inches([6.8,5.5])
+plt.savefig('/Users/ds264/Documents/Presentations/AAS233/popplot2.png')
+
+
+############# third plot (Radii)
+fig,ax = plt.subplots()
+
+has2 = ['left','right','right','left','left','left','right','left','left']
+offs2 = [(0,0),(0,-12),(0,5),(0,5),(8,6),(6,-7),(-6,-4),(-5,6),(0,0)]
+
+for m,s,c,o in zip(methods,syms,cmap,methodorder):
+    inds = data['pl_discmethod'] == m
+    psmas = data[inds]['pl_orbsmax'].values
+    prs = data[inds]['pl_radj_forecastermod'].values * (const.R_jup/const.R_earth).value
+    comps = data[inds]['completeness'].values
+    good = ~np.isnan(prs) & ~np.isnan(comps)
+    print(len(np.where(good)[0]))
+
+    if np.any(good):
+        ax.scatter(psmas[good],prs[good],marker=s,s=60,
+                facecolors=c,edgecolors='k',alpha=0.75,label=m,zorder=o)
+        ax.scatter(psmas[good],prs[good],marker=s,s=60,
+                facecolors='None',edgecolors='gray',alpha=0.75,zorder=-1,label=None)
+
+ax.scatter(smas,Rs,marker='o',s=60,facecolors='yellow',edgecolors='k',alpha=1,zorder = methodorder.max())
+for a,m,n,ha,off in zip(smas,Rs,planetnames,has2,offs2):
+    ax.annotate(n,(a,m),ha=ha,xytext=off,textcoords='offset points')
+
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlim([3e-1,2e2])
+#ax.set_ylim([0.75,13])
+ax.set_xlabel('Semi-Major Axis (AU)')
+ax.set_ylabel('Planet Radius (R$_\oplus$)')
+ax.legend(loc='lower right',scatterpoints=1,fancybox=True,prop={'size':14})
+fig.set_size_inches([6.8,5.5])
+plt.savefig('/Users/ds264/Documents/Presentations/AAS233/popplot3.png')
 
 
 

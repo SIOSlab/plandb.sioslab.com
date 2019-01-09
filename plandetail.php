@@ -587,7 +587,7 @@ if ($resultp){
              var layout = {\n
                 updatemenus: updatemenus,
                 xaxis: {title:";
-                if ($havet){echo "'Time After 1/1/2016 (days)'},";}
+                if ($havet){echo "'Time After 1/1/2026 (days)'},";}
                 else{echo "'Mean Anomaly (rad)',
                         tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
                         ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },";}
@@ -619,7 +619,7 @@ if ($resultp){
 
              var layout2 = {\n
                 xaxis: {title:";
-                if ($havet){echo "'Time After 1/1/2016 (days)'},";}
+                if ($havet){echo "'Time After 1/1/2026 (days)'},";}
                 else{echo "'Mean Anomaly (rad)',
                         tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
                         ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },";}

@@ -2,7 +2,10 @@ from __future__ import print_function
 from __future__ import division
 import requests
 import pandas
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import astropy.units as u
 import astropy.constants as const
 import EXOSIMS.PlanetPhysicalModel.Forecaster
