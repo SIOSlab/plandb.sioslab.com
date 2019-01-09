@@ -31,6 +31,11 @@ header h1 a {
     text-decoration: none;
 }
 
+header img{
+  float: left;
+  width: 80px;
+}
+
 div.container {
   margin: auto;
   background-color: white;
