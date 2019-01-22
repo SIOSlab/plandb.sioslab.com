@@ -2,6 +2,7 @@
 
 <body>
     <header>
+    <a href="https://sioslab.com"><img src='SIOSlogo_color.png' alt="logo" /></a>
     <h1 class="logo"><a href="index.php">Imaging Mission Database</a></h1><br><br>
     </header> 
 

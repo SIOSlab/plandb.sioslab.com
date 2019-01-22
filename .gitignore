@@ -61,7 +61,6 @@ target/
 
 config.php
 *.pkl
-charttest.php
 *.npz
 *.xlsx
 *.txt

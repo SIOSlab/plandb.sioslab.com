@@ -109,7 +109,7 @@ echo "<TR><TH style='width:".$wd."%'>Radius (Jupiter Radii)</TH><TD>".$row[pl_ra
 if ($row[pl_radreflink])
     echo " (".$row[pl_radreflink].")";
 echo "</TD></TR>\n";
-if ($row[pl_radreflink] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>'){
+if ($row[pl_radreflink] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>' or $row[pl_radreflink] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') {
     echo "<TR><TH style='width:".$wd."%'>Radius Based on Modified Forecaster (Jupiter Radii)</TH><TD>".$row[pl_radj_forecastermod]." (<a href='docs/html/index.html#forecastermodref' target=_blank>See here</a>)</TD></TR>\n";
     echo "<TR><TH style='width:".$wd."%'>Radius Based on Fortney et al., 2007 (Jupiter Radii)</TH><TD>".$row[pl_radj_fortney]." (<a href='docs/html/index.html#fortneyref' target=_blank>See here</a>)</TD></TR>\n";
 }
@@ -167,47 +167,218 @@ if ($resultp){
         echo '<div id="plot2Div" style="width:500px; height:500px; float:left;"></div>';
         echo "\n\n";
         echo "<script>\n";
-        echo "var xsize = 100, x = new Array(xsize), p000 = new Array(xsize), p001 = new Array(xsize),
-              p003 = new Array(xsize), p010 = new Array(xsize), p030 = new Array(xsize), p100 = new Array(xsize), 
-              p300 = new Array(xsize), p600 = new Array(xsize),
-              d000 = new Array(xsize), d001 = new Array(xsize),
-              d003 = new Array(xsize), d010 = new Array(xsize), d030 = new Array(xsize), d100 = new Array(xsize), 
-              d300 = new Array(xsize), d600 = new Array(xsize),
-              r = new Array(xsize), WA = new Array(xsize); \n";
+        echo "var xsize = 100, x = new Array(xsize), r = new Array(xsize), WA = new Array(xsize); \n";
+        
+        $clouds = array("000","001","003","010","030","100","300","600");
+        $bands = array("575","660","730","760","825");
+        foreach ($clouds as &$c) {
+            foreach ($bands as &$b){
+                echo "var d".$c."C".$b."NM = new Array(xsize), p".$c."C".$b."NM = new Array(xsize);\n";
+            }
+        }
+
         $i = 0;
         while($rowp = $resultp->fetch_assoc()) {
-            echo "x[".$i."]=".$rowp[M].";";
-            echo "d000[".$i."]="; if ($rowp[dMag_000C_575NM]){ echo $rowp[dMag_000C_575NM]; } else{ echo "NaN";} echo";";
-            echo "d001[".$i."]="; if ($rowp[dMag_001C_575NM]){ echo $rowp[dMag_001C_575NM]; } else{ echo "NaN";} echo";";
-            echo "d003[".$i."]="; if ($rowp[dMag_030C_575NM]){ echo $rowp[dMag_030C_575NM]; } else{ echo "NaN";} echo";";
-            echo "d010[".$i."]="; if ($rowp[dMag_010C_575NM]){ echo $rowp[dMag_010C_575NM]; } else{ echo "NaN";} echo";";
-            echo "d030[".$i."]="; if ($rowp[dMag_030C_575NM]){ echo $rowp[dMag_030C_575NM]; } else{ echo "NaN";} echo";";
-            echo "d100[".$i."]="; if ($rowp[dMag_100C_575NM]){ echo $rowp[dMag_100C_575NM]; } else{ echo "NaN";} echo";";
-            echo "d300[".$i."]="; if ($rowp[dMag_300C_575NM]){ echo $rowp[dMag_300C_575NM]; } else{ echo "NaN";} echo";";
-            echo "d600[".$i."]="; if ($rowp[dMag_600C_575NM]){ echo $rowp[dMag_600C_575NM]; } else{ echo "NaN";} echo";";
-            echo "p000[".$i."]=".$rowp[pPhi_000C_575NM].";";
-            echo "p001[".$i."]=".$rowp[pPhi_001C_575NM].";";
-            echo "p003[".$i."]=".$rowp[pPhi_003C_575NM].";";
-            echo "p010[".$i."]=".$rowp[pPhi_010C_575NM].";";
-            echo "p030[".$i."]=".$rowp[pPhi_030C_575NM].";";
-            echo "p100[".$i."]=".$rowp[pPhi_100C_575NM].";";
-            echo "p300[".$i."]=".$rowp[pPhi_300C_575NM].";";
-            echo "p600[".$i."]=".$rowp[pPhi_600C_575NM].";";
+            if ($i == 0){ 
+                $havet = !(is_null($rowp[t]));
+            }
+            echo "x[".$i."]="; if ($havet){echo $rowp[t].";";} else{echo $rowp[M].";";}
             echo "r[".$i."]=".$rowp[r].";";
             echo "WA[".$i."]=".$rowp[WA].";\n";
+
+            foreach ($clouds as &$c) {
+                foreach ($bands as &$b){
+                    echo "d".$c."C".$b."NM[".$i."]=";
+                    $tmp = "dMag_".$c."C_".$b."NM"; 
+                    if ($rowp[$tmp]){ echo $rowp[$tmp]; } else{ echo "NaN";} echo";";
+                    echo "p".$c."C".$b."NM[".$i."]=";
+                    $tmp = "pPhi_".$c."C_".$b."NM"; 
+                    if ($rowp[$tmp]){ echo $rowp[$tmp]; } else{ echo "NaN";} echo";\n";
+                }
+            }
             $i++;
         }
 
+        $cloudnames = array("No Cloud", "f1.0", "f0.01", "f0.03", "f0.1", "f0.3", "f3.0", "f6.0");
+        $clouds =     array("000",      "100",  "001",   "003",   "010",   "030",  "300",  "600");
+        echo "var datan = [";
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: d".$clouds[$i]."C575NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'red' },
+                    visible: true
+                   },";
+        }
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: p".$clouds[$i]."C575NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'blue' },
+                    yaxis: 'y2',
+                    visible: true
+                   },";
+        }
+
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: d".$clouds[$i]."C660NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'red' },
+                    visible: false
+                   },";
+        }
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: p".$clouds[$i]."C660NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'blue' },
+                    yaxis: 'y2',
+                    visible: false
+                   },";
+        }
+        
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: d".$clouds[$i]."C730NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'red' },
+                    visible: false
+                   },";
+        }
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: p".$clouds[$i]."C730NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'blue' },
+                    yaxis: 'y2',
+                    visible: false
+                   },";
+        }
+
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: d".$clouds[$i]."C760NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'red' },
+                    visible: false
+                   },";
+        }
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: p".$clouds[$i]."C760NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'blue' },
+                    yaxis: 'y2',
+                    visible: false
+                   },";
+        }
+
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: d".$clouds[$i]."C825NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'red' },
+                    visible: false
+                   },";
+        }
+        for ($i = 0; $i < count($clouds); $i++) {
+            echo "
+                  { 
+                    x: x,
+                    y: p".$clouds[$i]."C825NM,
+                    type: 'scatter',";
+                    if ($i == 1){
+                        echo "fill: 'tonexty',";
+                    }
+            echo "
+                    name: '".$cloudnames[$i]."',
+                    line: { color: 'blue' },
+                    yaxis: 'y2',
+                    visible: false
+                   }";
+             if ($i < count($clouds)-1){
+                 echo ",\n";
+             }
+        }
+
+
+
+        echo "];\n\n\n";
+
         echo "var td1 = {\n
                 x: x,
-                y: d000,
+                y: d000C575NM,
                 type: 'scatter',
                 name: 'No Cloud',
                 line: { color: 'red' }
               };\n
               var td2 = {\n
                 x: x,
-                y: d100,
+                y: d100C575NM,
                 fill: 'tonexty',
                 type: 'scatter',
                 name: 'f1.0',
@@ -215,49 +386,49 @@ if ($resultp){
               };\n
               var td3 = {\n
                 x: x,
-                y: d001,
+                y: d001C575NM,
                 type: 'scatter',
                 name: 'f0.01',
                 line: { color: 'red' }
               };\n
               var td4 = {\n
                 x: x,
-                y: d003,
+                y: d003C575NM,
                 type: 'scatter',
                 name: 'f0.03',
                 line: { color: 'red' }
               };\n
               var td5 = {\n
                 x: x,
-                y: d010,
+                y: d010C575NM,
                 type: 'scatter',
                 name: 'f0.1',
                 line: { color: 'red' }
               };\n
               var td6 = {\n
                 x: x,
-                y: d030,
+                y: d030C575NM,
                 type: 'scatter',
                 name: 'f0.3',
                 line: { color: 'red' }
               };\n
               var td7 = {\n
                 x: x,
-                y: d300,
+                y: d300C575NM,
                 type: 'scatter',
                 name: 'f3.0',
                 line: { color: 'red' }
               };\n
               var td8 = {\n
                 x: x,
-                y: d600,
+                y: d600C575NM,
                 type: 'scatter',
                 name: 'f6.0',
                 line: { color: 'red' }
               };\n
               var tp1 = {\n
                 x: x,
-                y: p000,
+                y: p000C575NM,
                 type: 'scatter',
                 name: 'No Cloud',
                 line: { color: 'blue' },
@@ -265,7 +436,7 @@ if ($resultp){
               };\n
               var tp2 = {\n
                 x: x,
-                y: p100,
+                y: p100C575NM,
                 fill: 'tonexty',
                 type: 'scatter',
                 name: 'f1.0',
@@ -274,7 +445,7 @@ if ($resultp){
               };\n
               var tp3 = {\n
                 x: x,
-                y: p001,
+                y: p001C575NM,
                 type: 'scatter',
                 name: 'f0.01',
                 line: { color: 'blue' },
@@ -282,7 +453,7 @@ if ($resultp){
               };\n
               var tp4 = {\n
                 x: x,
-                y: p003,
+                y: p003C575NM,
                 type: 'scatter',
                 name: 'f0.03',
                 line: { color: 'blue' },
@@ -290,7 +461,7 @@ if ($resultp){
               };\n
               var tp5 = {\n
                 x: x,
-                y: p010,
+                y: p010C575NM,
                 type: 'scatter',
                 name: 'f0.1',
                 line: { color: 'blue' },
@@ -298,7 +469,7 @@ if ($resultp){
               };\n
               var tp6 = {\n
                 x: x,
-                y: p030,
+                y: p030C575NM,
                 type: 'scatter',
                 name: 'f0.3',
                 line: { color: 'blue' },
@@ -306,7 +477,7 @@ if ($resultp){
               };\n
               var tp7 = {\n
                 x: x,
-                y: p300,
+                y: p300C575NM,
                 type: 'scatter',
                 name: 'f3.0',
                 line: { color: 'blue' },
@@ -314,7 +485,7 @@ if ($resultp){
               };\n
               var tp8 = {\n
                 x: x,
-                y: p600,
+                y: p600C575NM,
                 type: 'scatter',
                 name: 'f6.0',
                 line: { color: 'blue' },
@@ -323,18 +494,110 @@ if ($resultp){
 
 
              var data = [td1,td2,td3,td4,td5,td6,td7,td8,tp1,tp2,tp3,tp4,tp5,tp6,tp7,tp8];\n
+             
+             var updatemenus=[
+                {
+                    buttons: [
+                        {
+                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}}],
+                            label: '\u0394 mag Axis Normal',
+                            method: 'relayout'
+                        },
+                        {
+                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'},autorange:'reversed'}],
+                            label:'\u0394 mag Axis Reversed',
+                            method:'relayout'
+                        }
+                    ],
+                    direction: 'down',
+                    pad: {'r': 10, 't': 10},
+                    showactive: true,
+                    type: 'dropdown',
+                    x: 0.1,
+                    xanchor: 'left',
+                    y: 1.1,
+                    yanchor: 'top'
+                },
+                {
+                    buttons: [
+                        {
+                            args: ['visible', [";
+                            for ($i = 0; $i < count($clouds)*2; $i++) { echo "true, ";}
+                            echo "false";
+                            for ($i = 0; $i < count($clouds)*2*4-1; $i++) { echo ", false";}
+                            echo "]],
+                            label: '575 nm',
+                            method: 'restyle'
+                        },
+                        {
+                            args: ['visible', [";
+                            for ($i = 0; $i < count($clouds)*2; $i++) { echo "false, ";}
+                            for ($i = 0; $i < count($clouds)*2; $i++) { echo "true, ";}
+                            echo "false";
+                            for ($i = 0; $i < count($clouds)*2*3-1; $i++) { echo ", false";}
+                            echo "]],
+                            label: '660 nm',
+                            method: 'restyle'
+                        },
+                        {
+                            args: ['visible', [";
+                            for ($i = 0; $i < count($clouds)*2*2; $i++) { echo "false, ";}
+                            for ($i = 0; $i < count($clouds)*2; $i++) { echo "true, ";}
+                            echo "false";
+                            for ($i = 0; $i < count($clouds)*2*2-1; $i++) { echo ", false";}
+                            echo "]],
+                            label: '730 nm',
+                            method: 'restyle'
+                        },
+                        {
+                            args: ['visible', [";
+                            for ($i = 0; $i < count($clouds)*2*3; $i++) { echo "false, ";}
+                            for ($i = 0; $i < count($clouds)*2; $i++) { echo "true, ";}
+                            echo "false";
+                            for ($i = 0; $i < count($clouds)*2-1; $i++) { echo ", false";}
+                            echo "]],
+                            label: '760 nm',
+                            method: 'restyle'
+                        },
+
+                        {
+                            args: ['visible', [";
+                            for ($i = 0; $i < count($clouds)*2*4; $i++) { echo "false, ";}
+                            echo "true";
+                            for ($i = 0; $i < count($clouds)*2-1; $i++) { echo ", true";}
+                            echo "]],
+                            label: '825 nm',
+                            method: 'restyle'
+                        }
+
+                    ],
+                    direction: 'down',
+                    pad: {'r': 10, 't': 10},
+                    showactive: true,
+                    type: 'dropdown',
+                    x: 0.9,
+                    xanchor: 'right',
+                    y: 1.1,
+                    yanchor: 'top'
+                }
+                
+             ]
+
 
              var layout = {\n
-                xaxis: {title: 'Mean Anomaly (rad)',
+                updatemenus: updatemenus,
+                xaxis: {title:";
+                if ($havet){echo "'Time After 1/1/2026 (days)'},";}
+                else{echo "'Mean Anomaly (rad)',
                         tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
-                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },
-                yaxis: {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
-                yaxis2: {title: 'p * \u03A6 (\u03B2)', titlefont: {color: 'blue'}, tickfont: {color: 'blue'}, overlaying: 'y', side: 'right'},
+                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },";}
+                echo "yaxis2: {title: 'p * \u03A6 (\u03B2)', titlefont: {color: 'blue'}, tickfont: {color: 'blue'}, overlaying: 'y', side: 'right'},
+                yaxis:{title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
                 margin: { t: 30, b:50, l:50, r:75},
                 showlegend: false,
              };\n
 
-             Plotly.newPlot('plot1Div', data, layout);\n";
+             Plotly.newPlot('plot1Div', datan, layout);\n";
 
         echo "var trace5 = {\n
                 x: x,
@@ -355,10 +618,12 @@ if ($resultp){
              var data2 = [trace5, trace6];\n
 
              var layout2 = {\n
-                xaxis: {title: 'Mean Anomaly (rad)',
+                xaxis: {title:";
+                if ($havet){echo "'Time After 1/1/2026 (days)'},";}
+                else{echo "'Mean Anomaly (rad)',
                         tickvals:[0,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI],
-                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },
-                yaxis: {title: 'Orbital Radius (AU)', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
+                        ticktext:['0', '\u03C0/2', '\u03C0', '3\u03C0/2', '2\u03C0'] },";}
+                echo "yaxis: {title: 'Orbital Radius (AU)', titlefont: {color: 'red'}, tickfont: {color: 'red'}},
                 yaxis2: {title: 'Angular Separation (mas)', titlefont: {color: 'blue'}, tickfont: {color: 'blue'}, overlaying: 'y', side: 'right'},
                 showlegend: false,
                 margin: { t: 30, b:50, l:75, r:50}
@@ -370,7 +635,7 @@ if ($resultp){
         echo "</script>\n";
         echo '<DIV style="clear: both;"></DIV>';
 
-        echo "<p>575 nm. If no inclination available, orbit is assumed edge-on. If no eccentricity is available, orbit is assumed circular. For full documentation see <a href=docs/html/index.html#planetorbits-table target=_blank>here</a>.</p>";
+        echo "<p>If no inclination available, orbit is assumed edge-on. If no eccentricity is available, orbit is assumed circular. For full documentation see <a href=docs/html/index.html#planetorbits-table target=_blank>here</a>.</p>";
     }
     $resultp->close();
 }
@@ -383,13 +648,14 @@ if ($resultap){
         echo "var xsize = ".$resultap->num_rows.", WA90 = new Array(xsize), dMag90 = new Array(xsize),
               WA60 = new Array(xsize), dMag60 = new Array(xsize),
               WA30 = new Array(xsize), dMag30 = new Array(xsize),
-              WAcrit = new Array(xsize), dMagcrit = new Array(xsize), msizes = 7, txtvals = new Array(xsize); \n";
+              WAcrit = new Array(xsize), dMagcrit = new Array(xsize), msizes = new Array(xsize), txtvals = new Array(xsize); \n";
 
+        $maxi = $resultap->num_rows;
         $i = 0;
         while($rowp = $resultap->fetch_assoc()) {
             if ($i == 0){ $Icrit = round($rowp[Icrit] * 180.0/pi(), 2); }
-            #echo "msizes[".$i."]=".(($i+1)/5).";";
-            echo "txtvals[".$i."]='JD".sprintf("%2.3g",$rowp[M])."';";
+            echo "msizes[".$i."]=".(-19/$maxi*$i + 20).";";
+            echo "txtvals[".$i."]='t=".sprintf("%2.3g",$rowp[t])."';";
             echo "WA90[".$i."]=".$rowp[WA_I90].";";
             echo "WA60[".$i."]=".$rowp[WA_I60].";";
             echo "WA30[".$i."]=".$rowp[WA_I30].";";
@@ -414,6 +680,7 @@ if ($resultap){
               var d2 = {\n
                 x: WA60,
                 y: dMag60,
+                text: txtvals, 
                 type: 'scatter',
                 mode: 'lines+markers',
                 marker: {size: msizes},
@@ -423,6 +690,7 @@ if ($resultap){
               var d3 = {\n
                 x: WA30,
                 y: dMag30,
+                text: txtvals, 
                 type: 'scatter',
                 mode: 'lines+markers',
                 marker: {size: msizes},
@@ -432,6 +700,7 @@ if ($resultap){
               var d4 = {\n
                 x: WAcrit,
                 y: dMagcrit,
+                text: txtvals, 
                 type: 'scatter',
                 mode: 'lines+markers',
                 marker: {size: msizes},
@@ -451,7 +720,32 @@ if ($resultap){
 
              var data = [d1,d2,d3,d4];\n
 
+            var updatemenus=[
+                {
+                    buttons: [
+                        {
+                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}}],
+                            label: '\u0394 mag Axis Normal',
+                            method: 'relayout'
+                        },
+                        {
+                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'},autorange:'reversed'}],
+                            label:'\u0394 mag Axis Reversed',
+                            method:'relayout'
+                        }
+                    ],
+                    direction: 'down',
+                    pad: {'r': 10, 't': 10},
+                    showactive: true,
+                    type: 'dropdown',
+                    x: 0.1,
+                    xanchor: 'left',
+                    y: 1.1,
+                    yanchor: 'top'
+                }];
+
              var layout = {\n
+                updatemenus: updatemenus,
                 xaxis: {title: 'Angular Separation (mas)'},
                 yaxis: {title: '\u0394 mag'},
                 showlegend: true,
@@ -461,7 +755,7 @@ if ($resultap){
              Plotly.newPlot('plot3Div', data, layout);\n";
 
         echo "</script>\n";
-        echo "<p>575 nm, f<sub>sed</sub> = 3.0 photometry for different orbit inclinations. If no eccentricity is available, orbit is assumed circular. Time between points is 30 days.</p>";
+        echo "<p>575 nm, f<sub>sed</sub> = 3.0 photometry for different orbit inclinations. If no eccentricity is available, orbit is assumed circular. The curves cover the full planet orbit, or 10 years (whichever is shorter). Time between points is 30 days. Time starts at 1/1/2026.  In cases where the argument of periastron is unknown, the planet is assumed to be at periastron at t = 0. Markers decrease in size with time.</p>";
     }
     $resultap->close();
 }
@@ -496,7 +790,8 @@ if ($resultc){
         y: [22.01610885074595, 22.05977185, 22.30204688, 22.57879263, 22.98455007, 23.03667541,
        23.11031286, 23.11031286, 23.110312860818773],
         type: 'scatter',
-        name: '\u0394 mag limit'
+        name: '\u0394 mag limit',
+        line: { color: 'blue' }
     };\n";    
 
     echo "var data = {
@@ -511,7 +806,36 @@ if ($resultc){
         }
     };\n";
 
-    echo "var layout = {
+
+
+
+    echo "
+            var updatemenus=[
+                {
+                    buttons: [
+                        {
+                            args: ['yaxis', {title: '\u0394 mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]}],
+                            label: '\u0394 mag Axis Normal',
+                            method: 'relayout'
+                        },
+                        {
+                            args: ['yaxis', {title: '\u0394 mag',range: [".$row[compMaxdMag].",".$row[compMindMag]."]}],
+                            label:'\u0394 mag Axis Reversed',
+                            method:'relayout'
+                        }
+                    ],
+                    direction: 'down',
+                    pad: {'r': 10, 't': 10},
+                    showactive: true,
+                    type: 'dropdown',
+                    x: 0.1,
+                    xanchor: 'left',
+                    y: 1.1,
+                    yanchor: 'top'
+                }];
+
+    var layout = {
+        updatemenus: updatemenus,
         title: 'Completeness at 575 nm for \u03B1 \u2208 [0.15, 0.45] arcsec = ".$row[completeness]."',
         xaxis: {title: 'Separation (mas)',range: [".$row[compMinWA].",".$row[compMaxWA]."]},
         yaxis: {title: '\u0394 mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]},

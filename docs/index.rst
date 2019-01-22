@@ -128,16 +128,20 @@ The KnownPlanets table contains all of the target star and known planet properti
 #. For planets that were previously calculated to have a completeness larger than 0, data is substituted in from the extended table. For each planet of interest, we categorize each source according to the priority listing below. We then substitute data into the joined data from the source with the highest priority.  If two sources are tied for the highest priority, then the most recent one is chosen.
 
 
-   #. Satisfies the criteria described in step 6 (barring the existance of stellar distance) and has non-null eccentricity, time of periaps passage, argument of periapsis, and inclination. 
+   #. Satisfies the criteria described in step 6 (barring the existence of stellar distance) and has non-null eccentricity, time of periastron passage, argument of periastron, and inclination. 
    
-   #. Satisfies the criteria described in step 6 (barring the existance of stellar distance) and has non-null eccentricity, time of periaps passage, and argument of periapsis.
+   #. Satisfies the criteria described in step 6 (barring the existence of stellar distance) and has non-null eccentricity, time of periastron passage, and argument of periastron.
    
-   #. Satisfies the criteria described in step 6, (barring the existance of stellar distance) has non-null eccentricity, and has either non-null time of periaps passage or longitude of periapsis.
+   #. Satisfies the criteria described in step 6, (barring the existence of stellar distance) has non-null eccentricity, and has either non-null time of periastron passage or argument of periastron.
 	
-   #. Satisfies the criteria described in step 6 (barring the existance of stellar distance) and has non-null eccentricity.
+   #. Satisfies the criteria described in step 6 (barring the existence of stellar distance) and has non-null eccentricity.
 	
-   #. Satisfies the criteria described in step 6 (barring the existance of stellar distance).
+   #. Satisfies the criteria described in step 6 (barring the existence of stellar distance).
 
+      .. note::
+
+         The ``*_orblper`` columns in the various tables in the Exoplanet Archive database are all labeled as longitude of periastron, but the documentation makes it clear that these columns represent the argument of periastron, and so these values will always be referred to as arguments of periastron throughout this documentation. 
+   
 
    The following columns along with their respective errors and limits (where applicable) are substituted from the extended table: ::
 		
@@ -164,6 +168,8 @@ The KnownPlanets table contains all of the target star and known planet properti
     |   Star Distance AND
     |   (Planet Semi-Major Axis OR (Planet Period AND Star Mass)) AND 
     |   (Planet Radius OR Planet Mass OR Planet :math:`m\sin(I))`.
+
+   .. _massperiodsmacalc:
 
 #. For the remaining rows that do not have a planet semi-major axis, it is filled in as follows: The ``st_mass`` value is taken to be the stellar mass (:math:`M_S`) in units of :math:`M_\odot` and the gravitational parameter is calculated as :math:`\mu = G M_S`. The ``pl_orbper`` value is taken to be the orbital period (:math:`T`) in units of days. The semi-major axis is then calculated as: 
 
@@ -273,7 +279,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 
    .. _photcalcref:
 
-#. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  We have two approaches for calculating the quadrature radius depending on what data exists for the planet.  If the planet has data for eccentricity and argument of periapsis and the inclination data is either null or non-zero, then we calculate the true anomaly using the fact that :math:`\theta = \omega+\nu` and:
+#. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  We have two approaches for calculating the quadrature radius depending on what data exists for the planet.  If the planet has data for eccentricity and argument of periastron and the inclination data is either null or non-zero, then we calculate the true anomaly using the fact that :math:`\theta = \omega+\nu` and:
 
 	.. math::
 			\theta = \sin^{-1}\left(\frac{\cos\beta}{\sin I}\right)
@@ -287,7 +293,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 	
    From these two radius values, we pick the radius that results in the smallest :math:`\Delta\textrm{mag}` (as calculated below) so that we determine the highest possible brightness for the planet.  
    
-   In the case where eccentricity or argument of periapsis are null, or if the orbit is face-on, then we take the semi-major axis to be the orbial radius at quadrature.
+   In the case where eccentricity or argument of periastron are null, or if the orbit is face-on, then we take the semi-major axis to be the orbial radius at quadrature.
 
    For the photometry, we calculate the grid data (:math:`p\Phi(\beta)`) and resulting :math:`\Delta\textrm{mag}` for all combinations of cloud level and wavelength of interest (8x5) for 80 total photometry columns.  These columns are named ``quad_pPhi_XXXC_YYYNM`` and ``quad_dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm.  :math:`\Delta\textrm{mag}` is calculated as:
 
@@ -316,7 +322,7 @@ For each row in KnownPlanets, orbital data is generated as follows:
 #. From KnownPlanets ``pl_orbsmax`` is taken as the semi-major axis :math:`a`.
 #. ``pl_orbeccen`` is taken as the eccentricity :math:`e`.  If the eccentricity is undefined, it is set to zero. 
 #. ``pl_orbincl`` is taken as the inclination :math:`I`; if it is undefined it is set to 90 degrees. 
-#. ``pl_orblper`` is taken as the argument of periapsis :math:`\omega`; if it is undefined it is set to zero. 
+#. ``pl_orblper`` is taken as the argument of periastron :math:`\omega`; if it is undefined it is set to zero. 
 #. ``pl_radj_forecastermod`` is taken to be the planet radius :math:`R`. 
    
    .. note::
@@ -325,7 +331,15 @@ For each row in KnownPlanets, orbital data is generated as follows:
     
 #. ``st_dist`` is taken to be the target distance :math:`d`.
 #. ``st_metfe`` is taken to be the stellar metallicity; if it is undefined it is set to zero.
-#. The eccentric anomaly :math:`E` is calculated from the eccentricity for 100 equally spaced mean anomaly points :math:`M` between 0 and 360 degrees, inclusive.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion. True anomaly is calculated from the eccentric anomaly as:
+#. If ``pl_orbper`` (:math:`T`)is defined, or the orbital period can be calculated from the star mass and semi-major axis  (:ref:`see above<massperiodsmacalc>`), and ``pl_opbtper`` (the time of periastron passage: :math:`\tau`) is defined, then a time array is defined with 100 points between :math:`t0` and :math:`t0+T`, where :math:`t0` is taken to be January 1, 2026 00:00:00 UTC. The mean anomaly is then calculated as:
+
+   .. math::
+
+      M = \frac{2\pi}{T}(t - \tau)
+
+   If the period cannot be established, or the time of periapsis passage is undefined, then the mean anomaly is defined as 100 equally spaced points between 0 and 360 degrees. 
+
+#. The eccentric anomaly :math:`E` is calculated from the eccentricity for all values of the mean anomaly array defined above.  The calculation is done via routine ``eccanom`` from EXOSIMS, which is a machine-precision Newton-Raphson inversion. True anomaly is calculated from the eccentric anomaly as:
 
    .. math::
 
@@ -359,12 +373,21 @@ For each row in KnownPlanets, orbital data is generated as follows:
 #. The PlanetOrbits table is defined with the following columns:
     
     * M: :math:`M` (rad)
+    * t: :math:`t` (days after 1/1/2026; NaN when period of time of periastron passage are undefined)
     * r: :math:`r` (AU)
     * s: :math:`s` (AU)
     * WA: :math:`\alpha` (mas)
     * beta: :math:`\beta` (deg)
 
 #. For each row, for each cloud level in the :ref:`photometry` grids, and for each wavelength of interest, the :math:`p\Phi(\beta)` value is interpolated and a :math:`\Delta\textrm{mag}` value is calculated as described in :ref:`Step 13<photcalcref>` of the KnownPlanets generation procedure. These values are stored in new columns ``pPhi_XXXC_YYYNM`` and ``dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm. 
+
+
+.. _altplanetorbits_table:
+
+AltPlanetOrbits Table
+--------------------------------
+
+The AltPlanetOrbits table contains the same basic information as the PlanetOrbits table, but only for planets whose eccentricity is unknown, and for multiple different values of inclination. The exact same set of calculations are performed as for PlanetOrbits, except the inclination is taken at four different values: 30, 60, 90 degrees, and a critical inclination value.  In cases where the only known planet mass is :math:`M\sin(I)`, the critical value is the inclination at which the planet mass would equal 0.08 solar masses.  Otherwise, the critical inclination is taken to be 10 degrees.
 
 .. _comptable:
 
@@ -378,7 +401,7 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 #. Semi-major axis is sampled from a normal distribution, with :math:`\mu =` ``pl_orbsmax`` and :math:`\sigma =` (``pl_orbsmaxerr1`` :math:`-` ``pl_orbsmaxerr2``)/2.  In the case where the error is undefined, :math:`\sigma = \mu/100`.
 #. Eccentricity is sampled from a normal distribution, with :math:`\mu =` ``pl_orbeccen`` and :math:`\sigma =` (``pl_orbeccenerr1`` :math:`-` ``pl_oreccenerr2``)/2.  In the case where the error is undefined, :math:`\sigma = \mu/100`. In the case where the eccentricity is undefined, the distribution is taken to be a Rayleigh distribution with :math:`\sigma = 0.0125`.
 #. The inclination is sampled from a normal distribution, with :math:`\mu =` ``pl_orbincl`` and :math:`\sigma =` (``pl_orbinclerr1`` :math:`-` ``pl_orbinclerr2``)/2.  In the case where the error is undefined, :math:`\sigma = \mu/100`. In the case where the inclination is undefined, the inclination is sampled from a sinusoidal distribution. For rows where the planet mass (``pl_bmassj``) represents an estimate of the true mass, this sinusoidal inclination is sampled over the full range from 0 to 180 degrees.  However, in cases where the planet mass represents :math:`M\sin I`, a critical inclination value is calculated at which the true planet mass would equal 0.08 Solar masses, and the distribution is sampled only between this critical inclination and 180 degrees minus this critical inclination. 
-#. The longitude of periapsis is sampled from a normal distribution, with :math:`\mu =` ``pl_orblper`` and :math:`\sigma =` (``pl_orblpererr1`` :math:`-` ``pl_orblpererr2``)/2.  In the case where the error is undefined, :math:`\sigma = \mu/100`. In the case where the argument of periapsis is undefined, it is sampled from a uniform distribution between 0 and 360 degrees.
+#. The argument of periastron is sampled from a normal distribution, with :math:`\mu =` ``pl_orblper`` and :math:`\sigma =` (``pl_orblpererr1`` :math:`-` ``pl_orblpererr2``)/2.  In the case where the error is undefined, :math:`\sigma = \mu/100`. In the case where the argument of periastron is undefined, it is sampled from a uniform distribution between 0 and 360 degrees.
 #. The longitude of the ascending node is sampled from a uniform distribution between 0 and 360 degrees.
 #. The stellar metallicity is not sampled, but taken as a constant value equal to ``st_metfe``, or 0.0, if undefined. 
 #. If the planet radius in KnownPlanets was calculated from the mass, and the mass (``pl_bmassj``) represents :math:`M\sin I`, the mass sample is defined as ``pl_bmassj``:math:`/sin(I)`.

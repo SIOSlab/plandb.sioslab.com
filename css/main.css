@@ -1,5 +1,5 @@
 body {
-   min-width:750px;        
+   min-width:825px;        
    width: auto !important;
 }
 
@@ -29,6 +29,11 @@ header h1.logo:hover {
 header h1 a {
     color:#C0C0C0;
     text-decoration: none;
+}
+
+header img{
+  float: left;
+  width: 80px;
 }
 
 div.container {
@@ -132,6 +137,9 @@ table.results thead tr .headerSortDown {
 table.results thead tr .headerSortDown, table.results thead tr .headerSortUp {
 background-color: #8dbdd8;
 }
+
+table.results tr:nth-child(even) {background: #CCC}
+table.results tr:nth-child(odd) {background: #FFF}
 
 div.results-outer{
     overflow-x: scroll;
