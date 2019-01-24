@@ -169,11 +169,11 @@ if ($resultp){
         echo "<script>\n";
         echo "var xsize = 100, x = new Array(xsize), r = new Array(xsize), WA = new Array(xsize); \n";
         
-        $clouds = array("000","001","003","010","030","100","300","600");
+        $clouds = array("000C","001C","003C","010C","030C","100C","300C","600C","min","max","med");
         $bands = array("575","660","730","760","825");
         foreach ($clouds as &$c) {
             foreach ($bands as &$b){
-                echo "var d".$c."C".$b."NM = new Array(xsize), p".$c."C".$b."NM = new Array(xsize);\n";
+                echo "var d".$c.$b."NM = new Array(xsize), p".$c.$b."NM = new Array(xsize);\n";
             }
         }
 
@@ -188,25 +188,25 @@ if ($resultp){
 
             foreach ($clouds as &$c) {
                 foreach ($bands as &$b){
-                    echo "d".$c."C".$b."NM[".$i."]=";
-                    $tmp = "dMag_".$c."C_".$b."NM"; 
+                    echo "d".$c.$b."NM[".$i."]=";
+                    $tmp = "dMag_".$c."_".$b."NM"; 
                     if ($rowp[$tmp]){ echo $rowp[$tmp]; } else{ echo "NaN";} echo";";
-                    echo "p".$c."C".$b."NM[".$i."]=";
-                    $tmp = "pPhi_".$c."C_".$b."NM"; 
+                    echo "p".$c.$b."NM[".$i."]=";
+                    $tmp = "pPhi_".$c."_".$b."NM"; 
                     if ($rowp[$tmp]){ echo $rowp[$tmp]; } else{ echo "NaN";} echo";\n";
                 }
             }
             $i++;
         }
 
-        $cloudnames = array("No Cloud", "f1.0", "f0.01", "f0.03", "f0.1", "f0.3", "f3.0", "f6.0");
-        $clouds =     array("000",      "100",  "001",   "003",   "010",   "030",  "300",  "600");
+        $cloudnames = array("MIN", "MAX", "No Cloud", "f1.0", "f0.01", "f0.03", "f0.1", "f0.3", "f3.0", "f6.0");
+        $clouds =     array("min", "max", "000C",     "100C",  "001C",  "003C", "010C", "030C",  "300C", "600C");
         echo "var datan = [";
         for ($i = 0; $i < count($clouds); $i++) {
             echo "
                   { 
                     x: x,
-                    y: d".$clouds[$i]."C575NM,
+                    y: d".$clouds[$i]."575NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -221,7 +221,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: p".$clouds[$i]."C575NM,
+                    y: p".$clouds[$i]."575NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -238,7 +238,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: d".$clouds[$i]."C660NM,
+                    y: d".$clouds[$i]."660NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -253,7 +253,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: p".$clouds[$i]."C660NM,
+                    y: p".$clouds[$i]."660NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -270,7 +270,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: d".$clouds[$i]."C730NM,
+                    y: d".$clouds[$i]."730NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -285,7 +285,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: p".$clouds[$i]."C730NM,
+                    y: p".$clouds[$i]."730NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -302,7 +302,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: d".$clouds[$i]."C760NM,
+                    y: d".$clouds[$i]."760NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -317,7 +317,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: p".$clouds[$i]."C760NM,
+                    y: p".$clouds[$i]."760NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -334,7 +334,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: d".$clouds[$i]."C825NM,
+                    y: d".$clouds[$i]."825NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -349,7 +349,7 @@ if ($resultp){
             echo "
                   { 
                     x: x,
-                    y: p".$clouds[$i]."C825NM,
+                    y: p".$clouds[$i]."825NM,
                     type: 'scatter',";
                     if ($i == 1){
                         echo "fill: 'tonexty',";
@@ -365,137 +365,9 @@ if ($resultp){
              }
         }
 
-
-
         echo "];\n\n\n";
 
-        echo "var td1 = {\n
-                x: x,
-                y: d000C575NM,
-                type: 'scatter',
-                name: 'No Cloud',
-                line: { color: 'red' }
-              };\n
-              var td2 = {\n
-                x: x,
-                y: d100C575NM,
-                fill: 'tonexty',
-                type: 'scatter',
-                name: 'f1.0',
-                line: { color: 'red' }
-              };\n
-              var td3 = {\n
-                x: x,
-                y: d001C575NM,
-                type: 'scatter',
-                name: 'f0.01',
-                line: { color: 'red' }
-              };\n
-              var td4 = {\n
-                x: x,
-                y: d003C575NM,
-                type: 'scatter',
-                name: 'f0.03',
-                line: { color: 'red' }
-              };\n
-              var td5 = {\n
-                x: x,
-                y: d010C575NM,
-                type: 'scatter',
-                name: 'f0.1',
-                line: { color: 'red' }
-              };\n
-              var td6 = {\n
-                x: x,
-                y: d030C575NM,
-                type: 'scatter',
-                name: 'f0.3',
-                line: { color: 'red' }
-              };\n
-              var td7 = {\n
-                x: x,
-                y: d300C575NM,
-                type: 'scatter',
-                name: 'f3.0',
-                line: { color: 'red' }
-              };\n
-              var td8 = {\n
-                x: x,
-                y: d600C575NM,
-                type: 'scatter',
-                name: 'f6.0',
-                line: { color: 'red' }
-              };\n
-              var tp1 = {\n
-                x: x,
-                y: p000C575NM,
-                type: 'scatter',
-                name: 'No Cloud',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var tp2 = {\n
-                x: x,
-                y: p100C575NM,
-                fill: 'tonexty',
-                type: 'scatter',
-                name: 'f1.0',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var tp3 = {\n
-                x: x,
-                y: p001C575NM,
-                type: 'scatter',
-                name: 'f0.01',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var tp4 = {\n
-                x: x,
-                y: p003C575NM,
-                type: 'scatter',
-                name: 'f0.03',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var tp5 = {\n
-                x: x,
-                y: p010C575NM,
-                type: 'scatter',
-                name: 'f0.1',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var tp6 = {\n
-                x: x,
-                y: p030C575NM,
-                type: 'scatter',
-                name: 'f0.3',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var tp7 = {\n
-                x: x,
-                y: p300C575NM,
-                type: 'scatter',
-                name: 'f3.0',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-              var tp8 = {\n
-                x: x,
-                y: p600C575NM,
-                type: 'scatter',
-                name: 'f6.0',
-                line: { color: 'blue' },
-                yaxis: 'y2'
-              };\n
-
-
-             var data = [td1,td2,td3,td4,td5,td6,td7,td8,tp1,tp2,tp3,tp4,tp5,tp6,tp7,tp8];\n
-             
-             var updatemenus=[
+        echo "var updatemenus=[
                 {
                     buttons: [
                         {
