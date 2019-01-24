@@ -5,7 +5,7 @@ import pandas
 try:
     from StringIO import StringIO
 except ImportError:
-    from io import StringIO
+    from io import BytesIO as StringIO
 import astropy.units as u
 import astropy.constants as const
 import EXOSIMS.PlanetPhysicalModel.Forecaster
