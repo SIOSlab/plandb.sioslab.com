@@ -203,10 +203,7 @@ def getIPACdata():
         row_extended = extended.loc[(extended["best_data"] == 1) & (extended["pl_name"] == name)]
         idx = data.loc[(data["pl_name"] == name)].index
         if int(row_extended["pl_def"]) == 0:
-            if not np.isnan(row_extended["st_mass"].values):
-                final_columns = columns_to_replace_st
-            else:
-                final_columns = columns_to_replace
+            final_columns = columns_to_replace
             
             row_extended.index = idx
             row_extended_replace = row_extended[final_columns]
@@ -1247,8 +1244,206 @@ def addSQLcomments(engine,tablename):
           print(comm)
           r = engine.execute(comm)
 
+
+def writeSQL(engine, data=None, orbdata=None, altorbdata=None, comps=None, aliases=None):
+    """write outputs to sql database via engine"""
+
+    if data is not None:
+        print("Writing KnownPlanets")
+        namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
+        data.to_sql('KnownPlanets', engine, chunksize=100, if_exists='replace',
+                    dtype={'pl_name': sqlalchemy.types.String(namemxchar),
+                           'pl_hostname': sqlalchemy.types.String(namemxchar - 2),
+                           'pl_letter': sqlalchemy.types.CHAR(1)})
+        # set indexes
+        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_name)")
+        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_hostname)")
+
+        # add comments
+        addSQLcomments(engine, 'KnownPlanets')
+
+    if orbdata is not None:
+        print("Writing PlanetOrbits")
+        namemxchar = np.array([len(n) for n in orbdata['Name'].values]).max()
+        orbdata.to_sql('PlanetOrbits', engine, chunksize=100, if_exists='replace',
+                       dtype={'Name': sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
+        result = engine.execute(
+            "ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine, 'PlanetOrbits')
+
+    if altorbdata is not None:
+        print("Writing AltPlanetOrbits")
+        namemxchar = np.array([len(n) for n in altorbdata['Name'].values]).max()
+        altorbdata.to_sql('AltPlanetOrbits', engine, chunksize=100, if_exists='replace',
+                          dtype={'Name': sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD INDEX (Name)")
+        result = engine.execute(
+            "ALTER TABLE AltPlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine, 'AltPlanetOrbits')
+
+    if comps is not None:
+        print("Writing Completeness")
+        namemxchar = np.array([len(n) for n in comps['Name'].values]).max()
+        comps.to_sql('Completeness', engine, chunksize=100, if_exists='replace',
+                     dtype={'Name': sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
+        result = engine.execute(
+            "ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine, 'Completeness')
+
+    if aliases is not None:
+        print("Writing Alias")
+        aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
+        aliases.to_sql('Aliases', engine, chunksize=100, if_exists='replace',
+                       dtype={'Alias': sqlalchemy.types.String(aliasmxchar)})
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
+
+
+def addSQLcomments(engine, tablename):
+    """Add comments to table schema based on entries in spreadsheet"""
+
+    # read in spreadsheet and grab data from appropriate sheet
+    coldefs = pandas.ExcelFile('coldefs.xlsx')
+    coldefs = coldefs.parse(tablename)
+    cols = coldefs['Column'][coldefs['Definition'].notnull()].values
+    cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
+    cnames = coldefs['Name'][coldefs['Definition'].notnull()].values
+
+    result = engine.execute("show create table %s" % tablename)
+    res = result.fetchall()
+    res = res[0]['Create Table']
+    res = res.split("\n")
+
+    p = re.compile('`(\S+)`[\s\S]+')
+    keys = []
+    defs = []
+    for r in res:
+        r = r.strip().strip(',')
+        if "COMMENT" in r: continue
+        m = p.match(r)
+        if m:
+            keys.append(m.groups()[0])
+            defs.append(r)
+
+    for key, d in zip(keys, defs):
+        if not key in cols: continue
+        comm = """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";""" % (
+        tablename, key, d, cnames[cols == key][0].strip('"'), cdefs[cols == key][0])
+        print(comm)
+        r = engine.execute(comm)
+
+
+def writeSQL2(engine, data=None, stdata=None, orbdata=None, altorbdata=None, comps=None, aliases=None):
+    """write outputs to sql database via engine"""
+
+    if stdata is not None:
+        print("Writing StarProps")
+        namemxchar = np.array([len(n) for n in stdata['st_name'].values]).max()
+        data.to_sql('StarProps', engine, chunksize=100, if_exists='replace',
+                    dtype={'st_id': sqlalchemy.types.INT,
+                           'st_name': sqlalchemy.types.String(namemxchar)})
+        # set indexes
+        result = engine.execute('ALTER TABLE StarProps ADD INDEX (st_id')
+        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (st_name)")
+
+        # add comments
+        addSQLcomments(engine, 'StarProps')
+
+    if data is not None:
+        print("Writing KnownPlanets")
+        namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
+        data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',
+                    dtype={'pl_id':sqlalchemy.types.INT,
+                            'pl_name':sqlalchemy.types.String(namemxchar),
+                            'st_hostname':sqlalchemy.types.String(namemxchar-2),
+                            'pl_letter':sqlalchemy.types.CHAR(1)})
+        #set indexes
+        result = engine.execute('ALTER TABLE KnownPlanets ADD INDEX (pl_id')
+        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_name)")
+        result = engine.execute("ALTER TABLE KnownPlanets ADD FOREIGN KEY (Name) REFERENCES StarProps(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE KnownPlanets ADD FOREIGN KEY (Name) REFERENCES StarProps(st_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        #add comments
+        addSQLcomments(engine,'KnownPlanets')
+
+    if orbdata is not None:
+        print("Writing PlanetOrbits")
+        namemxchar = np.array([len(n) for n in orbdata['Name'].values]).max()
+        orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine,'PlanetOrbits')
+
+    if altorbdata is not None:
+        print("Writing AltPlanetOrbits")
+        namemxchar = np.array([len(n) for n in altorbdata['Name'].values]).max()
+        altorbdata.to_sql('AltPlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD INDEX (Name)")
+        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine,'AltPlanetOrbits')
+
+    if comps is not None:
+        print("Writing Completeness")
+        namemxchar = np.array([len(n) for n in comps['Name'].values]).max()
+        comps.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
+        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        addSQLcomments(engine,'Completeness')
+
+
+    if aliases is not None:
+        print("Writing Alias")
+        aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
+        aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
+        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (Name) REFERENCES StarProps(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+
+def addSQLcomments2(engine,tablename):
+        """Add comments to table schema based on entries in spreadsheet"""
+
+        #read in spreadsheet and grab data from appropriate sheet
+        coldefs = pandas.ExcelFile('coldefs.xlsx')
+        coldefs = coldefs.parse(tablename)
+        cols = coldefs['Column'][coldefs['Definition'].notnull()].values
+        cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
+        cnames =  coldefs['Name'][coldefs['Definition'].notnull()].values
+
+        result = engine.execute("show create table %s"%tablename)
+        res = result.fetchall()
+        res = res[0]['Create Table']
+        res = res.split("\n")
+
+        p = re.compile('`(\S+)`[\s\S]+')
+        keys = []
+        defs = []
+        for r in res:
+          r = r.strip().strip(',')
+          if "COMMENT" in r: continue
+          m = p.match(r)
+          if m:
+            keys.append(m.groups()[0])
+            defs.append(r)
+
+        for key,d in zip(keys,defs):
+          if not key in cols: continue
+          comm =  """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";"""%(tablename,key,d,cnames[cols == key][0].strip('"'),cdefs[cols == key][0])
+          print(comm)
+          r = engine.execute(comm)
+
 # Separates data into pl_data and st_data
 def generateTables(data):
+    print('Splitting IPAC data into Star and Planet data')
     # Isolate the stellar columns from the planet columns
     st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
     st_cols.extend(["dec", "dec_str", "hd_name", "hip_name", "ra", "ra_str"])
@@ -1267,6 +1462,10 @@ def generateTables(data):
     stars = pl_data['st_name']
     stars.drop_duplicates(keep=False, inplace=True)
     num_stars = len(stars.index)
+    # stars.to_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\stars_bad.csv")
+    # st_data.to_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\st_data_bad.csv")
+    print(num_stars)
+    print(num_rows)
     # If these aren't equal, then two sources of data for a star don't agree.
     assert num_rows == num_stars, "Stellar data for different planets not consistent"
 
@@ -1284,7 +1483,7 @@ def generateTables(data):
     return pl_data, st_data
 
 
-# Adds a pl_id column to data using the planet data specified by pl_data whose orignal column name is pl_name
+# Adds a pl_id column to data using the planet data specified by pl_data whose original column name is pl_name
 def add_pl_idx(data, pl_data, pl_name):
     idx_list = []
     data = data.rename(columns={pl_name: 'pl_name'})

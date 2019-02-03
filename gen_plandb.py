@@ -30,7 +30,7 @@ if cache: altorbdata.to_pickle('altorbdata_'+datestr+'.pkl')
 
 #completeness
 comps,compdict,data = calcPlanetCompleteness(data, bandzip, photdict)
-if cache: 
+if cache:
     comps.to_pickle('completeness_'+datestr+'.pkl')
     np.savez('completeness_'+datestr,**compdict)
     data.to_pickle('data_'+datestr+'.pkl')
