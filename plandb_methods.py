@@ -5,7 +5,7 @@ import pandas
 try:
     from StringIO import StringIO
 except ImportError:
-    from io import StringIO
+    from io import BytesIO as StringIO
 import astropy.units as u
 import astropy.constants as const
 import EXOSIMS.PlanetPhysicalModel.Forecaster
@@ -674,6 +674,39 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             orbdata = out.copy()
         else:
             orbdata = orbdata.append(out)
+
+
+    orbdata = orbdata.sort_values(by=['Name','t','M']).reset_index(drop=True)
+    tmpout = {}
+    for l in lambdas:
+        tmpout["dMag_min_"+str(l)+"NM"] = np.zeros(len(orbdata))
+        tmpout["dMag_max_"+str(l)+"NM"] = np.zeros(len(orbdata))
+        tmpout["dMag_med_"+str(l)+"NM"] = np.zeros(len(orbdata))
+        tmpout["pPhi_min_"+str(l)+"NM"] = np.zeros(len(orbdata))
+        tmpout["pPhi_max_"+str(l)+"NM"] = np.zeros(len(orbdata))
+        tmpout["pPhi_med_"+str(l)+"NM"] = np.zeros(len(orbdata))
+
+
+
+    for name in np.unique(orbdata['Name']):
+        print(name)
+        loc = orbdata['Name'] == name  
+        for l in lambdas:
+            tmp = []
+            tmp2 = []
+            for c in photdict['clouds']:
+                tmp.append(orbdata.loc[loc,'dMag_'+"%03dC_"%(c*100)+str(l)+"NM"].values)
+                tmp2.append(orbdata.loc[loc,'pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"].values)
+            tmp = np.vstack(tmp)
+            tmp2 = np.vstack(tmp2)
+            tmpout["dMag_min_"+str(l)+"NM"][loc.values] = np.nanmin(tmp,axis=0)
+            tmpout["dMag_max_"+str(l)+"NM"][loc.values] = np.nanmax(tmp,axis=0)
+            tmpout["dMag_med_"+str(l)+"NM"][loc.values] = np.nanmedian(tmp,axis=0)
+            tmpout["pPhi_min_"+str(l)+"NM"][loc.values] = np.nanmin(tmp2,axis=0)
+            tmpout["pPhi_max_"+str(l)+"NM"][loc.values] = np.nanmax(tmp2,axis=0)
+            tmpout["pPhi_med_"+str(l)+"NM"][loc.values] = np.nanmedian(tmp2,axis=0)
+
+    orbdata = orbdata.join(pandas.DataFrame(tmpout))
 
     return orbdata
 
