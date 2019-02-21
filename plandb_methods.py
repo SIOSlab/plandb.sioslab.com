@@ -21,6 +21,7 @@ from EXOSIMS.util.eccanom import eccanom
 from astroquery.simbad import Simbad
 from requests.exceptions import ConnectionError
 import math
+from MeanStars import MeanStars
 
 
 def RfromM(m):
@@ -101,11 +102,6 @@ def getIPACdata():
 
     #merge data sets
     data = data.combine_first(data2)
-
-    pl_names_df= pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\output.csv")
-    pl_names = pl_names_df["pl_name"]
-
-    data = data.loc[data['pl_name'].isin(pl_names)]
 
     # substitute data from the extended table.
     print("Querying extended data table.")
@@ -514,6 +510,8 @@ def calcQuadratureVals(data, bandzip, photdict):
     inc = data['pl_orbincl'].values
     eccen = data['pl_orbeccen'].values
     arg_per = data['pl_orblper'].values
+    lum = data['st_lum'].values
+    temps = data['st_teff'].values
 
     tmpout = {}
 
@@ -522,8 +520,10 @@ def calcQuadratureVals(data, bandzip, photdict):
     distinterp = photdict['distinterp']
     lambdas = []
 
+    ms = MeanStars()
+
     #iterate over all data rows
-    for j, (Rp, fe,a, I, e, w) in enumerate(zip(Rps, fes,smas, inc, eccen, arg_per)):
+    for j, (Rp, fe,a, I, e, w, lm, teff) in enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum, temps)):
         print("%d/%d"%(j+1,len(Rps)))
         for c in photdict['clouds']:
             for l,band,bw,ws,wstep in bandzip: 
@@ -540,8 +540,16 @@ def calcQuadratureVals(data, bandzip, photdict):
                     nu1 = -w
                     nu2 = np.pi - w
 
-                    r1 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu1))
-                    r2 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu2))
+                    if np.isnan(lm):
+                        if np.isnan(teff):
+                            lum_fix = 1
+                        else:
+                            lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+                    else:
+                        lum_fix = (10 ** lm) ** .5  # Since lum is log base 10 of solar luminosity
+
+                    r1 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu1)) * lum_fix
+                    r2 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu2)) * lum_fix
 
                     pphi1 = quadinterps[float(feinterp(fe))][float(distinterp(r1))][c](ws).sum() * wstep / bw
                     pphi2 = quadinterps[float(feinterp(fe))][float(distinterp(r2))][c](ws).sum() * wstep / bw
@@ -666,10 +674,23 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                     'WA': WA,
                     'beta': beta.to(u.deg).value}
 
+        lum = row['st_lum']
+        teff = row['st_teff']
+
+        ms = MeanStars()
+
+        if np.isnan(lum):
+            if np.isnan(teff):
+                lum_fix = 1
+            else:
+                lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+        else:
+            lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+
         inds = np.argsort(beta)
         for c in photdict['clouds']:
             for l,band,bw,ws,wstep in bandzip:
-                pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
+                pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a * lum_fix))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
                 pphi[np.isinf(pphi)] = np.nan
                 outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = pphi
                 dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
@@ -800,6 +821,19 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
                     'Icrit': [Icrit]*len(M)
                    }
 
+        lum = row['st_lum']
+        teff = row['st_teff']
+
+        ms = MeanStars()
+
+        if np.isnan(lum):
+            if np.isnan(teff):
+                lum_fix = 1
+            else:
+                lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+        else:
+            lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+
         for k,I in enumerate(Is):
             s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
             beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
@@ -816,7 +850,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
             outdict["beta_I"+Itag] = beta.to(u.deg).value
 
             inds = np.argsort(beta)
-            pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
+            pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a * lum_fix))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
             pphi[np.isinf(pphi)] = np.nan
             outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM_I"+Itag] = pphi
             dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
@@ -988,9 +1022,23 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                    'default_orbit': [1] * len(M)}
 
         inds = np.argsort(beta)
+
+        lum = row['st_lum']
+        teff = row['st_teff']
+
+        ms = MeanStars()
+
+        if np.isnan(lum):
+            if np.isnan(teff):
+                lum_fix = 1
+            else:
+                lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+        else:
+            lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+
         for c in photdict['clouds']:
             for l, band, bw, ws, wstep in bandzip:
-                pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds], ws).sum(
+                pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a*lum_fix))][c](beta.to(u.deg).value[inds], ws).sum(
                     1) * wstep / bw)[np.argsort(inds)]
                 pphi[np.isinf(pphi)] = np.nan
                 outdict['pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"] = pphi
@@ -1133,6 +1181,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         betaList = []
         pPhiList = []
         dMagList = []
+
         for k, I in enumerate(Is):
             s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(
                 -2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
@@ -1153,7 +1202,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
             betaList.append(beta)
 
             inds = np.argsort(beta)
-            pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds], ws).sum(
+            pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a*lum_fix))][c](beta.to(u.deg).value[inds], ws).sum(
                 1) * wstep / bw)[np.argsort(inds)]
             pphi[np.isinf(pphi)] = np.nan
             # outdict['pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM_I" + Itag] = pphi
@@ -1415,13 +1464,26 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
             beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
             rnorm = d
-                        
+
+            lum = row['st_lum']
+            teff = row['st_teff']
+
+            ms = MeanStars()
+
+            if np.isnan(lum):
+                if np.isnan(teff):
+                    lum_fix = 1
+                else:
+                    lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+            else:
+                lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+
             pphi = np.zeros(n)
             for clevel in np.unique(cl):
                 tmpinds = cl == clevel
                 betatmp = beta[tmpinds]
                 binds = np.argsort(betatmp)
-                pphi[tmpinds] = (photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm)))][clevel](betatmp.to(u.deg).value[binds],ws).sum(1)*wstep/bw)[np.argsort(binds)].flatten()
+                pphi[tmpinds] = (photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm) * lum_fix))][clevel](betatmp.to(u.deg).value[binds],ws).sum(1)*wstep/bw)[np.argsort(binds)].flatten()
 
             pphi[np.isinf(pphi)] = np.nan 
             pphi[pphi <= 0.0] = 1e-16
@@ -1684,99 +1746,6 @@ def addSQLcomments(engine,tablename):
           comm =  """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";"""%(tablename,key,d,cnames[cols == key][0].strip('"'),cdefs[cols == key][0])
           print(comm)
           r = engine.execute(comm)
-
-
-def writeSQL(engine, data=None, orbdata=None, altorbdata=None, comps=None, aliases=None):
-    """write outputs to sql database via engine"""
-
-    if data is not None:
-        print("Writing KnownPlanets")
-        namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
-        data.to_sql('KnownPlanets', engine, chunksize=100, if_exists='replace',
-                    dtype={'pl_name': sqlalchemy.types.String(namemxchar),
-                           'pl_hostname': sqlalchemy.types.String(namemxchar - 2),
-                           'pl_letter': sqlalchemy.types.CHAR(1)})
-        # set indexes
-        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_name)")
-        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_hostname)")
-
-        # add comments
-        addSQLcomments(engine, 'KnownPlanets')
-
-    if orbdata is not None:
-        print("Writing PlanetOrbits")
-        namemxchar = np.array([len(n) for n in orbdata['Name'].values]).max()
-        orbdata.to_sql('PlanetOrbits', engine, chunksize=100, if_exists='replace',
-                       dtype={'Name': sqlalchemy.types.String(namemxchar)})
-        result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
-        result = engine.execute(
-            "ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
-
-        addSQLcomments(engine, 'PlanetOrbits')
-
-    if altorbdata is not None:
-        print("Writing AltPlanetOrbits")
-        namemxchar = np.array([len(n) for n in altorbdata['Name'].values]).max()
-        altorbdata.to_sql('AltPlanetOrbits', engine, chunksize=100, if_exists='replace',
-                          dtype={'Name': sqlalchemy.types.String(namemxchar)})
-        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD INDEX (Name)")
-        result = engine.execute(
-            "ALTER TABLE AltPlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
-
-        addSQLcomments(engine, 'AltPlanetOrbits')
-
-    if comps is not None:
-        print("Writing Completeness")
-        namemxchar = np.array([len(n) for n in comps['Name'].values]).max()
-        comps.to_sql('Completeness', engine, chunksize=100, if_exists='replace',
-                     dtype={'Name': sqlalchemy.types.String(namemxchar)})
-        result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
-        result = engine.execute(
-            "ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
-
-        addSQLcomments(engine, 'Completeness')
-
-    if aliases is not None:
-        print("Writing Alias")
-        aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
-        aliases.to_sql('Aliases', engine, chunksize=100, if_exists='replace',
-                       dtype={'Alias': sqlalchemy.types.String(aliasmxchar)})
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
-
-
-def addSQLcomments(engine, tablename):
-    """Add comments to table schema based on entries in spreadsheet"""
-
-    # read in spreadsheet and grab data from appropriate sheet
-    coldefs = pandas.ExcelFile('coldefs.xlsx')
-    coldefs = coldefs.parse(tablename)
-    cols = coldefs['Column'][coldefs['Definition'].notnull()].values
-    cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
-    cnames = coldefs['Name'][coldefs['Definition'].notnull()].values
-
-    result = engine.execute("show create table %s" % tablename)
-    res = result.fetchall()
-    res = res[0]['Create Table']
-    res = res.split("\n")
-
-    p = re.compile('`(\S+)`[\s\S]+')
-    keys = []
-    defs = []
-    for r in res:
-        r = r.strip().strip(',')
-        if "COMMENT" in r: continue
-        m = p.match(r)
-        if m:
-            keys.append(m.groups()[0])
-            defs.append(r)
-
-    for key, d in zip(keys, defs):
-        if not key in cols: continue
-        comm = """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";""" % (
-        tablename, key, d, cnames[cols == key][0].strip('"'), cdefs[cols == key][0])
-        print(comm)
-        r = engine.execute(comm)
 
 
 def writeSQL2(engine, data=None, stdata=None, orbdata=None, orbitfits=None, evalorbits=None, comps=None, aliases=None):
