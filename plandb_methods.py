@@ -109,7 +109,6 @@ def getIPACdata():
     query_ext = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"""
     r_ext = requests.get(query_ext)
     data_ext = pandas.read_csv(StringIO(r_ext.content))
-    data_ext = data_ext.loc[data_ext['mpl_name'].isin(pl_names)]
 
     extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
     
@@ -534,6 +533,14 @@ def calcQuadratureVals(data, bandzip, photdict):
                     tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape)
                     tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"] = np.zeros(smas.shape)
 
+                if np.isnan(lm):
+                    if np.isnan(teff):
+                        lum_fix = 1
+                    else:
+                        lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+                else:
+                    lum_fix = (10 ** lm) ** .5  # Since lum is log base 10 of solar luminosity
+
                 #Only calculate quadrature distance if known eccentricity and argument of periaps, 
                 #and not face-on orbit
                 if not np.isnan(e) and not np.isnan(w) and I != 0:
@@ -573,14 +580,14 @@ def calcQuadratureVals(data, bandzip, photdict):
                     tmpout['quad_pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = pphi
                     tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = r
                 else:
-                    pphi = quadinterps[float(feinterp(fe))][float(distinterp(a))][c](ws).sum()*wstep/bw
+                    pphi = quadinterps[float(feinterp(fe))][float(distinterp(a*lum_fix))][c](ws).sum()*wstep/bw
                     if np.isinf(pphi):
                         print("Inf value encountered in pphi")
                         pphi = np.nan
 
                     tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"][j] = pphi
                     dMag = deltaMag(1, Rp*u.R_jupiter, a*u.AU, pphi)
-                    tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = a
+                    tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = a * lum_fix
 
                 if np.isinf(dMag): 
                     print("Inf value encountered in dmag")
