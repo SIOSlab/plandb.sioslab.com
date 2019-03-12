@@ -79,22 +79,26 @@ def getIPACdata():
     colmap = {k:k[1:] if (k.startswith('fst_') | k.startswith('fpl_')) else k for k in data.keys()}
     data = data.rename(columns=colmap)
     #sma, eccen, metallicity cols were renamed so name them back for merge
-    data = data.rename(columns={'pl_smax':'pl_orbsmax',
-                                'pl_smaxerr1':'pl_orbsmaxerr1',
-                                'pl_smaxerr2':'pl_orbsmaxerr2',
-                                'pl_smaxlim':'pl_orbsmaxlim',
+    data = data.rename(columns={# 'pl_smax':'pl_orbsmax',
+                                # 'pl_smaxerr1':'pl_orbsmaxerr1',
+                                # 'pl_smaxerr2':'pl_orbsmaxerr2',
+                                # 'pl_smaxlim':'pl_orbsmaxlim',
                                 'pl_smaxreflink':'pl_orbsmaxreflink',
-                                'pl_eccen':'pl_orbeccen',
-                                'pl_eccenerr1':'pl_orbeccenerr1',
-                                'pl_eccenerr2':'pl_orbeccenerr2',
-                                'pl_eccenlim':'pl_orbeccenlim',
+                                # 'pl_eccen':'pl_orbeccen',
+                                # 'pl_eccenerr1':'pl_orbeccenerr1',
+                                # 'pl_eccenerr2':'pl_orbeccenerr2',
+                                # 'pl_eccenlim':'pl_orbeccenlim',
                                 'pl_eccenreflink':'pl_orbeccenreflink',
-                                'st_met':'st_metfe',
-                                'st_meterr1':'st_metfeerr1',
-                                'st_meterr2':'st_metfeerr2',
+                                # 'st_met':'st_metfe',
+                                # 'st_meterr1':'st_metfeerr1',
+                                # 'st_meterr2':'st_metfeerr2',
                                 'st_metreflink':'st_metfereflink',
-                                'st_metlim':'st_metfelim',
+                                # 'st_metlim':'st_metfelim',
                                 })
+
+    composite_cols = [col for col in data.columns if ('reflink' in col) or (col == 'pl_name')]
+
+    data = data[composite_cols]
 
     #sort by planet name
     data = data.sort_values(by=['pl_name']).reset_index(drop=True)
@@ -895,7 +899,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
     orbitfits_dict = []
     orbitfit_ids = []
 
-    max_orbitfits_id = -1
+    max_pl_id = -1
     max_evalorbit_id = -1
 
     orbdata = None
@@ -965,59 +969,54 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         if np.isnan(tau):
             tau = 0.0
 
-        orbitfits_dict = {'pl_id': [j],
-                          'pl_name': [plannames[j]],
-                          'orbsmax': [a],
-                          'orbsmax_err1': [row['pl_orbsmaxerr1']],
-                          'orbsmax_err2': [row['pl_orbsmaxerr2']],
-                          'orbeccen': [e],
-                          'orbeccen_err1': [row['pl_orbsmaxerr1']],
-                          'orbeccen_err2': [row['pl_orbeccenerr2']],
-                          'orbincl': [I],
-                          'orbincl_err1': [row['pl_orbinclerr1']],
-                          'orbincl_err2': [row['pl_orbinclerr2']],
-                          'orblper': [w],
-                          'orblper_err1': [row['pl_orblpererr1']],
-                          'orblper_err2': [row['pl_orblpererr2']],
-                          'radj_forecastermod': [Rp],
-                          'radj_forecastermod_err1': [row['pl_radj_forecastermoderr1']],
-                          'radj_forecastermod_err2': [row['pl_radj_forecastermoderr2']],
-                          'st_dist': [dist],
-                          'st_dist_err1': [row['st_disterr1']],
-                          'st_dist_err2': [row['st_disterr2']],
-                          'st_metfe': [fe],
-                          'st_metfe_err1': [row['st_metfeerr1']],
-                          'st_metfe_err2': [row['st_metfeerr2']],
-                          'orbper': [Tp],
-                          'orbper_err1': [row['pl_orbpererr1']],
-                          'orbper_err2': [row['pl_orbpererr2']],
-                          'orbtper': [tau],
-                          'orbtper_err1': [row['pl_orbtpererr1']],
-                          'orbtper_err2': [row['pl_orbtpererr2']],
-                          'next_tper': [tper_next],
-                          'tper_2026': [tper_2026],
-                          'default_orbit': [1]}
-        min_orbitfits_id = max_orbitfits_id + 1
-        max_orbitfits_id = min_orbitfits_id
+        st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
+        st_cols.extend(["dec", "dec_str", "hd_name", "hip_name", "ra", "ra_str"])
+        pl_cols = np.asarray(np.setdiff1d(data.columns, st_cols))
+        np.append(pl_cols, 'st_name')
+        included = ['pl_name', 'pl_orbsmax', 'pl_orbeccen', 'pl_orbincl', 'pl_orblper', 'pl_orblper', 'pl_orbper'
+                                                                                           'pl_orbtper']
+        pl_cols2 = [entry for entry in pl_cols if entry not in included]
 
-        evalorbit_dict = {'pl_id': [j],
+        if np.isnan(row['pl_orbincl']):
+            Is_1 = np.array([np.nan, I])
+            defaults = np.array([1, 0])
+        else:
+            Is_1 = np.array([I])
+            defaults = np.array([1])
+            
+        orbitfits_dict = {'pl_name': [plannames[j]] * len(Is_1),
+                          'orbsmax': [a] * len(Is_1),
+                          'orbeccen': [e] * len(Is_1),
+                          'orbincl': Is_1,
+                          'orblper': [w] * len(Is_1),
+                          'orbper': [Tp] * len(Is_1),
+                          'orbtper': [tau] * len(Is_1),
+                          'orbtper_next': [tper_next] * len(Is_1),
+                          'orbtper_2026': [tper_2026] * len(Is_1),
+                          'default': defaults}
+        for col_name in pl_cols2:
+            if col_name in ['completeness', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag'] and len(Is_1) > 1:
+                orbitfits_dict[col_name.replace('pl_', '')] = [row[col_name], np.nan]
+            else:
+                orbitfits_dict[col_name.replace('pl_', '')] = row[col_name]
+
+        min_pl_id = max_pl_id + 1
+        max_pl_id = min_pl_id + len(Is_1) - 1
+
+        evalorbit_dict = {'pl_id': [max_pl_id],
                           'pl_name': [plannames[j]],
-                          'orbitfits_id': [max_orbitfits_id],
                           'orbsmax': [a],
                           'orbeccen': [e],
                           'orbincl': [I],
                           'orblper': [w],
-                          'radj_forecastermod': [Rp],
-                          'st_dist': [dist],
-                          'st_met_fe': [fe],
                           'orbper': [Tp],
                           'orbtper': [tau],
-                          'default_orbit': [1]}
+                          'default': [1]}
 
         min_evalorbit_id = max_evalorbit_id + 1
         max_evalorbit_id = min_evalorbit_id
 
-        outdict = {'pl_id': [j] * len(M),
+        outdict = {'pl_id': [max_pl_id] * len(M),
                    'pl_name': [plannames[j]] * len(M),
                    'evalorbit_id': [max_evalorbit_id] * len(M),
                    'M': M,
@@ -1026,7 +1025,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                    's': s,
                    'WA': WA,
                    'beta': beta.to(u.deg).value,
-                   'default_orbit': [1] * len(M)}
+                   'default': [1] * len(M)}
 
         inds = np.argsort(beta)
 
@@ -1120,57 +1119,37 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
 
         if not skip_orbitfits:
-            orbitfits_dict = {'pl_id': [j] * len(Is),
-                              'pl_name': [plannames[j]] * len(Is),
+            orbitfits_dict = {'pl_name': [plannames[j]] * len(Is),
                               'orbsmax': [a] * len(Is),
-                              'orbsmax_err1': [row['pl_orbsmaxerr1']] * len(Is),
-                              'orbsmax_err2': [row['pl_orbsmaxerr2']] * len(Is),
                               'orbeccen': [e] * len(Is),
-                              'orbeccen_err1': [row['pl_orbsmaxerr1']] * len(Is),
-                              'orbeccen_err2': [row['pl_orbeccenerr2']] * len(Is),
                               'orbincl': Is,
                               'orblper': [w] * len(Is),
-                              'orblper_err1': [row['pl_orblpererr1']] * len(Is),
-                              'orblper_err2': [row['pl_orblpererr2']] * len(Is),
-                              'radj_forecastermod': [Rp] * len(Is),
-                              'radj_forecastermod_err1': [row['pl_radj_forecastermoderr1']] * len(Is),
-                              'radj_forecastermod_err2': [row['pl_radj_forecastermoderr2']] * len(Is),
-                              'st_dist': [dist] * len(Is),
-                              'st_dist_err1': [row['st_disterr1']] * len(Is),
-                              'st_dist_err2': [row['st_disterr2']] * len(Is),
-                              'st_metfe': [fe] * len(Is),
-                              'st_metfe_err1': [row['st_metfeerr1']] * len(Is),
-                              'st_metfe_err2': [row['st_metfeerr2']] * len(Is),
                               'orbper': [Tp] * len(Is),
-                              'orbper_err1': [row['pl_orbpererr1']] * len(Is),
-                              'orbper_err2': [row['pl_orbpererr2']] * len(Is),
                               'orbtper': [tau] * len(Is),
-                              'orbtper_err1': [row['pl_orbtpererr1']] * len(Is),
-                              'orbtper_err2': [row['pl_orbtpererr2']] * len(Is),
-                              'next_tper': [tper_next] * len(Is),
-                              'tper_2026': [tper_2026] * len(Is),
-                              'default_orbit': [0] * len(Is)}
+                              'orbtper_next': [tper_next] * len(Is),
+                              'orbtper_2026': [tper_2026] * len(Is),
+                              'default': [0] * len(Is)}
 
-            min_orbitfits_id = max_orbitfits_id + 1
-            max_orbitfits_id = min_orbitfits_id + len(Is) - 1
-            orbitfit_ids = np.linspace(min_orbitfits_id, max_orbitfits_id, num=len(Is))
-            orbitfit_ids = orbitfit_ids.tolist()
+            for col_name in pl_cols2:
+                if col_name not in ['completeness', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag']:
+                    orbitfits_dict[col_name.replace('pl_', '')] = row[col_name]
+
+            min_pl_id = max_pl_id + 1
+            max_pl_id = min_pl_id + len(Is) - 1
+            pl_ids = np.linspace(min_pl_id, max_pl_id, num=len(Is))
+            pl_ids = pl_ids.tolist()
         else:
-            orbitfit_ids = [max_orbitfits_id] * len(Is)
+            pl_ids = [max_pl_id] * len(Is)
 
-        evalorbit_dict = {'pl_id': [j] * len(Is),
+        evalorbit_dict = {'pl_id': pl_ids,
                           'pl_name': [plannames[j]] * len(Is),
-                          'orbitfits_id': orbitfit_ids,
                           'orbsmax': [a] * len(Is),
                           'orbeccen': [e] * len(Is),
                           'orbincl': Is,
                           'orblper': [w] * len(Is),
-                          'radj_forecastermod': [Rp] * len(Is),
-                          'st_dist': [dist] * len(Is),
-                          'st_met_fe': [fe] * len(Is),
                           'orbper': [Tp] * len(Is),
                           'orbtper': [tau] * len(Is),
-                          'default_orbit': [0] * len(Is)}
+                          'default': [0] * len(Is)}
 
         min_evalorbit_id = max_evalorbit_id + 1
         max_evalorbit_id = min_evalorbit_id + len(Is) - 1
@@ -1219,7 +1198,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
             # outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM_I" + Itag] = dMag
             dMagList.append(dMag)
 
-            outdict = {'pl_id': [j] * len(M),
+            outdict = {'pl_id': [pl_ids[k]] * len(M),
                        'pl_name': [plannames[j]] * len(M),
                        'evalorbit_id': [evalorbit_ids[k]] * len(M),
                        'M': M,
@@ -1230,7 +1209,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                        'beta': beta * len(M),
                        'pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM": pphi * len(M),
                        'dMag_' + "%03dC_" % (c * 100) + str(l) + "NM": dMag * len(M),
-                       'default_orbit': [0] * len(M)}
+                       'default': [0] * len(M)}
 
             out = pandas.DataFrame(outdict)
 
@@ -1755,49 +1734,52 @@ def addSQLcomments(engine,tablename):
           r = engine.execute(comm)
 
 
-def writeSQL2(engine, data=None, stdata=None, orbdata=None, orbitfits=None, evalorbits=None, comps=None, aliases=None):
+def writeSQL2(engine, data=None, stdata=None, orbdata=None, evalorbits=None, comps=None, aliases=None):
     """write outputs to sql database via engine"""
 
     if stdata is not None:
-        print("Writing StarProps")
+        print("Writing Stars")
         namemxchar = np.array([len(n) for n in stdata['st_name'].values]).max()
         stdata = stdata.rename_axis('st_id')
-        stdata.to_sql('StarProps', engine, chunksize=100, if_exists='replace',
+        stdata.to_sql('Stars', engine, chunksize=100, if_exists='replace',
                     dtype={'st_id': sqlalchemy.types.INT,
                            'st_name': sqlalchemy.types.String(namemxchar)})
         # set indexes
-        result = engine.execute('ALTER TABLE StarProps ADD INDEX (st_id)')
+        result = engine.execute('ALTER TABLE Stars ADD INDEX (st_id)')
 
         # add comments
         # addSQLcomments(engine, 'StarProps')
 
     if data is not None:
-        print("Writing KnownPlanets")
+        print("Writing Planets")
         namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
         data = data.rename_axis('pl_id')
-        data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',
+        data.to_sql('Planets',engine,chunksize=100,if_exists='replace',
                     dtype={'pl_id':sqlalchemy.types.INT,
                             'pl_name':sqlalchemy.types.String(namemxchar),
                             'st_name':sqlalchemy.types.String(namemxchar-2),
-                            'pl_letter':sqlalchemy.types.CHAR(1)})
+                            'pl_letter':sqlalchemy.types.CHAR(1),
+                            'st_id': sqlalchemy.types.INT})
         #set indexes
-        result = engine.execute('ALTER TABLE KnownPlanets ADD INDEX (pl_id)')
-        result = engine.execute('ALTER TABLE KnownPlanets ADD INDEX (st_id)')
-        result = engine.execute("ALTER TABLE KnownPlanets ADD FOREIGN KEY (st_id) REFERENCES StarProps(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute('ALTER TABLE Planets ADD INDEX (pl_id)')
+        result = engine.execute('ALTER TABLE Planets ADD INDEX (st_id)')
+        result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES StarProps(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         #add comments
         # addSQLcomments(engine,'KnownPlanets')
 
-    if orbitfits is not None:
-        print("Writing OrbitFits")
-        namemxchar = np.array([len(n) for n in orbitfits['pl_name'].values]).max()
-        orbitfits = orbitfits.rename_axis('orbitfits_id')
-        orbitfits.to_sql('OrbitFits',engine,chunksize=100,if_exists='replace',
-                          dtype={'pl_name':sqlalchemy.types.String(namemxchar)},
-                          index=True)
-        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (orbitfits_id)")
-        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+    # if orbitfits is not None:
+    #     print("Writing OrbitFits")
+    #     namemxchar = np.array([len(n) for n in orbitfits['pl_name'].values]).max()
+    #     orbitfits = orbitfits.rename_axis('orbitfits_id')
+    #     orbitfits.to_sql('OrbitFits',engine,chunksize=100,if_exists='replace',
+    #                       dtype={'pl_id':sqlalchemy.types.INT,
+    #                           'pl_name':sqlalchemy.types.String(namemxchar),
+    #                              'orbitfits_id':sqlalchemy.types.BIGINT},
+    #                       index=True)
+    #     result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (orbitfits_id)")
+    #     result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
+    #     result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         # addSQLcomments(engine,'AltPlanetOrbits')
 
@@ -1805,11 +1787,12 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, orbitfits=None, eval
         print("Writing EvalOrbits")
         evalorbits = evalorbits.rename_axis('evalorbit_id')
         evalorbits.to_sql('EvalOrbits',engine,chunksize=100,if_exists='replace',
+                          dtype={'pl_id': sqlalchemy.types.INT,
+                                 'evalorbit_id': sqlalchemy.types.BIGINT},
                        index=True)
         result = engine.execute("ALTER TABLE EvalOrbits ADD INDEX (evalorbit_id)")
         result = engine.execute("ALTER TABLE EvalOrbits ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE EvalOrbits ADD FOREIGN KEY (pl_id) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
-        result = engine.execute("ALTER TABLE EvalOrbits ADD FOREIGN KEY (orbitfits_id) REFERENCES OrbitFits(orbitfits_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE EvalOrbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         # addSQLcomments(engine,'PlanetOrbits')
 
@@ -1819,11 +1802,14 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, orbitfits=None, eval
         namemxchar = np.array([len(n) for n in orbdata['pl_name'].values]).max()
         orbdata = orbdata.rename_axis('orbit_id')
         orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace',
-                       dtype={'pl_name':sqlalchemy.types.String(namemxchar)},
+                       dtype={'pl_name':sqlalchemy.types.String(namemxchar),
+                              'pl_id': sqlalchemy.types.INT,
+                              'orbit_id': sqlalchemy.types.BIGINT,
+                              'evalorbit_id': sqlalchemy.types.BIGINT},
                        index=True)
         result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (orbit_id)")
         result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (pl_id) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
         result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (evalorbit_id) REFERENCES EvalOrbits(evalorbit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         # addSQLcomments(engine,'PlanetOrbits')
@@ -1832,10 +1818,12 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, orbitfits=None, eval
         print("Writing Completeness")
         namemxchar = np.array([len(n) for n in comps['pl_name'].values]).max()
         comps = comps.rename_axis('completeness_id')
-        comps.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        comps.to_sql('Completeness',engine,chunksize=100,if_exists='replace',
+                     dtype={'Name':sqlalchemy.types.String(namemxchar),
+                            'pl_id': sqlalchemy.types.INT})
         result = engine.execute("ALTER TABLE Completeness ADD INDEX (pl_id)")
         result = engine.execute("ALTER TABLE Completeness ADD INDEX (completeness_id)")
-        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES KnownPlanets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         # addSQLcomments(engine,'Completeness')
 
@@ -1845,7 +1833,7 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, orbitfits=None, eval
         aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
-        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (Name) REFERENCES StarProps(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (Name) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
 
 def addSQLcomments2(engine,tablename):
@@ -1881,7 +1869,7 @@ def addSQLcomments2(engine,tablename):
           r = engine.execute(comm)
 
 # Separates data into pl_data and st_data
-def generateTables(data):
+def generateTables(data, orbitfits_data):
     print('Splitting IPAC data into Star and Planet data')
     # Isolate the stellar columns from the planet columns
     st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
@@ -1891,20 +1879,31 @@ def generateTables(data):
     st_cols.remove("pl_st_npar")
     st_cols.remove("pl_st_nref")
     st_data = data[st_cols]
-    st_data.drop_duplicates(keep=False, inplace=True)
+    st_data.drop_duplicates(keep='first', inplace=True)
     st_data.reset_index(drop=True)
-    pl_data = data[pl_cols]
+
+    # pl_cols = [col for col in pl_cols if 'pl_' not in col]
+    # pl_cols = np.append(pl_cols, ['pl_name', 'pl_letter', 'pl_hostname'])
+
+    # pl_cols = ['pl_name', 'pl_letter', 'pl_hostname']
+
+    # print(pl_cols)5
+
+    # pl_data = data[pl_cols]
     st_data = st_data.rename(columns={'pl_hostname':'st_name'})
-    pl_data = pl_data.rename(columns={'pl_hostname': 'st_name'})
+    orbitfits_data = orbitfits_data.rename(columns={'hostname':'st_name'})
+
+    # print(orbitfits_data['pl_name'].values)
+
+    pl_data = orbitfits_data
+    # print(pl_data.columns)
+    # [print(col) for col in pl_data.columns]
 
     num_rows = len(st_data.index)
     stars = pl_data['st_name']
-    stars.drop_duplicates(keep=False, inplace=True)
+    stars.drop_duplicates(keep='first', inplace=True)
+
     num_stars = len(stars.index)
-    # stars.to_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\stars_bad.csv")
-    # st_data.to_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\st_data_bad.csv")
-    # print(num_stars)
-    # print(num_rows)
     # If these aren't equal, then two sources of data for a star don't agree.
     assert num_rows == num_stars, "Stellar data for different planets not consistent"
 
@@ -1919,6 +1918,11 @@ def generateTables(data):
 
     pl_data = pl_data.assign(st_id=idx_list)
 
+    # colmap_pl = {k: k[1:] if (k.startswith('pl_') and (k != 'pl_id' or k != 'pl_name')) else k for k in pl_data.keys()}
+    colmap_st = {k: k[3:] if (k.startswith('st_') and (k != 'st_id' and k != 'st_name')) else k for k in st_data.keys()}
+    # pl_data = pl_data.rename(columns=colmap_pl)
+    st_data = st_data.rename(columns=colmap_st)
+
     return pl_data, st_data
 
 
@@ -1927,7 +1931,8 @@ def add_pl_idx(data, pl_data, pl_name):
     idx_list = []
     data = data.rename(columns={pl_name: 'pl_name'})
     for idx, row in data.iterrows():
-        pl_idx = pl_data[pl_data['pl_name'] == row['pl_name']].index.values
+        pl_idx_int = pl_data[pl_data['pl_name'] == row['pl_name']]#.index.values
+        pl_idx = pl_idx_int[pl_idx_int['default'] == 1].index.values
         if len(pl_idx) == 0:
             idx_list.append(None)
         else:
