@@ -97,6 +97,7 @@ def getIPACdata():
                                 })
 
     composite_cols = [col for col in data.columns if ('reflink' in col) or (col == 'pl_name')]
+    composite_cols.extend(['pl_radj'])
 
     data = data[composite_cols]
 
@@ -107,12 +108,23 @@ def getIPACdata():
     #merge data sets
     data = data.combine_first(data2)
 
+    #############################################################
+    pl_names_df = pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\output.csv")
+    pl_names = pl_names_df["pl_name"]
+
+    data = data.loc[data['pl_name'].isin(pl_names)]
+    #############################################################
+
     # substitute data from the extended table.
     print("Querying extended data table.")
     #grab extended data table
     query_ext = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"""
     r_ext = requests.get(query_ext)
     data_ext = pandas.read_csv(StringIO(r_ext.content))
+
+    #############################################################
+    data_ext = data_ext.loc[data_ext['mpl_name'].isin(pl_names)]
+    #############################################################
 
     extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
     
@@ -926,18 +938,21 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         t = np.zeros(100) * np.nan
         tau = row['pl_orbtper']  # jd
         Tp = row['pl_orbper']  # days
-        if not np.isnan(tau):
-            if Tp == 0:
-                Tp = np.nan
-            if np.isnan(Tp):
-                Mstar = row['st_mass']  # solar masses
-                if not np.isnan(Mstar):
-                    mu = const.G * (Mstar * u.solMass).decompose()
-                    Tp = (2 * np.pi * np.sqrt(((a * u.AU) ** 3.0) / mu)).decompose().to(u.d).value
-            if not np.isnan(Tp):
+
+        if Tp == 0:
+            Tp = np.nan
+        if np.isnan(Tp):
+            Mstar = row['st_mass']  # solar masses
+            if not np.isnan(Mstar):
+                mu = const.G * (Mstar * u.solMass).decompose()
+                Tp = (2 * np.pi * np.sqrt(((a * u.AU) ** 3.0) / mu)).decompose().to(u.d).value
+        else:
+            if not np.isnan(tau):
                 n = 2 * np.pi / Tp
                 t = np.linspace(t0.jd, t0.jd + Tp, 100)
                 M = np.mod((t - tau) * n, 2 * np.pi)
+
+
 
         # calculate orbital values
         E = eccanom(M, e)
@@ -984,16 +999,18 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
             Is_1 = np.array([I])
             defaults = np.array([1])
             
-        orbitfits_dict = {'pl_name': [plannames[j]] * len(Is_1),
-                          'orbsmax': [a] * len(Is_1),
-                          'orbeccen': [e] * len(Is_1),
-                          'orbincl': Is_1,
-                          'orblper': [w] * len(Is_1),
-                          'orbper': [Tp] * len(Is_1),
-                          'orbtper': [tau] * len(Is_1),
+        orbitfits_dict = {'pl_id': [j] * len(Is_1),
+                          'pl_name': [plannames[j]] * len(Is_1),
+                          'orbsmax': [row['pl_orbsmax']] * len(Is_1),
+                          'orbeccen': [row['pl_orbeccen']] * len(Is_1),
+                          'orbincl': Is_1 * 180 / np.pi,
+                          'orblper': [row['pl_orblper']] * len(Is_1),
+                          'orbper': [row['pl_orbper']] * len(Is_1),
+                          'orbtper': [row['pl_orbtper']] * len(Is_1),
                           'orbtper_next': [tper_next] * len(Is_1),
                           'orbtper_2026': [tper_2026] * len(Is_1),
-                          'default': defaults}
+                          'is_Icrit': [0] * len(Is_1),
+                          'def_pl': defaults}
         for col_name in pl_cols2:
             if col_name in ['completeness', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag'] and len(Is_1) > 1:
                 orbitfits_dict[col_name.replace('pl_', '')] = [row[col_name], np.nan]
@@ -1003,20 +1020,23 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         min_pl_id = max_pl_id + 1
         max_pl_id = min_pl_id + len(Is_1) - 1
 
-        evalorbit_dict = {'pl_id': [max_pl_id],
+        evalorbit_dict = {'pl_id': [j],
+                          'pl_fit_id': [max_pl_id],
                           'pl_name': [plannames[j]],
                           'orbsmax': [a],
                           'orbeccen': [e],
-                          'orbincl': [I],
+                          'orbincl': [I * 180 / np.pi],
                           'orblper': [w],
                           'orbper': [Tp],
                           'orbtper': [tau],
-                          'default': [1]}
+                          'is_Icrit': [0],
+                          'def_eval': [1]}
 
         min_evalorbit_id = max_evalorbit_id + 1
         max_evalorbit_id = min_evalorbit_id
 
-        outdict = {'pl_id': [max_pl_id] * len(M),
+        outdict = {'pl_id': [j] * len(M),
+                   'pl_fit_id': [max_pl_id] * len(M),
                    'pl_name': [plannames[j]] * len(M),
                    'evalorbit_id': [max_evalorbit_id] * len(M),
                    'M': M,
@@ -1025,7 +1045,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                    's': s,
                    'WA': WA,
                    'beta': beta.to(u.deg).value,
-                   'default': [1] * len(M)}
+                   'def_orb': [1] * len(M)}
 
         inds = np.argsort(beta)
 
@@ -1069,24 +1089,30 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         else:
             evalorbits = evalorbits.append(pandas.DataFrame(evalorbit_dict))
 
-        # Alt orb data
-        Isglob = np.array([60, 30])
-        (l, band, bw, ws, wstep) = bandzip[0]
-        if I != np.pi / 2.0:
-            Isglob = np.insert(Isglob, 0, 90)
-
-        # Condition to generate altorbits with inclinations of 30, 60, and 90
-        if not (np.isnan(row['pl_orbinclerr1'])) and not (np.isnan(row['pl_orbinclerr2'])):
-            Isglob = np.array([row['pl_orbinclerr1'] + row['pl_orbincl'], row['pl_orbinclerr2'] + row['pl_orbincl']])
-            skip_orbitfits = True
-        else:
-            skip_orbitfits = False
 
         if row['pl_bmassprov'] == 'Msini':
             Icrit = np.arcsin(
                 ((row['pl_bmassj'] * u.M_jupiter).to(u.M_earth)).value / ((0.0800 * u.M_sun).to(u.M_earth)).value)
         else:
             Icrit = 10 * np.pi / 180.0
+
+        # Alt orb data
+        Isglob = np.array([60, 30])
+        c = 3.0
+        (l, band, bw, ws, wstep) = bandzip[0]
+        if I != np.pi / 2.0: # To account if 90 was not chosen as the primary orbit
+            Isglob = np.insert(Isglob, 0, 90)
+            is_icrit = [0, 0, 0, 1]
+        else: # If 90 was chosen for the primary orbit
+            is_icrit = [0, 0, 1]
+
+        # Condition to generate altorbits with inclinations of 30, 60, and 90
+        if not (np.isnan(row['pl_orbinclerr1'])) and not (np.isnan(row['pl_orbinclerr2'])):
+            Isglob = np.array([row['pl_orbinclerr1'] + row['pl_orbincl'], row['pl_orbinclerr2'] + row['pl_orbincl']])
+            skip_orbitfits = True
+            is_icrit = [0, 0]
+        else:
+            skip_orbitfits = False
 
         if not skip_orbitfits:
             Is = np.hstack((Isglob * np.pi / 180.0, Icrit))
@@ -1119,16 +1145,18 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
 
         if not skip_orbitfits:
-            orbitfits_dict = {'pl_name': [plannames[j]] * len(Is),
-                              'orbsmax': [a] * len(Is),
-                              'orbeccen': [e] * len(Is),
-                              'orbincl': Is,
-                              'orblper': [w] * len(Is),
-                              'orbper': [Tp] * len(Is),
-                              'orbtper': [tau] * len(Is),
+            orbitfits_dict = {'pl_id': [j] * len(Is),
+                              'pl_name': [plannames[j]] * len(Is),
+                              'orbsmax': [row['pl_orbsmax']] * len(Is),
+                              'orbeccen': [row['pl_orbeccen']] * len(Is),
+                              'orbincl': Is * 180 / np.pi,
+                              'orblper': [row['pl_orblper']] * len(Is),
+                              'orbper': [row['pl_orbper']] * len(Is),
+                              'orbtper': [row['pl_orbtper']] * len(Is),
                               'orbtper_next': [tper_next] * len(Is),
                               'orbtper_2026': [tper_2026] * len(Is),
-                              'default': [0] * len(Is)}
+                              'is_Icrit': is_icrit,
+                              'def_pl': [0] * len(Is)}
 
             for col_name in pl_cols2:
                 if col_name not in ['completeness', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag']:
@@ -1141,15 +1169,17 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         else:
             pl_ids = [max_pl_id] * len(Is)
 
-        evalorbit_dict = {'pl_id': pl_ids,
+        evalorbit_dict = {'pl_id': [j] * len(Is),
+                          'pl_fit_id': pl_ids,
                           'pl_name': [plannames[j]] * len(Is),
                           'orbsmax': [a] * len(Is),
                           'orbeccen': [e] * len(Is),
-                          'orbincl': Is,
+                          'orbincl': Is * 180 / np.pi,
                           'orblper': [w] * len(Is),
                           'orbper': [Tp] * len(Is),
                           'orbtper': [tau] * len(Is),
-                          'default': [0] * len(Is)}
+                          'is_Icrit': is_icrit,
+                          'def_eval': [0] * len(Is)}
 
         min_evalorbit_id = max_evalorbit_id + 1
         max_evalorbit_id = min_evalorbit_id + len(Is) - 1
@@ -1169,16 +1199,15 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         dMagList = []
 
         for k, I in enumerate(Is):
-            s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(
-                -2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
+            s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
             beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
 
             WA = np.arctan((s * u.AU) / (dist * u.pc)).to('mas').value
 
-            if I == Icrit:
-                Itag = "crit"
-            else:
-                Itag = "%02d" % (Isglob[k])
+            # if I == Icrit:
+            #     Itag = "crit"
+            # else:
+            #     Itag = "%02d" % (Isglob[k])
 
             # outdict["s_I" + Itag] = s
             # outdict["WA_I" + Itag] = WA
@@ -1198,7 +1227,8 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
             # outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM_I" + Itag] = dMag
             dMagList.append(dMag)
 
-            outdict = {'pl_id': [pl_ids[k]] * len(M),
+            outdict = {'pl_id': [j] * len(M),
+                       'pl_fit_id': [pl_ids[k]] * len(M),
                        'pl_name': [plannames[j]] * len(M),
                        'evalorbit_id': [evalorbit_ids[k]] * len(M),
                        'M': M,
@@ -1209,7 +1239,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                        'beta': beta * len(M),
                        'pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM": pphi * len(M),
                        'dMag_' + "%03dC_" % (c * 100) + str(l) + "NM": dMag * len(M),
-                       'default': [0] * len(M)}
+                       'def_orb': [0] * len(M)}
 
             out = pandas.DataFrame(outdict)
 
@@ -1753,16 +1783,18 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, evalorbits=None, com
     if data is not None:
         print("Writing Planets")
         namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
-        data = data.rename_axis('pl_id')
+        data = data.rename_axis('pl_fit_id')
         data.to_sql('Planets',engine,chunksize=100,if_exists='replace',
                     dtype={'pl_id':sqlalchemy.types.INT,
+                           'pl_fit_id':sqlalchemy.types.INT,
                             'pl_name':sqlalchemy.types.String(namemxchar),
                             'st_name':sqlalchemy.types.String(namemxchar-2),
                             'pl_letter':sqlalchemy.types.CHAR(1),
                             'st_id': sqlalchemy.types.INT})
         #set indexes
-        result = engine.execute('ALTER TABLE Planets ADD INDEX (pl_id)')
-        result = engine.execute('ALTER TABLE Planets ADD INDEX (st_id)')
+        result = engine.execute("ALTER TABLE Planets ADD INDEX (pl_id)")
+        result = engine.execute("ALTER TABLE Planets ADD INDEX (pl_fit_id)")
+        result = engine.execute("ALTER TABLE Planets ADD INDEX (st_id)")
         result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES StarProps(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         #add comments
@@ -1788,14 +1820,15 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, evalorbits=None, com
         evalorbits = evalorbits.rename_axis('evalorbit_id')
         evalorbits.to_sql('EvalOrbits',engine,chunksize=100,if_exists='replace',
                           dtype={'pl_id': sqlalchemy.types.INT,
+                                 'pl_fit_id': sqlalchemy.types.INT,
                                  'evalorbit_id': sqlalchemy.types.BIGINT},
                        index=True)
         result = engine.execute("ALTER TABLE EvalOrbits ADD INDEX (evalorbit_id)")
         result = engine.execute("ALTER TABLE EvalOrbits ADD INDEX (pl_id)")
+        result = engine.execute("ALTER TABLE EvalOrbits ADD INDEX (pl_fit_id)")
         result = engine.execute("ALTER TABLE EvalOrbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         # addSQLcomments(engine,'PlanetOrbits')
-
 
     if orbdata is not None:
         print("Writing PlanetOrbits")
@@ -1804,11 +1837,13 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, evalorbits=None, com
         orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace',
                        dtype={'pl_name':sqlalchemy.types.String(namemxchar),
                               'pl_id': sqlalchemy.types.INT,
+                              'pl_fit_id': sqlalchemy.types.INT,
                               'orbit_id': sqlalchemy.types.BIGINT,
                               'evalorbit_id': sqlalchemy.types.BIGINT},
                        index=True)
         result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (orbit_id)")
         result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (pl_id)")
+        result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (pl_fit_id)")
         result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
         result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (evalorbit_id) REFERENCES EvalOrbits(evalorbit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
@@ -1820,9 +1855,12 @@ def writeSQL2(engine, data=None, stdata=None, orbdata=None, evalorbits=None, com
         comps = comps.rename_axis('completeness_id')
         comps.to_sql('Completeness',engine,chunksize=100,if_exists='replace',
                      dtype={'Name':sqlalchemy.types.String(namemxchar),
-                            'pl_id': sqlalchemy.types.INT})
+                            'pl_id': sqlalchemy.types.INT,
+                            'pl_fit_id': sqlalchemy.types.INT})
+        result = engine.execute("ALTER TABLE Completeness ADD INDEX (pl_fit_id)")
         result = engine.execute("ALTER TABLE Completeness ADD INDEX (pl_id)")
         result = engine.execute("ALTER TABLE Completeness ADD INDEX (completeness_id)")
+        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_fit_id) REFERENCES Planets(pl_fit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
         result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         # addSQLcomments(engine,'Completeness')
@@ -1874,6 +1912,7 @@ def generateTables(data, orbitfits_data):
     # Isolate the stellar columns from the planet columns
     st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
     st_cols.extend(["dec", "dec_str", "hd_name", "hip_name", "ra", "ra_str"])
+    # print(st_cols)
     pl_cols = np.setdiff1d(data.columns, st_cols)
     st_cols.append("pl_hostname")
     st_cols.remove("pl_st_npar")
@@ -1932,11 +1971,25 @@ def add_pl_idx(data, pl_data, pl_name):
     data = data.rename(columns={pl_name: 'pl_name'})
     for idx, row in data.iterrows():
         pl_idx_int = pl_data[pl_data['pl_name'] == row['pl_name']]#.index.values
-        pl_idx = pl_idx_int[pl_idx_int['default'] == 1].index.values
+        pl_idx = pl_idx_int[pl_idx_int['def_pl'] == 1].index.values
+        # pl_idx_orig = pl_idx_int[pl_idx_int['def_pl'] == 1]['pl_id'].values
         if len(pl_idx) == 0:
             idx_list.append(None)
         else:
             idx_list.append(pl_idx[0])
 
-    data = data.assign(pl_id=idx_list)
+    data = data.assign(pl_fit_id=idx_list)
+
+    idx_list_2 = []
+    for idx, row in data.iterrows():
+        pl_idx_int = pl_data[pl_data['pl_name'] == row['pl_name']]  # .index.values
+        pl_idx_row = pl_idx_int[pl_idx_int['def_pl'] == 1]
+        pl_idx = pl_idx_row['pl_id'].values
+        # pl_idx_orig = pl_idx_int[pl_idx_int['def_pl'] == 1]['pl_id'].values
+        if len(pl_idx) == 0:
+            idx_list_2.append(None)
+        else:
+            idx_list_2.append(pl_idx[0])
+
+    data = data.assign(pl_id=idx_list_2)
     return data
