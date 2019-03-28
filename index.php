@@ -1,6 +1,6 @@
-<?php 
-include "templates/header.php"; 
-include "templates/headerclose.php"; 
+<?php
+include "templates/header.php";
+include "templates/headerclose.php";
 ?>
 
 <h2> General Query </h2>
@@ -10,14 +10,15 @@ This interface provides direct querying to the full database. Queries including 
 
 <form action="index.php" method="POST">
         <textarea name="querytext" rows="4" cols="100">
-<?php 
+<?php
 if (!empty($_GET["querytext"])){
     $sql =$_GET["querytext"];}
 elseif (!empty($_POST["querytext"])){
     $sql = $_POST["querytext"]; }
 else {
-    $sql = "select pl_name, pl_angsep, completeness,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where completeness > 0 order by completeness DESC";}
-    
+    $sql = "select pl_name, angsep, completeness, minangsep, maxangsep, radj, bmassj, orbsmax from Planets where completeness > 0 and def_pl = 1 order by completeness DESC";}
+    // $sql = "select pl_name, pl_angsep, completeness,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where completeness > 0 order by completeness DESC";}
+
 echo "$sql";
 ?>
 </textarea><br>
@@ -38,7 +39,7 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 // Check connection
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
-} 
+}
 
 echo "<h4>Query</h4><p>".$sql.";</p>\n\n";
 $result = $conn->query($sql);
@@ -53,12 +54,12 @@ if ($result){
               foreach(array_keys($row) as $paramName)
                 echo "<th>".$paramName."</th>";
               echo "</tr></thead>\n";
-           } 
+           }
            echo "<tr>";
            foreach(array_keys($row) as $paramName) {
                echo "<td>";
                if ($paramName == 'pl_name'){
-                    echo "<a href='plandetail.php?name=".urlencode($row[$paramName])."'>".$row[$paramName]."</a>";                
+                    echo "<a href='plandetail.php?name=".urlencode($row[$paramName])."'>".$row[$paramName]."</a>";
                } else{
                    if (is_numeric($row[$paramName])){
                        echo number_format((float)$row[$paramName], 2, '.', '');
@@ -67,7 +68,7 @@ if ($result){
                        echo $row[$paramName];
                    }
                }
-               echo "</td>";    
+               echo "</td>";
            }
            echo "</tr>";
          $counter++;
@@ -83,4 +84,3 @@ $conn->close();
 
 
 <?php include "templates/footer.php"; ?>
-
