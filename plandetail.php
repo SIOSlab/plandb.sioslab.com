@@ -46,9 +46,9 @@ if ($result_id->num_rows > 1) {
 $row = $result_id->fetch_assoc();
 $pl_id = $row[pl_id];
 
-$sql = "SELECT Planets.pl_id, Planets.st_name,orbper,orbperreflink,discmethod,orbsmax,orbsmaxreflink,orbeccenreflink,orbeccen,orbincl,bmassj,bmassprov,bmassreflink,radj,Planets.radreflink,radj_fortney,radj_forecastermod,orbtper,orblper,eqt,insol,angsep,minangsep,maxangsep,
-ra_str,dec_str,dist,plx,gaia_plx,gaia_dist,optmag,optband,gaia_gmag,teff,mass,pmra,pmdec,gaia_pmra,gaia_pmdec,radv,spstr,Stars.lum,metfe,age,bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag,elat,elon
-FROM Planets LEFT JOIN Stars ON Planets.st_id = Stars.st_id WHERE pl_id='".$pl_id."' AND def_pl = 1";
+$sql = "SELECT Planets.pl_id, Planets.st_name,orbper,orbperreflink,discmethod,orbsmax,orbsmaxreflink,orbeccenreflink,orbeccen,orbincl,bmassj,bmassprov,bmassreflink,radj,OrbitFits.radreflink,radj_fortney,radj_forecastermod,orbtper,orblper,eqt,insol,angsep,minangsep,maxangsep,
+ra_str,dec_str,dist,plx,gaia_plx,gaia_dist,optmag,optband,gaia_gmag,teff,mass,pmra,pmdec,gaia_pmra,gaia_pmdec,radv,spstr,Stars.lum,metfe,age,bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag,elat,elon,orbtper_next,orbtper_2026
+FROM Planets LEFT JOIN Stars ON Planets.st_id = Stars.st_id LEFT JOIN OrbitFits ON OrbitFits.pl_id = Planets.pl_id WHERE Planets.pl_id='".$pl_id."' AND default_fit = 1";
 
 $result = $conn->query($sqlsel.$sql);
 if (!$result){
@@ -76,7 +76,7 @@ if ($result->num_rows > 1) {
 }
 $row = $result->fetch_assoc();
 // $pl_id = $row[pl_id];
-$sql2 = "select * from PlanetOrbits where pl_id = '".$pl_id."' AND def_orb = 1";
+$sql2 = "select * from Orbits where pl_id = '".$pl_id."' AND default_orb = 1";
 $resultp = $conn->query($sql2);
 
 // $row = $result->fetch_assoc();
@@ -89,10 +89,9 @@ if ($row[completeness]){
 // $sql4 = "select * from AltPlanetOrbits where Name = '".$name."'";
 // $resultap = $conn->query($sql4);
 
-$sql4 = "select PlanetOrbits.*, orbincl, is_Icrit from PlanetOrbits LEFT JOIN EvalOrbits
-  ON PlanetOrbits.evalorbit_id = EvalOrbits.evalorbit_id where PlanetOrbits.pl_id = '".$pl_id."'";
+$sql4 = "select Orbits.*, orbincl, OrbitFits.is_Icrit from Orbits LEFT JOIN OrbitFits
+  ON Orbits.orbitfit_id = OrbitFits.orbitfit_id where Orbits.pl_id = '".$pl_id."'";
 $resultap = $conn->query($sql4);
-var_dump($resultap);
 
 
 $sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row[pl_hostname]."')";
@@ -153,6 +152,10 @@ if ($row[radreflink] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc
     echo "<TR><TH style='width:".$wd."%'>Radius Based on Fortney et al., 2007 (Jupiter Radii)</TH><TD>".$row[radj_fortney]." (<a href='docs/html/index.html#fortneyref' target=_blank>See here</a>)</TD></TR>\n";
 }
 echo "<TR><TH style='width:".$wd."%'>Periapsis Passage Time (JD)</TH><TD>".$row[orbtper]."</TD></TR>\n";
+if($row[orbtper]){
+  echo "<TR><TH style='width:".$wd."%'>Next Periapsis Passage Time (JD)</TH><TD>".$row[orbtper_next]."</TD></TR>\n";
+  echo "<TR><TH style='width:".$wd."%'>First Periapsis Passage Time After 1/1/2026 (JD)</TH><TD>".$row[orbtper_2026]."</TD></TR>\n";
+}
 echo "<TR><TH style='width:".$wd."%'>Longitude of Periapsis (deg)</TH><TD>".$row[orblper]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Equilibrium Temperature (K)</TH><TD>".$row[eqt]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Insolation Flux (Earth fluxes)</TH><TD>".$row[insor]."</TD></TR>\n";
@@ -552,12 +555,13 @@ if ($resultp){
 }
 
 if ($resultap){
-    if ($resultap->num_rows > 0){
+    if ($resultap->num_rows > 0 and $resultap->num_rows % 4 == 0){
         echo '<div id="plot3Div" style="width:800px; height:640px; margin:auto;"></div>';
         echo "\n\n";
         echo "<script>\n";
-        //TODO: Fix array sizes 
-        echo "var xsize = ".$resultap->num_rows.", WA90 = new Array(xsize), dMag90 = new Array(xsize),
+        //TODO: Fix array sizes
+        $rownum = ($resultap->num_rows) / 4;
+        echo "var xsize = ".$rownum.", WA90 = new Array(xsize), dMag90 = new Array(xsize),
               WA60 = new Array(xsize), dMag60 = new Array(xsize),
               WA30 = new Array(xsize), dMag30 = new Array(xsize),
               WAcrit = new Array(xsize), dMagcrit = new Array(xsize), msizes = new Array(xsize), txtvals = new Array(xsize); \n";
@@ -569,6 +573,7 @@ if ($resultap){
         $i30_ctr = 0;
         $icrit_ctr = 0;
         while($rowp = $resultap->fetch_assoc()) {
+          // var_dump($rowp);
             // if ($i == 0){ $Icrit = round($rowp[Icrit] * 180.0/pi(), 2); }
             // echo "msizes[".$i."]=".(-19/$maxi*$i + 20).";";
             // echo "txtvals[".$i."]='t=".sprintf("%2.3g",$rowp[t])."';";
@@ -583,43 +588,41 @@ if ($resultap){
             // $i++;
 
             // foreach ($rowp as $row){
-              if($rowp[is_Icrit] == 1){
-                $Icrit = round($rowp[orbincl] * 180.0/pi(), 2);
-                echo "msizes[".$icrit_ctr."]=".(-19/$maxi*$i + 20).";";
-                echo "txtvals[".$icrit_ctr."]='t=".sprintf("%2.3g",$rowp[t])."';";
-                echo "WAcrit[".$icrit_ctr."]=".$rowp[WA].";";
-                echo "dMagcrit[".$icrit_ctr."]="; if ($rowp[dMag_600C_575NM]){ echo $rowp[dMag_600C_575NM]; } else{ echo "NaN";} echo";\n";
-                $icrit_ctr++;
-              }
-              else{
-                $i_str = $rowp[orbincl];
-                $ctr = 0;
-                if($i_str == 90){
-                  $ctr = $i90_ctr;
-                }else if($i_str == 60){
-                  $ctr = $i60_ctr;
-                }else if($i_str == 30){
-                  $ctr = $i30_ctr;
-                }else{
-                  var_dump($rowp[is_Icrit]);
-                  var_dump($rowp[orbincl]);
-                  var_dump($pl_id);
-                }
-
-                echo "msizes[".$ctr."]=".(-19/$maxi*$i + 20).";";
-                echo "txtvals[".$ctr."]='t=".sprintf("%2.3g",$rowp[t])."';";
-                echo "WA".$i_str."[".$ctr."]=".$rowp[WA].";";
-                echo "dMag".$i_str."[".$ctr."]="; if ($rowp[dMag_600C_575NM]){ echo $rowp[dMag_600C_575NM]; } else{ echo "NaN";} echo";";
-
-                if($i_str == 90){
-                  $i90_ctr++;
-                }else if($i_ctr == 60){
-                  $i60_ctr++;
-                }else{
-                  $i30_ctr++;
-                }
-              }
+          if($rowp[is_Icrit] == 1){
+            $Icrit = round($rowp[orbincl], 2);
+            echo "msizes[".$icrit_ctr."]=".(-19/$maxi*$i + 20).";";
+            echo "txtvals[".$icrit_ctr."]='t=".sprintf("%2.3g",$rowp[t])."';";
+            echo "WAcrit[".$icrit_ctr."]=".$rowp[WA].";";
+            echo "dMagcrit[".$icrit_ctr."]="; if ($rowp[dMag_300C_575NM]){ echo $rowp[dMag_300C_575NM]; } else{ echo "NaN";} echo";\n";
+            $icrit_ctr++;
+          }
+          else{
+            $i_str = $rowp[orbincl];
+            $ctr = 0;
+            if($i_str == 90){
+              $ctr = $i90_ctr;
+            }else if($i_str == 60){
+              $ctr = $i60_ctr;
+            }else if($i_str == 30){
+              $ctr = $i30_ctr;
+            }else{
+              break;
             }
+
+            echo "msizes[".$ctr."]=".(-19/$maxi*$i + 20).";";
+            echo "txtvals[".$ctr."]='t=".sprintf("%2.3g",$rowp[t])."';";
+            echo "WA".$i_str."[".$ctr."]=".$rowp[WA].";";
+            echo "dMag".$i_str."[".$ctr."]="; if ($rowp[dMag_600C_575NM]){ echo $rowp[dMag_600C_575NM]; } else{ echo "NaN";} echo";";
+
+            if($i_str == 90){
+              $i90_ctr++;
+            }else if($i_str == 60){
+              $i60_ctr++;
+            }else{
+              $i30_ctr++;
+            }
+          }
+        }
         // }
 
         echo "var d1 = {\n

@@ -16,7 +16,7 @@ if (!empty($_GET["querytext"])){
 elseif (!empty($_POST["querytext"])){
     $sql = $_POST["querytext"]; }
 else {
-    $sql = "select pl_name, angsep, completeness, minangsep, maxangsep, radj, bmassj, orbsmax from Planets where completeness > 0 and def_pl = 1 order by completeness DESC";}
+    $sql = "select Planets.pl_name, angsep, completeness, minangsep, maxangsep, radj, bmassj, orbsmax from Planets LEFT JOIN OrbitFits on (Planets.pl_id = OrbitFits.pl_id) where completeness > 0 and default_fit = 1 order by completeness DESC";}
     // $sql = "select pl_name, pl_angsep, completeness,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where completeness > 0 order by completeness DESC";}
 
 echo "$sql";
