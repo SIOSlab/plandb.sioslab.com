@@ -647,7 +647,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
         nu = 2*np.arctan(np.sqrt((1.0 + e)/(1.0 - e))*np.tan(E/2.0));
         d = a*(1.0 - e**2.0)/(1 + e*np.cos(nu))
         s = d*np.sqrt(4.0*np.cos(2*I) + 4*np.cos(2*nu + 2.0*w) - 2.0*np.cos(-2*I + 2.0*nu + 2*w) - 2*np.cos(2*I + 2*nu + 2*w) + 12.0)/4.0
-        beta = np.arccos(np.sin(I)*np.sin(nu+w))*u.rad
+        beta = np.arccos(-np.sin(I)*np.sin(nu+w))*u.rad
 
         WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
         print(j,plannames[j],WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
@@ -796,7 +796,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
 
         for k,I in enumerate(Is):
             s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
-            beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
+            beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
 
             WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
 
@@ -1008,7 +1008,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
 
             d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
             s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
-            beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
+            beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
             rnorm = d
                         
             pphi = np.zeros(n)

@@ -87,12 +87,22 @@ To capture this expectation we assign a frequency of about 30% each to moderate 
 
 We note that photochemistry and haze production may very well play a determinative role in forming atmospheric aerosols and controlling atmospheric reflectivity, but there are as yet no adequate models to handle this. The range of  :math:`f_\textrm{sed}` values considered here should encompass all types of reflectivity, including that produced by photochemical hazes.
 
+Finally, the difference in magnitude between target star and planet, :math:`\Delta\textrm{mag}`,  is calculated as:
+
+.. _dmagcalcref:
+
+   .. math::
+        
+      \Delta\textrm{mag} = -2.5\log_{10}\left(p\Phi(\beta) \left(\frac{R}{r}\right)^2 \right)
+
+where :math:`R` is the planet :math:`r` is the orbital radius, as defined :ref:`below<orbradcalcref>`.
+
 .. _geometry:
 
 Orbit Geometry
 ====================
 
-We define two reference frames: :math:`\mathcal{I} = (O, \mathbf{\hat e}_1, \mathbf{\hat e}_2, \mathbf{\hat e}_3)`,  with the plane of the sky in the :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane, and :math:`\mathcal{P} = (O, \mathbf{\hat{e}}, \mathbf{\hat{q}}, \mathbf{\hat{h}})`, commonly known as the perifocal frame, where the first unit vector points in the direction of the eccentricity vector (i.e., in the direction of periastron) and the third direction is orthogonal to the orbital plane and points in the direction of the orbital angular velocity.  We assume a non-osculating Keplerian orbit such that the geometric relationships between the two frames are constant for all time. Both frames have their coordinate system origins at the location of the target star (:math:`O`).
+We define two reference frames: :math:`\mathcal{I} = (O, \mathbf{\hat e}_1, \mathbf{\hat e}_2, \mathbf{\hat e}_3)`,  with the plane of the sky in the :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane, and :math:`\mathcal{P} = (O, \mathbf{\hat{e}}, \mathbf{\hat{q}}, \mathbf{\hat{h}})`, commonly known as the perifocal frame, where the first unit vector points in the direction of the eccentricity vector (i.e., in the direction of periastron) and the third direction is orthogonal to the orbital plane and points in the direction of the orbital angular momentum.  We assume a non-osculating Keplerian orbit such that the geometric relationships between the two frames are constant for all time. Both frames have their coordinate system origins at the location of the target star (:math:`O`).
 
    .. image:: orbit_frames.png
       :scale: 100 %
@@ -100,6 +110,8 @@ We define two reference frames: :math:`\mathcal{I} = (O, \mathbf{\hat e}_1, \mat
 
 
 Frame :math:`\mathcal{P}` is a 3-1-3 :math:`(\Omega,I,\omega)` rotation from frame :math:`\mathcal{I}`, where the angles are commonly known as the longitude of the ascending node, the inclination, and the argument of periastron, respectively.  The orbital radius (magnitude of the vector :math:`\mathbf{r}_{P/O}`) is given by the semi-major axis, :math:`a`, eccentricity, :math:`e` and the time-varying true anomaly, :math:`\nu` as:
+
+.. _orbradcalcref:
 
    .. math::
 
@@ -113,19 +125,25 @@ The projected (or apparent) separation (the magnitude of the projection of :math
         &=\frac{r}{4} \sqrt{4 \cos{\left (2 I \right )} + 4 \cos{\left (2 \theta \right )} - 2 \cos{\left (2 I - 2 \theta \right )} - 2 \cos{\left (2 I + 2 \theta \right )} + 12}
 
 
-where :math:`\theta = \nu + \omega`, commonly known as the argument or latitude. 
+where :math:`\theta = \nu + \omega`, commonly known as the argument of latitude. The angular separation is calculated as 
+     
+   .. math::
+
+      \alpha = \tan^{-1}\left( \frac{s}{d} \right)
+
+where :math:`d` is the distance between the observer and the target star.
 
    .. note::
 
       All of the above holds true regardless of the choice of observer location, so long as the plane of the sky is in the  :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane.  However, the planet's phase (star-planet-observer) angle, and therefore photometry and timing of transits all depend on the observer location. We will adopt the convention, implicitly used by the Exoplanet Archive, that the observer is located along the positive  :math:`\mathbf{\hat e}_3` axis (i.e., looking down at :math:`O` in the figure above).
 
-The phase angle :math:`beta` is the angle between the planet-star vector and the planet-observer vector and so:
+The phase angle :math:`\beta` is the angle between the planet-star vector and the planet-observer vector and so:
 
    .. math::
 
       \cos\beta = \frac{\mathbf{r}_{P/O} \cdot (\mathbf{r}_{P/O} - d\mathbf{\hat e}_3)}{r \Vert \mathbf{r}_{P/O} - d\mathbf{\hat e}_3\Vert}
 
-where :math:`d` is the distance between the observer and the target star. If we assume that :math:`d \gg r` (the observer-target distance is much larger than the orbital size), then the planet-observer and star-observer vectors become nearly parallel, and we can approximate :math:`\mathbf{r}_{P/O} - d\mathbf{\hat e}_3 \approx  - d\mathbf{\hat e}_3`.  In this case, the phase angle equation simplifies to:
+If we assume that :math:`d \gg r` (the observer-target distance is much larger than the orbital size), then the planet-observer and star-observer vectors become nearly parallel, and we can approximate :math:`\mathbf{r}_{P/O} - d\mathbf{\hat e}_3 \approx  - d\mathbf{\hat e}_3`.  In this case, the phase angle equation simplifies to:
 
    .. math::
 
@@ -138,6 +156,8 @@ where :math:`z` is the component of :math:`\mathbf{r}_{P/O}` along :math:`\mathb
       z = \mathbf{r}_{P/O} \cdot \mathbf{\hat e}_3
 
 If we evaluate this expression in terms of the components of the orbital radius vector as a function of the Euler angles defined above, we find:
+
+.. _betacalcref:
 
    .. math::
       
@@ -328,7 +348,7 @@ The KnownPlanets table contains all of the target star and known planet properti
 
     .. math::
         
-        tan^{-1}\left(\frac{a(1 + e)}{d}\right)
+        \tan^{-1}\left(\frac{a(1 + e)}{d}\right)
    
    where :math:`a` is the semi-major axis, :math:`d` is the target distance and  :math:`e` is the eccentricity. These values are assigned to a new column ``pl_maxangsep``, which equals ``pl_angsep`` for rows with no eccentricity available. 
 
@@ -336,35 +356,17 @@ The KnownPlanets table contains all of the target star and known planet properti
 
    .. math::
         
-      tan^{-1}\left(\frac{s}{d}\right)
+      \tan^{-1}\left(\frac{s}{d}\right)
    
    where :math:`d` is the target distance and  :math:`s` is the minimum possible projected separation.  :math:`s` is calculated by taking the semi-major axis and scaling it by :math:`s(1 - e)` for those rows with eccentricity available.  This product is then further scaled by :math:`\cos(I)` for those rows with inclination available.  For those rows without inclination values, :math:`I` is assumed to be 90 degrees and  :math:`s`  is set to zero.
 
    .. _photcalcref:
 
-#. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  We have two approaches for calculating the quadrature radius depending on what data exists for the planet.  If the planet has data for eccentricity and argument of periastron and the inclination data is either null or non-zero, then we calculate the true anomaly using the fact that :math:`\theta = \omega+\nu` and:
-
-	.. math::
-			\theta = \sin^{-1}\left(\frac{\cos\beta}{\sin I}\right)
-
-   This gives us two solutions for the true anomaly, :math:`\nu = -\omega` and :math:`\nu = \pi - \omega`.  Two possible values for the radius at quadrature are calculated as: 
-
-	.. math::
-
-			r = \frac{a(1 - e^2)}{1 + e\cos\nu}
-			
-	
-   From these two radius values, we pick the radius that results in the smallest :math:`\Delta\textrm{mag}` (as calculated below) so that we determine the highest possible brightness for the planet.  
+#. We now calculate fiducial values of angular separation and :math:`\Delta\textrm{mag}` at quadrature (planet phase of 90 degrees).  We have two approaches for calculating the quadrature radius depending on what data exists for the planet. First, we use the :ref:`previously derived relatioinship<betacalcref>` between phase angle, inclination and argument of latitude to find that :math:`0 = -\sin(I)\sin(\theta)`. If the planet has data for eccentricity and argument of periastron and the inclination data is either null or non-zero, we then have two solutions for the true anomaly at quadrature, :math:`\nu = -\omega` and :math:`\nu = \pi - \omega`.  From these, we calculate the two possible orbital radii at quadrature (:ref:`as defined above<orbradcalcref>`), and select the orbital radius that results in the smallest :math:`\Delta\textrm{mag}` so that we determine the highest possible brightness for the planet.  
    
    In the case where eccentricity or argument of periastron are null, or if the orbit is face-on, then we take the semi-major axis to be the orbial radius at quadrature.
 
-   For the photometry, we calculate the grid data (:math:`p\Phi(\beta)`) and resulting :math:`\Delta\textrm{mag}` for all combinations of cloud level and wavelength of interest (8x5) for 80 total photometry columns.  These columns are named ``quad_pPhi_XXXC_YYYNM`` and ``quad_dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm.  :math:`\Delta\textrm{mag}` is calculated as:
-
-    .. math::
-        
-        \Delta\textrm{mag} = -2.5\log_{10}\left(p\Phi(\beta) \left(\frac{R}{r}\right)^2 \right)
-    
-   for planet radius :math:`R` and orbital radius :math:`r`.  We store the radius at quadrature that is used in the final calculation in the ``quad_dmag`` column.
+   We calculate the grid data (:math:`p\Phi(\beta)`) and resulting :math:`\Delta\textrm{mag}` (as described in :ref:`photometry`) for all combinations of cloud level and wavelength of interest (8x5) for 80 total photometry columns.  These columns are named ``quad_pPhi_XXXC_YYYNM`` and ``quad_dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm. We store the radius at quadrature that is used in the final calculation in the ``quad_dmag`` column.
     
     .. note::
 
@@ -394,7 +396,7 @@ For each row in KnownPlanets, orbital data is generated as follows:
     
 #. ``st_dist`` is taken to be the target distance :math:`d`.
 #. ``st_metfe`` is taken to be the stellar metallicity; if it is undefined it is set to zero.
-#. If ``pl_orbper`` (:math:`T`)is defined, or the orbital period can be calculated from the star mass and semi-major axis  (:ref:`see above<massperiodsmacalc>`), and ``pl_opbtper`` (the time of periastron passage: :math:`\tau`) is defined, then a time array is defined with 100 points between :math:`t0` and :math:`t0+T`, where :math:`t0` is taken to be January 1, 2026 00:00:00 UTC. The mean anomaly is then calculated as:
+#. If ``pl_orbper`` (:math:`T`) is defined, or the orbital period can be calculated from the star mass and semi-major axis  (:ref:`see above<massperiodsmacalc>`), and ``pl_opbtper`` (the time of periastron passage: :math:`\tau`) is defined, then a time array is defined with 100 points between :math:`t0` and :math:`t0+T`, where :math:`t0` is taken to be January 1, 2026 00:00:00 UTC. The mean anomaly is then calculated as:
 
    .. math::
 
@@ -409,29 +411,7 @@ For each row in KnownPlanets, orbital data is generated as follows:
         \nu = 2\tan^{-1}\left(\sqrt{\frac{1+e}{1 - e}}\tan\left(\frac{E}{2}\right)\right)
   
 
-   .. _orbcalcref:
-
-#.  The orbital radius :math:`r` is calculated as:
-
-    .. math::
-
-        r = \frac{a(1 - e^2)}{1 + e\cos\nu}
-
-#. The projected separation :math:`s` is calculated as:
-
-    .. math::
-        
-        s = \frac{r \sqrt{4 \cos{\left (2 I \right )} + 4 \cos{\left (2 \nu + 2 \omega \right )} - 2 \cos{\left (- 2 I + 2 \nu + 2 \omega \right )} - 2 \cos{\left (2 I + 2 \nu + 2 \omega \right )} + 12}}{4}
-
-#. The phase angle for all anomaly values is calculated as 
-    
-    .. math::
-        \beta = \cos^{-1}\left(\sin I\sin\theta\right)
-    
-   where :math:`\theta = \omega+\nu` and the angular separation is calculated as 
-     
-    .. math::
-        \alpha = \tan^{-1}\left( \frac{s}{d} \right)
+#.  We calculate the orbital radius, :math:`r`, projected separation, :math:`s`, phase angle, :math:`\beta`, and angular separation, :math:`\alpha` as defined in  :ref:`geometry`. 
 
 #. The PlanetOrbits table is defined with the following columns:
     
@@ -442,7 +422,7 @@ For each row in KnownPlanets, orbital data is generated as follows:
     * WA: :math:`\alpha` (mas)
     * beta: :math:`\beta` (deg)
 
-#. For each row, for each cloud level in the :ref:`photometry` grids, and for each wavelength of interest, the :math:`p\Phi(\beta)` value is interpolated and a :math:`\Delta\textrm{mag}` value is calculated as described in :ref:`Step 13<photcalcref>` of the KnownPlanets generation procedure. These values are stored in new columns ``pPhi_XXXC_YYYNM`` and ``dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm. 
+#. For each row, for each cloud level in the :ref:`photometry` grids, and for each wavelength of interest, the :math:`p\Phi(\beta)` value is interpolated and a :math:`\Delta\textrm{mag}` value is calculated as described above in :ref:`the KnownPlanets generation procedure<photcalcref>`. These values are stored in new columns ``pPhi_XXXC_YYYNM`` and ``dMag_XXXC_YYYNM`` where ``XXX`` is the cloud  :math:`f_\textrm{sed}` scaled by 100 (000 representing no cloud) and ``YYY`` is the wavelength in nm. 
 
 
 .. _altplanetorbits_table:
@@ -469,7 +449,7 @@ For each planet meeting this condition, the following samples are drawn, :math:`
 #. The stellar metallicity is not sampled, but taken as a constant value equal to ``st_metfe``, or 0.0, if undefined. 
 #. If the planet radius in KnownPlanets was calculated from the mass, and the mass (``pl_bmassj``) represents :math:`M\sin I`, the mass sample is defined as ``pl_bmassj``:math:`/sin(I)`.
 #. The mean anomaly is sampled from a uniform distribution between 0 and 360 degrees.
-#. The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOrbits table (see :ref:`Steps 9 - 13<orbcalcref>`). 
+#. The orbital radius, projected separation, phase angle, and :math:`\Delta\textrm{mag}` are now calculated for each sample exactly as they were for the PlanetOrbits table (see :ref:`geometry`). 
 #. The cloud :math:`f_\textrm{sed}` is sampled as described in the Planet Photometry discussion (:ref:`see above<sampleclouds>`).
 #. A 2D histogram is constructed from the phase angle and :math:`\Delta\textrm{mag}` sampled on a predefined grid with angular separation sampled from 150 to 450 mas in increments of 1 mas and  :math:`\Delta\textrm{mag}` sampled from 0 to 26 in increments of 0.1.
 #. A single completeness value is calculated by finding the fraction of sampled points such that the angular separation falls between 150 and 450 mas and the  :math:`\Delta\textrm{mag}` is less than or equal to a curve defined from the 575 nm WFIRST predicted performance.
