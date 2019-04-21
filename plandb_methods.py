@@ -604,7 +604,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
     photinterps2 = photdict['photinterps']
     feinterp = photdict['feinterp']
     distinterp = photdict['distinterp']
-    lambdas = []
+    lambdas = [l for l,band,bw,ws,wstep in bandzip]
 
 
     orbdata = None
@@ -660,16 +660,36 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                     'WA': WA,
                     'beta': beta.to(u.deg).value}
 
+        alldMags = np.zeros((len(photdict['clouds']), len(lambdas), len(beta)))
+        allpphis = np.zeros((len(photdict['clouds']), len(lambdas), len(beta)))
+
         inds = np.argsort(beta)
-        for c in photdict['clouds']:
-            for l,band,bw,ws,wstep in bandzip:
+        for count1,c in enumerate(photdict['clouds']):
+            for count2,(l,band,bw,ws,wstep) in enumerate(bandzip):
                 pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
                 pphi[np.isinf(pphi)] = np.nan
                 outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = pphi 
+                allpphis[count1,count2] = pphi
                 dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
                 dMag[np.isinf(dMag)] = np.nan
                 outdict['dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = dMag
+                alldMags[count1,count2] = dMag
 
+
+        pphismin = np.nanmin(allpphis,axis=0)
+        dMagsmin = np.nanmin(alldMags,axis=0)
+        pphismax = np.nanmax(allpphis,axis=0)
+        dMagsmax = np.nanmax(alldMags,axis=0)
+        pphismed = np.nanmedian(allpphis,axis=0)
+        dMagsmed = np.nanmedian(alldMags,axis=0)
+
+        for count3,l in enumerate(lambdas):
+            outdict["dMag_min_"+str(l)+"NM"] = dMagsmin[j]
+            outdict["dMag_max_"+str(l)+"NM"] = dMagsmax[j]
+            outdict["dMag_med_"+str(l)+"NM"] = dMagsmed[j]
+            outdict["pPhi_min_"+str(l)+"NM"] = pphismin[j]
+            outdict["pPhi_max_"+str(l)+"NM"] = pphismax[j]
+            outdict["pPhi_med_"+str(l)+"NM"] = pphismed[j]
 
         out = pandas.DataFrame(outdict)
         
@@ -677,39 +697,6 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             orbdata = out.copy()
         else:
             orbdata = orbdata.append(out)
-
-
-    orbdata = orbdata.sort_values(by=['Name','t','M']).reset_index(drop=True)
-    tmpout = {}
-    for l in lambdas:
-        tmpout["dMag_min_"+str(l)+"NM"] = np.zeros(len(orbdata))
-        tmpout["dMag_max_"+str(l)+"NM"] = np.zeros(len(orbdata))
-        tmpout["dMag_med_"+str(l)+"NM"] = np.zeros(len(orbdata))
-        tmpout["pPhi_min_"+str(l)+"NM"] = np.zeros(len(orbdata))
-        tmpout["pPhi_max_"+str(l)+"NM"] = np.zeros(len(orbdata))
-        tmpout["pPhi_med_"+str(l)+"NM"] = np.zeros(len(orbdata))
-
-
-
-    for name in np.unique(orbdata['Name']):
-        print(name)
-        loc = orbdata['Name'] == name  
-        for l in lambdas:
-            tmp = []
-            tmp2 = []
-            for c in photdict['clouds']:
-                tmp.append(orbdata.loc[loc,'dMag_'+"%03dC_"%(c*100)+str(l)+"NM"].values)
-                tmp2.append(orbdata.loc[loc,'pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"].values)
-            tmp = np.vstack(tmp)
-            tmp2 = np.vstack(tmp2)
-            tmpout["dMag_min_"+str(l)+"NM"][loc.values] = np.nanmin(tmp,axis=0)
-            tmpout["dMag_max_"+str(l)+"NM"][loc.values] = np.nanmax(tmp,axis=0)
-            tmpout["dMag_med_"+str(l)+"NM"][loc.values] = np.nanmedian(tmp,axis=0)
-            tmpout["pPhi_min_"+str(l)+"NM"][loc.values] = np.nanmin(tmp2,axis=0)
-            tmpout["pPhi_max_"+str(l)+"NM"][loc.values] = np.nanmax(tmp2,axis=0)
-            tmpout["pPhi_med_"+str(l)+"NM"][loc.values] = np.nanmedian(tmp2,axis=0)
-
-    orbdata = orbdata.join(pandas.DataFrame(tmpout))
 
     return orbdata
 
