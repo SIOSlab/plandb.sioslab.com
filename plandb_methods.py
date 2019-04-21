@@ -684,12 +684,12 @@ def genOrbitData(data, bandzip, photdict, t0=None):
         dMagsmed = np.nanmedian(alldMags,axis=0)
 
         for count3,l in enumerate(lambdas):
-            outdict["dMag_min_"+str(l)+"NM"] = dMagsmin[j]
-            outdict["dMag_max_"+str(l)+"NM"] = dMagsmax[j]
-            outdict["dMag_med_"+str(l)+"NM"] = dMagsmed[j]
-            outdict["pPhi_min_"+str(l)+"NM"] = pphismin[j]
-            outdict["pPhi_max_"+str(l)+"NM"] = pphismax[j]
-            outdict["pPhi_med_"+str(l)+"NM"] = pphismed[j]
+            outdict["dMag_min_"+str(l)+"NM"] = dMagsmin[count3]
+            outdict["dMag_max_"+str(l)+"NM"] = dMagsmax[count3]
+            outdict["dMag_med_"+str(l)+"NM"] = dMagsmed[count3]
+            outdict["pPhi_min_"+str(l)+"NM"] = pphismin[count3]
+            outdict["pPhi_max_"+str(l)+"NM"] = pphismax[count3]
+            outdict["pPhi_med_"+str(l)+"NM"] = pphismed[count3]
 
         out = pandas.DataFrame(outdict)
         
