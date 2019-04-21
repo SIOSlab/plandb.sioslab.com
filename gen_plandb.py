@@ -3,9 +3,9 @@ from __future__ import division
 from plandb_methods import *
 import getpass,keyring
 
+cache = True
 
 datestr = Time.now().datetime.strftime("%Y-%m-%d")
-cache = False
 
 #initial data dump
 data = getIPACdata()
@@ -14,7 +14,7 @@ data = getIPACdata()
 photdict = loadPhotometryData()
 
 #band info
-bandzip = genBands()
+bandzip = list(genBands())
 
 #calculate quadrature columns:
 data = calcQuadratureVals(data, bandzip, photdict)
