@@ -9,7 +9,7 @@ if (empty($_GET["name"])){
     $name = $_GET["name"];
 }
 
-$sql = "SELECT pl_hostname,pl_orbper,pl_orbperreflink,pl_discmethod,pl_orbsmax,pl_orbsmaxreflink,pl_orbeccenreflink,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_bmassreflink,pl_radj,pl_radreflink,pl_radj_fortney,pl_radj_forecastermod,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag,st_elat,st_elon FROM KnownPlanets WHERE pl_name='".$name."'";
+$sql = "SELECT pl_hostname,pl_reflink,pl_orbper,pl_discmethod,pl_orbsmax,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_radj,pl_radreflink,pl_radj_fortney,pl_radj_forecastermod,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag,st_elat,st_elon FROM KnownPlanets WHERE pl_name='".$name."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -88,22 +88,22 @@ echo "<TR><TH colspan='2'> Planet Properties</TH></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Discovered via</TH><TD>".$row[pl_discmethod]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Period (days)</TH><TD>".
     number_format((float)$row[pl_orbper], 2, '.', '');
-if ($row[pl_orbperreflink])
-    echo " (".$row[pl_orbperreflink].")";
+if ($row[pl_reflink])
+    echo " (".$row[pl_reflink].")";
 echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Semi-major Axis (AU)</TH><TD>".
     number_format((float)$row[pl_orbsmax], 2, '.', '');
-if ($row[pl_orbsmaxreflink])
-    echo " (".$row[pl_orbsmaxreflink].")";
+if ($row[pl_reflink])
+    echo " (".$row[pl_reflink].")";
 echo"</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Eccentricity</TH><TD>".$row[pl_orbeccen];
-if ($row[pl_orbeccenreflink])
-    echo " (".$row[pl_orbeccenreflink].")";
+if ($row[pl_reflink])
+    echo " (".$row[pl_reflink].")";
 echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Inclination (deg)</TH><TD>".$row[pl_orbincl]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>".$row[pl_bmassprov]." (Jupiter Masses)</TH><TD>".$row[pl_bmassj];
-if ($row[pl_orbsmaxreflink])
-    echo " (".$row[pl_orbsmaxreflink].")";
+if ($row[pl_reflink])
+    echo " (".$row[pl_reflink].")";
 echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Radius (Jupiter Radii)</TH><TD>".$row[pl_radj];
 if ($row[pl_radreflink])
