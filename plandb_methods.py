@@ -89,17 +89,16 @@ def getIPACdata():
                                 # 'pl_eccenerr2':'pl_orbeccenerr2',
                                 # 'pl_eccenlim':'pl_orbeccenlim',
                                 # 'pl_eccenreflink':'pl_orbeccenreflink',
-                                # 'st_met':'st_metfe',
-                                # 'st_meterr1':'st_metfeerr1',
-                                # 'st_meterr2':'st_metfeerr2',
+                                'st_met':'st_metfe',
+                                'st_meterr1':'st_metfeerr1',
+                                'st_meterr2':'st_metfeerr2',
                                 'st_metreflink':'st_metfereflink',
-                                # 'st_metlim':'st_metfelim',
+                                'st_metlim':'st_metfelim',
                                 })
 
     composite_cols = [col for col in data.columns if (col == 'pl_name') or
                       str.startswith(col, 'st_')]
-    composite_cols.extend(['pl_radj', 'pl_radreflink'])
-
+    # composite_cols.extend(['pl_radj', 'pl_radreflink'])
     data = data[composite_cols]
 
     #sort by planet name
@@ -110,7 +109,7 @@ def getIPACdata():
     data = data.combine_first(data2)
 
     #############################################################
-    pl_names_df = pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\output.csv")
+    pl_names_df = pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\outputwbad.csv")
     pl_names = pl_names_df["pl_name"]
 
     data = data.loc[data['pl_name'].isin(pl_names)]
@@ -197,14 +196,14 @@ def getIPACdata():
     colmap = {k: k[1:] if (k.startswith('mst_') | k.startswith('mpl_')) else k for k in extended.keys()}
     extended = extended.rename(columns=colmap)
 
-    columns_to_null = ["pl_orbper", "pl_orbpererr1", "pl_orbpererr2", "pl_orbperlim", "pl_orbsmax",
+    columns_to_replace = ["pl_orbper", "pl_orbpererr1", "pl_orbpererr2", "pl_orbperlim", "pl_orbsmax",
                           "pl_orbsmaxerr1", "pl_orbsmaxerr2", "pl_orbsmaxlim", "pl_orbeccen",
                           "pl_orbeccenerr1", "pl_orbeccenerr2", "pl_orbeccenlim", "pl_orbtper",
                           "pl_orbtpererr1", "pl_orbtpererr2", "pl_orbtperlim", "pl_orblper",
                           "pl_orblpererr1", "pl_orblpererr2", "pl_orblperlim", "pl_bmassj",
                           "pl_bmassjerr1", "pl_bmassjerr2", "pl_bmassjlim",  "pl_orbincl", "pl_orbinclerr1", "pl_orbinclerr2",
-                          "pl_orbincllim", "pl_bmassprov"]
-    rad_columns = ["pl_radj", "pl_radjerr1", "pl_radjerr2", "pl_radjlim"]
+                          "pl_orbincllim", "pl_bmassprov", "pl_radj", "pl_radjerr1", "pl_radjerr2", "pl_radjlim"]
+    # rad_columns = []
     #update rows as needed
     print("Updating planets with best attributes.")
     data = data.assign(pl_def_override=np.zeros(len(data)))
@@ -213,11 +212,8 @@ def getIPACdata():
         idx = data.loc[(data["pl_name"] == name)].index
         if int(row_extended["pl_def"]) == 0:
             row_extended.index = idx
-            final_replace_columns = list(columns_to_null)
-            final_replace_columns.extend(rad_columns)
-            row_extended_replace = row_extended[final_replace_columns]
-            # Want to keep radius vals from composite table instead of replacing with null, so we don't null radius columns
-            data.loc[(data["pl_name"] == name,columns_to_null)] = np.nan
+            row_extended_replace = row_extended[columns_to_replace]
+            data.loc[(data["pl_name"] == name,columns_to_replace)] = np.nan
             data.update(row_extended_replace,overwrite=True)
             data.loc[idx,'pl_def_override'] = 1
             print("%s: %d/%d"%(name,j+1,len(data)))
@@ -225,14 +221,13 @@ def getIPACdata():
             print("%s: %d/%d" % (name, j + 1, len(data)))
 
         data.loc[idx, 'pl_reflink'] = row_extended['pl_reflink'].values[0]
-        if not np.isnan(row_extended['pl_radj'].values[0]):
-            data.loc[idx, 'pl_radreflink'] = row_extended['pl_reflink'].values[0]
+        # if not np.isnan(row_extended['pl_radj'].values[0]):
+        #     data.loc[idx, 'pl_radreflink'] = row_extended['pl_reflink'].values[0]
 
     #sort by planet name 
     data = data.sort_values(by=['pl_name']).reset_index(drop=True)
 
     print("Filtering to useable planets and calculating additional properties.")
-
     # filter rows:
     # we need:
     # pl_status != 0 AND
@@ -264,6 +259,28 @@ def getIPACdata():
                               'pl_msinielim'
                               ])
 
+    #Fill in missing luminosity from meanstars
+    ms = MeanStars()
+    nolum_teff = np.isnan(data['st_lum'].values) & ~np.isnan(data['st_teff'].values)
+    teffs = data.loc[nolum_teff, 'st_teff']
+    lums_1 = ms.TeffOther('logL', teffs) # Calculates Luminosity when teff exists
+    data.loc[nolum_teff, 'st_lum'] = lums_1
+
+    nolum_noteff_spect = np.isnan(data['st_lum'].values) & np.isnan(data['st_teff'].values) \
+                         & ~np.equal(data['st_spstr'].values, None)
+    spects = data.loc[nolum_noteff_spect, 'st_spstr']
+    lums2 = []
+    for str_row in spects.values:
+        spec_letter = str_row[0]
+        # spec_rest.append(str_row[1:])
+        spec_num_match = re.search("^[0-9,]+", str_row[1:])
+        if spec_num_match is not None:
+            spec_num = str_row[spec_num_match.start() + 1:spec_num_match.end() + 1]
+            # Calculates luminosity when teff does not exist but spectral type exists
+            lums2.append(ms.SpTOther('logL', spec_letter, spec_num))
+        else:
+            lums2.append(np.nan)
+    data.loc[nolum_noteff_spect, 'st_lum'] = lums2
 
     #fill in missing smas from period & star mass
     nosma = np.isnan(data['pl_orbsmax'].values)
@@ -296,9 +313,11 @@ def getIPACdata():
     data['pl_angseperr2'] = -sigma_wa
 
     #fill in radius based on mass
-    noR = ((data['pl_radreflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') |\
-           (data['pl_radreflink'] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') |\
-            data['pl_radj'].isnull()).values
+    # noR = ((data['pl_radreflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') |\
+    #        (data['pl_radreflink'] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') |\
+    #         data['pl_radj'].isnull()).values
+    noR = (data['pl_radj'].isnull()).values
+
     data['pl_calc_rad'] = pandas.Series(np.zeros(len(data['pl_name'])), index=data.index)
     data.loc[noR, 'pl_calc_rad'] = 1
 
@@ -320,63 +339,6 @@ def getIPACdata():
     from EXOSIMS.PlanetPhysicalModel.FortneyMarleyCahoyMix1 import FortneyMarleyCahoyMix1
     fortney = FortneyMarleyCahoyMix1()
 
-    # mdist = dict()
-    # ml10 = dict()
-    # mdist = []
-    # mdist = np.zeros((len(m), int(1e4)))
-    # ml10 = []
-    # Rf = np.zeros(m.shape)
-    # ctr = 0
-    # ctr_pl = 0
-    # for j in range(len(m)):
-    #     if np.isnan(merr[j]):
-    #         merr[j] = 0
-    #     mdist[j, :] = (np.random.normal(loc=m[j], scale=merr[j], size=int(1e4)))
-    #     # neg = mdist[j, :] < 0
-    #     # print(neg)
-    #     # mdist[j, neg] = 0
-    #     hasneg = 0
-    #     for i in range(len(mdist[j, :])):
-    #         if mdist[j, i] < 0:
-    #             if hasneg == 0:
-    #                 ctr_pl = ctr_pl + 1
-    #                 hasneg = 1
-    #                 print(data['pl_name'][noR].values[j])
-    #             mdist[j, i] = 0
-    #             ctr = ctr + 1
-    #             #
-    #             # print(j)
-    #             # print(m[j])
-    #             # print(merr[j])
-    #             # quit()
-    # print(ctr)
-    # print(ctr_pl)
-    # quit()
-    #
-    # ml102 = mdist <= np.full((len(mdist), len(mdist[0])), 17)
-    # Rf2 = np.zeros((len(mdist), len(mdist[0])))
-    # Rf2[ml102] = fortney.R_ri(0.67, mdist[ml102])
-    # # for j in range(len(m)):
-    # #     Rf[ml10] = fortney.R_ri(0.67,mdist[ml10])
-    #
-    # mg102 = mdist > np.full((len(mdist), len(mdist[0])), 17)
-    # tmpsmas = data['pl_orbsmax'][noR].values
-    # tmpsmaserr = (data['pl_orbsmaxerr1'][noR].values - data['pl_orbsmaxerr2'][noR].values)/2.0
-    # adist = np.zeros((len(m), int(1e4)))
-    # for j in range(len(tmpsmas)):
-    #     if np.isnan(tmpsmaserr[j]):
-    #         tmpsmaserr[j] = 0
-    #     adist[j, :] = (np.random.normal(loc=tmpsmas[j], scale=tmpsmaserr[j], size=int(1e4)))
-    # # print(adist)
-    # adist = adist[mg102]
-    # # tmpsmas = tmpsmas[mg102]
-    # adist[adist < fortney.giant_pts2[:, 1].min()] = fortney.giant_pts2[:, 1].min()
-    # adist[adist > fortney.giant_pts2[:, 1].max()] = fortney.giant_pts2[:, 1].max()
-    # # tmpsmas[tmpsmas < fortney.giant_pts2[:, 1].min()] = fortney.giant_pts2[:, 1].min()
-    # # tmpsmas[tmpsmas > fortney.giant_pts2[:, 1].max()] = fortney.giant_pts2[:, 1].max()
-    # # print(adist)
-    # quit()
-
     ml10 = m <= 17
     Rf = np.zeros(m.shape)
     Rf[ml10] = fortney.R_ri(0.67,m[ml10])
@@ -395,6 +357,51 @@ def getIPACdata():
     data = data.assign(pl_radj_fortney=data['pl_radj'].values)
     #data['pl_radj_fortney'][noR] = ((Rf*u.R_earth).to(u.R_jupiter)).value
     data.loc[noR,'pl_radj_fortney'] = ((Rf*u.R_earth).to(u.R_jupiter)).value
+
+    # Calculate erros for fortney radius
+    Rf_err = []
+    tmpsmas = data['pl_orbsmax'][noR].values
+    tmpsmaserr = (data['pl_orbsmaxerr1'][noR].values - data['pl_orbsmaxerr2'][noR].values) / 2.0
+    adist = np.zeros((len(m), int(1e4)))
+    for j in range(len(tmpsmas)):  # Create smax distribution
+        if np.isnan(tmpsmaserr[j]):
+            tmpsmaserr[j] = 0
+        adist[j, :] = (np.random.normal(loc=tmpsmas[j], scale=tmpsmaserr[j], size=int(1e4)))
+        # for i in range(len(adist[j,:])):
+        #     if adist[j, i] < 0:
+        #         print('rip')
+        #         quit()
+
+    for j in range(len(m)):  # Create m distribution and calculate errors
+        if np.isnan(merr[j]):
+            merr[j] = 0
+        mdist = (np.random.normal(loc=m[j], scale=merr[j], size=int(1e4)))
+
+        for i in range(len(mdist)):
+            while mdist[i] < 0:
+                mdist[i] = (np.random.normal(loc=m[j], scale=merr[j], size=int(1)))
+
+        ml10_dist = mdist <= 17
+        Rf_dist = np.zeros(mdist.shape)
+        Rf_dist[ml10_dist] = fortney.R_ri(0.67, mdist[ml10_dist])
+
+        cur_adist = adist[j, :]
+        mg10_dist = mdist > 17
+        tmpsmas = cur_adist[mg10_dist]
+        tmpsmas[tmpsmas < fortney.giant_pts2[:, 1].min()] = fortney.giant_pts2[:, 1].min()
+        tmpsmas[tmpsmas > fortney.giant_pts2[:, 1].max()] = fortney.giant_pts2[:, 1].max()
+
+        tmpmass = mdist[mg10_dist]
+        tmpmass[tmpmass > fortney.giant_pts2[:, 2].max()] = fortney.giant_pts2[:, 2].max()
+
+        Rf_dist[mg10_dist] = griddata(fortney.giant_pts2, fortney.giant_vals2,
+                                      (np.array([10.] * np.where(mg10_dist)[0].size), tmpsmas, tmpmass))
+        Rf_err.append(Rf_dist.std())
+
+    data = data.assign(pl_radj_fortneyerr1=data['pl_radjerr1'].values)
+    data.loc[noR, 'pl_radj_fortneyerr1'] = ((Rf_err * u.R_earth).to(u.R_jupiter)).value
+    data = data.assign(pl_radj_forecastermoderr2=data['pl_radjerr2'].values)
+    data.loc[noR, 'pl_radj_fortneyerr2'] = -((Rf_err * u.R_earth).to(u.R_jupiter)).value
 
     #populate max WA based on available eccentricity data (otherwise maxWA = WA)
     hase = ~np.isnan(data['pl_orbeccen'].values)
@@ -583,10 +590,6 @@ def calcQuadratureVals(data, bandzip, photdict):
     eccen = data['pl_orbeccen'].values
     arg_per = data['pl_orblper'].values
     lum = data['st_lum'].values
-    temps = data['st_teff'].values
-    spects = data['st_spstr'].values
-    names = data['pl_name'].values
-    stnames = data['pl_hostname'].values
 
     tmpout = {}
 
@@ -598,8 +601,8 @@ def calcQuadratureVals(data, bandzip, photdict):
     ms = MeanStars()
 
     #iterate over all data rows
-    for j, (Rp, fe,a, I, e, w, lm, teff, spect, pl_name, st_name) in \
-            enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum, temps, spects, names, stnames)):
+    for j, (Rp, fe,a, I, e, w, lm) in \
+            enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum)):
         print("%d/%d"%(j+1,len(Rps)))
         for c in photdict['clouds']:
             for l,band,bw,ws,wstep in bandzip: 
@@ -611,19 +614,7 @@ def calcQuadratureVals(data, bandzip, photdict):
                     tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"] = np.zeros(smas.shape)
 
                 if np.isnan(lm):
-                    spect = str(spect)
-                    if np.isnan(teff) and spect is None:
-                        lum_fix = 1
-                    elif np.isnan(teff):
-                        spec_letter = spect[0]
-                        spec_num_match = re.search("^[0-9,]+", spect[1:len(spect)])
-                        if spec_num_match is not None:
-                            spec_num = spect[spec_num_match.start() + 1:spec_num_match.end() + 1]
-                            lum_fix = (10 ** ms.SpTOther('logL', spec_letter, spec_num)) ** .5
-                        else:
-                            lum_fix = 1
-                    else:
-                        lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+                    lum_fix = 1
                 else:
                     lum_fix = (10 ** lm) ** .5  # Since lum is log base 10 of solar luminosity
 
@@ -768,19 +759,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
 
         ms = MeanStars()
         if np.isnan(lum):
-            spect = str(spect)
-            if np.isnan(teff) and spect is None:
-                lum_fix = 1
-            elif np.isnan(teff):
-                spec_letter = spect[0]
-                spec_num_match = re.search("^[0-9,]+", spect[1:len(spect)])
-                if spec_num_match is not None:
-                    spec_num = spect[spec_num_match.start() + 1:spec_num_match.end() + 1]
-                    lum_fix = (10 ** ms.SpTOther('logL', spec_letter, spec_num)) ** .5
-                else:
-                    lum_fix = 1
-            else:
-                lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+            lum_fix = 1
         else:
             lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
 
@@ -922,24 +901,9 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
                    }
 
         lum = row['st_lum']
-        teff = row['st_teff']
-        spect = row['st_spstr']
-        ms = MeanStars()
 
         if np.isnan(lum):
-            spect = str(spect)
-            if np.isnan(teff) and spect is None:
-                lum_fix = 1
-            elif np.isnan(teff):
-                spec_letter = spect[0]
-                spec_num_match = re.search("^[0-9,]+", spect[1:len(spect)])
-                if spec_num_match is not None:
-                    spec_num = spect[spec_num_match.start() + 1:spec_num_match.end() + 1]
-                    lum_fix = (10 ** ms.SpTOther('logL', spec_letter, spec_num)) ** .5
-                else:
-                    lum_fix = 1
-            else:
-                lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+            lum_fix = 1
         else:
             lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
 
@@ -995,7 +959,6 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
     orbdata = None
     orbitfits = None
     orbitfit_id = 0
-    print(plannames)
     for j in range(len(plannames)):
         row = data.iloc[j]
 
@@ -1094,31 +1057,9 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
 
             # Adjusts planet distance for luminosity
             lum = row['st_lum']
-            teff = row['st_teff']
-            spect = row['st_spstr']
 
-            ms = MeanStars()
-
-            loglum = np.nan
             if np.isnan(lum):
-                spect = str(spect)
-                if np.isnan(teff) and spect is None:
-                    lum_fix = 1
-                elif np.isnan(teff):
-                    spec_letter = spect[0]
-                    spec_num_match = re.search("^[0-9,]+", spect[1:len(spect)])
-                    if spec_num_match is not None:
-                        spec_num = spect[spec_num_match.start() + 1:spec_num_match.end() + 1]
-                        loglum = ms.SpTOther('logL', spec_letter, spec_num)
-                        lum_fix = (10 ** loglum) ** .5
-                    else:
-                        lum_fix = 1
-                else:
-                    loglum = ms.TeffOther('logL', teff)
-                    lum_fix = (10 ** loglum) ** .5
-                if not np.isnan(loglum):
-                    data.loc[data['pl_name'] == row['pl_name'], 'st_lum'] = np.float(loglum)
-                    data.loc[data['pl_name'] == row['pl_name'], 'st_lum_ms'] = 1
+                lum_fix = 1
             else:
                 lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
 
@@ -1401,19 +1342,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             ms = MeanStars()
 
             if np.isnan(lum):
-                spect = str(spect)
-                if np.isnan(teff) and spect is None:
-                    lum_fix = 1
-                elif np.isnan(teff):
-                    spec_letter = spect[0]
-                    spec_num_match = re.search("^[0-9,]+", spect[1:len(spect)])
-                    if spec_num_match is not None:
-                        spec_num = spect[spec_num_match.start() + 1:spec_num_match.end() + 1]
-                        lum_fix = (10 ** ms.SpTOther('logL', spec_letter, spec_num)) ** .5
-                    else:
-                        lum_fix = 1
-                else:
-                    lum_fix = (10 ** ms.TeffOther('logL', teff)) ** .5
+                lum_fix = 1
             else:
                 lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
 
