@@ -154,31 +154,49 @@ def getIPACdata():
                         (not pandas.isnull(row["mpl_bmassj"]) or not pandas.isnull(row["mpl_radj"]))
 
             # Has everything
-            if good_lvl < 4 and (base_need
+            if good_lvl < 8 and (base_need
                                  and not pandas.isnull(row["mpl_orbeccen"]) and not pandas.isnull(row["mpl_orbtper"])
                                  and not pandas.isnull(row["mpl_orblper"]) and not pandas.isnull(row["mpl_orbincl"])):
-                good_idx = index
-                good_lvl = 4
-                break
+                if not pandas.isnull(row["mpl_radj"]):
+                    good_idx = index
+                    good_lvl = 8
+                    break
+                elif good_lvl < 7:
+                    good_idx = index
+                    good_lvl = 7
 
             # Has everything except inclination
-            if good_lvl < 3 and (base_need
+            if good_lvl < 6 and (base_need
                                  and not pandas.isnull(row["mpl_orbeccen"]) and not pandas.isnull(row["mpl_orbtper"])
                                  and not pandas.isnull(row["mpl_orblper"])):
-                good_idx = index
-                good_lvl = 3
+                if not pandas.isnull(row["mpl_radj"]):
+                    good_idx = index
+                    good_lvl = 6
+                elif good_lvl < 5:
+                    good_idx = index
+                    good_lvl = 5
 
             # Has either periapsis time or argument of pariapsis
-            elif good_lvl < 2 and (base_need
+            elif good_lvl < 4 and (base_need
                                    and not pandas.isnull(row["mpl_orbeccen"]) and (not pandas.isnull(row["mpl_orbtper"])
                                                                           or not pandas.isnull(row["mpl_orblper"]))):
-                good_idx = index
-                good_lvl = 2
+                if not pandas.isnull(row["mpl_radj"]):
+                    good_idx = index
+                    good_lvl = 4
+                elif good_lvl < 3:
+                    good_idx = index
+                    good_lvl = 3
+
             # Has eccentricity
-            elif good_lvl < 1 and (base_need
+            elif good_lvl < 2 and (base_need
                                    and not pandas.isnull(row["mpl_orbeccen"])):
-                good_idx = index
-                good_lvl = 1
+                if not pandas.isnull(row["mpl_radj"]):
+                    good_idx = index
+                    good_lvl = 2
+                elif good_lvl < 1:
+                    good_idx = index
+                    good_lvl = 1
+
             # 1st doesn't have basic info
             elif index == good_idx and not base_need:
                 good_idx = -1
@@ -216,6 +234,8 @@ def getIPACdata():
             data.loc[(data["pl_name"] == name,columns_to_replace)] = np.nan
             data.update(row_extended_replace,overwrite=True)
             data.loc[idx,'pl_def_override'] = 1
+            if name == 'HR 8799 e':
+                print(row_extended_replace)
             print("%s: %d/%d"%(name,j+1,len(data)))
         else:
             print("%s: %d/%d" % (name, j + 1, len(data)))
@@ -234,7 +254,7 @@ def getIPACdata():
     # distance AND
     # (sma OR (period AND stellar mass)) AND
     # (radius OR mass (either true or m\sin(i)))
-    keep = data['pl_status'].values != 0 & ~np.isnan(data['st_dist'].values) & (~np.isnan(data['pl_orbsmax'].values) | \
+    keep = np.not_equal(data['pl_status'].values, 0) & ~np.isnan(data['st_dist'].values) & (~np.isnan(data['pl_orbsmax'].values) | \
             (~np.isnan(data['pl_orbper'].values) & ~np.isnan(data['st_mass'].values))) & \
            (~np.isnan(data['pl_bmassj'].values) | ~np.isnan(data['pl_radj'].values))
     data = data[keep]
@@ -258,7 +278,6 @@ def getIPACdata():
                               'pl_msinieerr2',
                               'pl_msinielim'
                               ])
-
     #Fill in missing luminosity from meanstars
     ms = MeanStars()
     nolum_teff = np.isnan(data['st_lum'].values) & ~np.isnan(data['st_teff'].values)
@@ -266,14 +285,13 @@ def getIPACdata():
     lums_1 = ms.TeffOther('logL', teffs) # Calculates Luminosity when teff exists
     data.loc[nolum_teff, 'st_lum'] = lums_1
 
-    nolum_noteff_spect = np.isnan(data['st_lum'].values) & np.isnan(data['st_teff'].values) \
-                         & ~np.equal(data['st_spstr'].values, None)
+    nolum_noteff_spect = np.isnan(data['st_lum'].values) & ~data['st_spstr'].isnull().values
     spects = data.loc[nolum_noteff_spect, 'st_spstr']
     lums2 = []
     for str_row in spects.values:
         spec_letter = str_row[0]
         # spec_rest.append(str_row[1:])
-        spec_num_match = re.search("^[0-9,]+", str_row[1:])
+        spec_num_match = re.search("^[0-9.]+", str_row[1:])
         if spec_num_match is not None:
             spec_num = str_row[spec_num_match.start() + 1:spec_num_match.end() + 1]
             # Calculates luminosity when teff does not exist but spectral type exists
@@ -289,6 +307,8 @@ def getIPACdata():
     T = data['pl_orbper'][nosma].values*u.day
     tmpsma = p2sma(GMs,T)
     data.loc[nosma,'pl_orbsmax'] = tmpsma
+    print(tmpsma)
+    print(data.loc[nosma,'pl_name'])
     data['pl_calc_sma'] = pandas.Series(np.zeros(len(data['pl_name'])), index=data.index)
     data.loc[nosma, 'pl_calc_sma'] = 1
 
@@ -598,8 +618,6 @@ def calcQuadratureVals(data, bandzip, photdict):
     distinterp = photdict['distinterp']
     lambdas = []
 
-    ms = MeanStars()
-
     #iterate over all data rows
     for j, (Rp, fe,a, I, e, w, lm) in \
             enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum)):
@@ -754,10 +772,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                     'beta': beta.to(u.deg).value}
 
         lum = row['st_lum']
-        teff = row['st_teff']
-        spect = row['st_spstr']
 
-        ms = MeanStars()
         if np.isnan(lum):
             lum_fix = 1
         else:
@@ -1053,6 +1068,12 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
             beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
 
             WA = np.arctan((s * u.AU) / (dist * u.pc)).to('mas').value
+            if row['pl_name'] == 'HR 8799 e':
+                print("a")
+                print(a)
+                print("e")
+                print(e)
+
             print(j, plannames[j], WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
 
             # Adjusts planet distance for luminosity
@@ -1337,9 +1358,6 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             rnorm = d
 
             lum = row['st_lum']
-            teff = row['st_teff']
-            spect = row['st_spstr']
-            ms = MeanStars()
 
             if np.isnan(lum):
                 lum_fix = 1
