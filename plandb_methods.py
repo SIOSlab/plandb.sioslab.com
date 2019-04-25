@@ -234,8 +234,6 @@ def getIPACdata():
             data.loc[(data["pl_name"] == name,columns_to_replace)] = np.nan
             data.update(row_extended_replace,overwrite=True)
             data.loc[idx,'pl_def_override'] = 1
-            if name == 'HR 8799 e':
-                print(row_extended_replace)
             print("%s: %d/%d"%(name,j+1,len(data)))
         else:
             print("%s: %d/%d" % (name, j + 1, len(data)))
@@ -307,8 +305,6 @@ def getIPACdata():
     T = data['pl_orbper'][nosma].values*u.day
     tmpsma = p2sma(GMs,T)
     data.loc[nosma,'pl_orbsmax'] = tmpsma
-    print(tmpsma)
-    print(data.loc[nosma,'pl_name'])
     data['pl_calc_sma'] = pandas.Series(np.zeros(len(data['pl_name'])), index=data.index)
     data.loc[nosma, 'pl_calc_sma'] = 1
 
@@ -387,10 +383,6 @@ def getIPACdata():
         if np.isnan(tmpsmaserr[j]):
             tmpsmaserr[j] = 0
         adist[j, :] = (np.random.normal(loc=tmpsmas[j], scale=tmpsmaserr[j], size=int(1e4)))
-        # for i in range(len(adist[j,:])):
-        #     if adist[j, i] < 0:
-        #         print('rip')
-        #         quit()
 
     for j in range(len(m)):  # Create m distribution and calculate errors
         if np.isnan(merr[j]):
@@ -1004,7 +996,8 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
 
         t = np.zeros(100) * np.nan
         M = np.linspace(0, 2 * np.pi, 100)
-        if not np.isnan(Tp):
+
+        if not np.isnan(tau) and not np.isnan(Tp):
             n = 2 * np.pi / Tp
             num_steps = Tp / 30
             t = np.arange(t0.jd, t0.jd + Tp, 30)
@@ -1014,10 +1007,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                 t_temp = np.arange(t0.jd, t0.jd + Tp, 30)
                 t = t_temp[0:149]
 
-            if not np.isnan(tau):  # Sets time step if periapsis passage is null
-                M = np.mod((t - tau) * n, 2 * np.pi)
-            else:
-                M = np.linspace(0, 2 * np.pi, len(t))
+            M = np.mod((t - tau) * n, 2 * np.pi)
 
         # Calculate periaps after current date and after 1/1/2026
         if not np.isnan(tau):
@@ -1066,13 +1056,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                 4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(
                     2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
             beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
-
             WA = np.arctan((s * u.AU) / (dist * u.pc)).to('mas').value
-            if row['pl_name'] == 'HR 8799 e':
-                print("a")
-                print(a)
-                print("e")
-                print(e)
 
             print(j, plannames[j], WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
 
@@ -1109,7 +1093,6 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                        'beta': beta.to(u.deg).value,
                        'is_icrit': [icrit_flag[k]] * len(M),
                        'default_orb': [defs[k]] * len(M)}
-
             orbitfit_id = orbitfit_id + 1
 
 
@@ -1124,7 +1107,6 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                     dMag = deltaMag(1, Rp * u.R_jupiter, d * u.AU, pphi)
                     dMag[np.isinf(dMag)] = np.nan
                     outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM"] = dMag
-
             out = pandas.DataFrame(outdict)
 
             if orbdata is None:
@@ -1168,7 +1150,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
     orbdata = orbdata.join(pandas.DataFrame(tmpout))
     orbitfits = orbitfits.reset_index(drop=True)
 
-    return data, orbdata, orbitfits
+    return orbdata, orbitfits
 
 # Generates fsed based on a random number: 0 <= num < 1
 def get_fsed(num):
@@ -1327,10 +1309,11 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             cl = vget_fsed(np.random.rand(n))
 
             #define mass/radius distribution depending on data provenance
-            if ((row['pl_radreflink'] ==\
-                    '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') | \
-                    (row['pl_radreflink'] == \
-                    '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>')):
+            # if ((row['pl_radreflink'] ==\
+            #         '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') | \
+            #         (row['pl_radreflink'] == \
+            #         '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>')):
+            if row['pl_calc_rad'] == 1:
                 if row['pl_bmassprov'] == 'Msini':
                     Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
                     Mp = Mp/np.sin(I)
@@ -1528,7 +1511,7 @@ def genAliases(starnames):
         priname.append(list((np.array(tmp) == star).astype(int)))
 
 
-    out3 = pandas.DataFrame({'SID': np.hstack(ids),
+    out3 = pandas.DataFrame({'st_id': np.hstack(ids),
                              'Alias': np.hstack(aliases),
                              'NEAName':np.hstack(priname)
                              })
@@ -1536,13 +1519,13 @@ def genAliases(starnames):
     return out3
 
 def genAllAliases(data):
-    starnames = data['pl_hostname'].unique()
+    starnames = data['st_name'].unique()
     return genAliases(starnames)
 
 def fillMissingAliases(engine,data):
     result = engine.execute("select Alias from Aliases where NEAName=1")
     dbnames = np.hstack(result.fetchall())
-    starnames = data['pl_hostname'].unique()
+    starnames = data['st_name'].unique()
     missing = list(set(starnames) - set(dbnames))
 
     return genAliases(missing)
@@ -1720,11 +1703,13 @@ def writeSQL2(engine, data=None, stdata=None, orbitfits=None, orbdata=None, comp
 
     if aliases is not None:
         print("Writing Alias")
+        aliases = aliases.rename_axis('alias_id')
         aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
         aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (alias_id)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
-        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (Name) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (st_id)")
+        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
 
 def addSQLcomments2(engine,tablename):
@@ -1767,8 +1752,9 @@ def generateTables(data, orbitfits):
     st_cols.extend(["dec", "dec_str", "hd_name", "hip_name", "ra", "ra_str"])
     # print(st_cols)
 
-
-    pl_cols = ["pl_hostname", "pl_name", "pl_letter"]
+    pl_cols = ["pl_hostname", "pl_name", "pl_letter", "pl_disc", "pl_disc_refname", "pl_discmethod", "pl_locale", "pl_imgflag",
+               "pl_instrument", "pl_k2flag", "pl_kepflag", "pl_telescope", "pl_publ_date", "pl_facility", "pl_edelink",
+               "pl_mnum", "pl_rvflag", "pl_status", "pl_pelink"]
     orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
     orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname')
     orbitfits_exclude = [col for col in orbitfits_cols if col.startswith(orbitfits_exclude_prefix)]

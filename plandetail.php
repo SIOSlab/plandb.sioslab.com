@@ -46,8 +46,9 @@ if ($result_id->num_rows > 1) {
 $row = $result_id->fetch_assoc();
 $pl_id = $row[pl_id];
 
-$sql = "SELECT Planets.pl_id, Planets.st_name,orbper,orbperreflink,discmethod,orbsmax,orbsmaxreflink,orbeccenreflink,orbeccen,orbincl,bmassj,bmassprov,bmassreflink,radj,OrbitFits.radreflink,radj_fortney,radj_forecastermod,orbtper,orblper,eqt,insol,angsep,minangsep,maxangsep,
-ra_str,dec_str,dist,plx,gaia_plx,gaia_dist,optmag,optband,gaia_gmag,teff,mass,pmra,pmdec,gaia_pmra,gaia_pmdec,radv,spstr,Stars.lum,metfe,age,bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag,elat,elon,orbtper_next,orbtper_2026
+$sql = "SELECT Planets.pl_id, Planets.st_name,orbper,reflink,discmethod,orbsmax,orbeccen,orbincl,bmassj,bmassprov,radj,radj_fortney,radj_forecastermod,orbtper,orblper,eqt,insol,angsep,minangsep,maxangsep,
+ra_str,dec_str,dist,plx,gaia_plx,gaia_dist,optmag,optband,gaia_gmag,teff,mass,pmra,pmdec,gaia_pmra,gaia_pmdec,radv,spstr,Stars.lum,metfe,age,bmvj,completeness,compMinWA,compMaxWA,compMindMag,
+compMaxdMag,elat,elon,orbtper_next,orbtper_2026,calc_sma,Stars.st_id
 FROM Planets LEFT JOIN Stars ON Planets.st_id = Stars.st_id LEFT JOIN OrbitFits ON OrbitFits.pl_id = Planets.pl_id WHERE Planets.pl_id='".$pl_id."' AND default_fit = 1";
 
 $result = $conn->query($sqlsel.$sql);
@@ -94,7 +95,8 @@ $sql4 = "select Orbits.*, orbincl, OrbitFits.is_Icrit from Orbits LEFT JOIN Orbi
 $resultap = $conn->query($sql4);
 
 
-$sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row[pl_hostname]."')";
+$sqlaliases = "select Alias from Aliases where st_id = '".$row[st_id]."'";
+//(select st_id from Aliases where Alias = '".$row[pl_hostname]."')";
 $resultaliases = $conn->query($sqlaliases);
 
 if (($resultp && ($resultp->num_rows > 0)) || $row[completeness]) {
@@ -123,6 +125,7 @@ $wd = '50';
 echo " <div style='float: left; width: 90%; margin-bottom: 2em;'>\n";
 echo "<TABLE class='results'>\n";
 echo "<TR><TH colspan='2'> Planet Properties</TH></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Reference </TH><TD>".$row[reflink]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Discovered via</TH><TD>".$row[discmethod]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Period (days)</TH><TD>".
     number_format((float)$row[orbper], 2, '.', '');
@@ -131,8 +134,8 @@ if ($row[orbperreflink])
 echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Semi-major Axis (AU)</TH><TD>".
     number_format((float)$row[orbsmax], 2, '.', '');
-if ($row[orbsmaxreflink])
-    echo " (".$row[orbsmaxreflink].")";
+if ($row[calc_sma] == 1)
+    echo " (".'Calculated from stellar mass and orbital period.'.")";
 echo"</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Eccentricity</TH><TD>".$row[orbeccen];
 if ($row[orbeccenreflink])
