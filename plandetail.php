@@ -46,7 +46,7 @@ if ($result_id->num_rows > 1) {
 $row = $result_id->fetch_assoc();
 $pl_id = $row[pl_id];
 
-$sql = "SELECT Planets.pl_id, Planets.st_name,orbper,reflink,discmethod,orbsmax,orbeccen,orbincl,bmassj,bmassprov,radj,radj_fortney,radj_forecastermod,orbtper,orblper,eqt,insol,angsep,minangsep,maxangsep,
+$sql = "SELECT Planets.pl_id, Planets.st_name,orbper,reflink,discmethod,orbsmax,orbeccen,orbincl,orbinclerr1,orbinclerr2,bmassj,bmassprov,radj,radj_fortney,radj_forecastermod,orbtper,orblper,eqt,insol,angsep,minangsep,maxangsep,
 ra_str,dec_str,dist,plx,gaia_plx,gaia_dist,optmag,optband,gaia_gmag,teff,mass,pmra,pmdec,gaia_pmra,gaia_pmdec,radv,spstr,Stars.lum,metfe,age,bmvj,completeness,compMinWA,compMaxWA,compMindMag,
 compMaxdMag,elat,elon,orbtper_next,orbtper_2026,calc_sma,Stars.st_id
 FROM Planets LEFT JOIN Stars ON Planets.st_id = Stars.st_id LEFT JOIN OrbitFits ON OrbitFits.pl_id = Planets.pl_id WHERE Planets.pl_id='".$pl_id."' AND default_fit = 1";
@@ -76,8 +76,12 @@ if ($result->num_rows > 1) {
     exit;
 }
 $row = $result->fetch_assoc();
-// $pl_id = $row[pl_id];
-$sql2 = "select * from Orbits where pl_id = '".$pl_id."' AND default_orb = 1";
+
+if($row[orbtper]) //Need if statement so graph displays correctly if using either time or mean anomoly
+  $sql2 = "select * from Orbits where pl_id = '".$pl_id."' AND default_orb = 1";
+else
+  $sql2 = "select * from Orbits where pl_id = '".$pl_id."' AND default_orb = 1 ORDER BY M";
+
 $resultp = $conn->query($sql2);
 
 // $row = $result->fetch_assoc();
@@ -127,8 +131,9 @@ echo "<TABLE class='results'>\n";
 echo "<TR><TH colspan='2'> Planet Properties</TH></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Reference </TH><TD>".$row[reflink]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Discovered via</TH><TD>".$row[discmethod]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Period (days)</TH><TD>".
-    number_format((float)$row[orbper], 2, '.', '');
+echo "<TR><TH style='width:".$wd."%'>Period (days)</TH><TD>";
+if($row[orbper])
+    echo number_format((float)$row[orbper], 2, '.', '');
 if ($row[orbperreflink])
     echo " (".$row[orbperreflink].")";
 echo "</TD></TR>\n";
@@ -141,7 +146,10 @@ echo "<TR><TH style='width:".$wd."%'>Eccentricity</TH><TD>".$row[orbeccen];
 if ($row[orbeccenreflink])
     echo " (".$row[orbeccenreflink].")";
 echo "</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Inclination (deg)</TH><TD>".$row[orbincl]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Inclination (deg)</TH><TD>";
+if ($row[orbincl] && !($row[orbincl] == 90 && $row[orbinclerr1] == 0 && $row[orbinclerr2]) == 0)
+  echo $row[orbincl];
+echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>".$row[bmassprov]." (Jupiter Masses)</TH><TD>".$row[bmassj];
 if ($row[orbsmaxreflink])
     echo " (".$row[orbsmaxreflink].")";
@@ -182,7 +190,7 @@ echo "<TR><TH style='width:".$wd."%'>GAIA G band Magnitude</TH><TD>".$row[gaia_g
 echo "<TR><TH style='width:".$wd."%'>Effective Temperature (K)</TH><TD>".$row[teff]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Mass (Solar Masses)</TH><TD>".$row[mass]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Spectral Type</TH><TD>".$row[spstr]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Luminosity  (Solar Luminosities)</TH><TD>".$row[lum]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Luminosity  log(Solar Luminosities)</TH><TD>".$row[lum]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Metallicity (dex)</TH><TD>".$row[metfe]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Age (Gyr)</TH><TD>".$row[age]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>B-V (Johnson) (mag)</TH><TD>".$row[bmvj]."</TD></TR>\n";
@@ -225,7 +233,8 @@ if ($resultp){
         $i = 0;
         while($rowp = $resultp->fetch_assoc()) {
             if ($i == 0){
-                $havet = !(is_null($rowp[t]));
+                // $havet = !(is_null($rowp[t]));
+                $havet = !(is_null($rowp[t])) && !(is_null($row[orbtper]));
             }
             echo "x[".$i."]="; if ($havet){echo $rowp[t].";";} else{echo $rowp[M].";";}
             echo "r[".$i."]=".$rowp[r].";";

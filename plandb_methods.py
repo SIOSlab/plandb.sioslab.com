@@ -276,12 +276,17 @@ def getIPACdata():
                               'pl_msinieerr2',
                               'pl_msinielim'
                               ])
-    #Fill in missing luminosity from meanstars
+    #Calculate luminosity correction factor
+    has_lum = ~np.isnan(data['st_lum'].values)
+    data.loc[has_lum, 'st_lum_correction'] = (10 ** data.loc[has_lum, 'st_lum']) ** .5  # Since lum is log base 10 of solar luminosity
+
     ms = MeanStars()
     nolum_teff = np.isnan(data['st_lum'].values) & ~np.isnan(data['st_teff'].values)
     teffs = data.loc[nolum_teff, 'st_teff']
     lums_1 = ms.TeffOther('logL', teffs) # Calculates Luminosity when teff exists
-    data.loc[nolum_teff, 'st_lum'] = lums_1
+    # data.loc[nolum_teff, 'st_lum_correction'] = (10 ** lums_1) ** .5  # Since lum is log base 10 of solar luminosity
+
+    data.loc[nolum_teff, 'st_lum_correction'] = (10 ** lums_1) ** .5 # Since lum is log base 10 of solar luminosity
 
     nolum_noteff_spect = np.isnan(data['st_lum'].values) & ~data['st_spstr'].isnull().values
     spects = data.loc[nolum_noteff_spect, 'st_spstr']
@@ -296,7 +301,17 @@ def getIPACdata():
             lums2.append(ms.SpTOther('logL', spec_letter, spec_num))
         else:
             lums2.append(np.nan)
-    data.loc[nolum_noteff_spect, 'st_lum'] = lums2
+    # data.loc[nolum_noteff_spect, 'st_lum'] = (10 ** np.asarray(lums2)) ** .5
+    # print(np.power(np.power(10, lums2), .5))
+
+    data.loc[nolum_noteff_spect, 'st_lum_correction'] = (10 ** np.asarray(lums2)) ** .5
+
+    nolum_nodata = np.isnan(data['st_lum_correction'])
+    data.loc[nolum_nodata, 'st_lum_correction'] = 1
+
+    # Flag showing if the luminosity was obtained from meanstars
+    data.loc[nolum_teff | nolum_noteff_spect, 'st_lum_meanstars'] = 1
+    data.loc[has_lum | nolum_nodata, 'st_lum_meanstars'] = 0
 
     #fill in missing smas from period & star mass
     nosma = np.isnan(data['pl_orbsmax'].values)
@@ -601,7 +616,7 @@ def calcQuadratureVals(data, bandzip, photdict):
     inc = data['pl_orbincl'].values
     eccen = data['pl_orbeccen'].values
     arg_per = data['pl_orblper'].values
-    lum = data['st_lum'].values
+    lum_fixes = data['st_lum_correction'].values
 
     tmpout = {}
 
@@ -611,8 +626,8 @@ def calcQuadratureVals(data, bandzip, photdict):
     lambdas = []
 
     #iterate over all data rows
-    for j, (Rp, fe,a, I, e, w, lm) in \
-            enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum)):
+    for j, (Rp, fe,a, I, e, w, lum_fix) in \
+            enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum_fixes)):
         print("%d/%d"%(j+1,len(Rps)))
         for c in photdict['clouds']:
             for l,band,bw,ws,wstep in bandzip: 
@@ -622,11 +637,6 @@ def calcQuadratureVals(data, bandzip, photdict):
                     tmpout['quad_pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape)
                     tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"] = np.zeros(smas.shape)
                     tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"] = np.zeros(smas.shape)
-
-                if np.isnan(lm):
-                    lum_fix = 1
-                else:
-                    lum_fix = (10 ** lm) ** .5  # Since lum is log base 10 of solar luminosity
 
                 #Only calculate quadrature distance if known eccentricity and argument of periaps,
                 #and not face-on orbit
@@ -763,12 +773,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                     'WA': WA,
                     'beta': beta.to(u.deg).value}
 
-        lum = row['st_lum']
-
-        if np.isnan(lum):
-            lum_fix = 1
-        else:
-            lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+        lum_fix = row['st_lum_correction']
 
         inds = np.argsort(beta)
         for c in photdict['clouds']:
@@ -907,12 +912,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
                     'Icrit': [Icrit]*len(M)
                    }
 
-        lum = row['st_lum']
-
-        if np.isnan(lum):
-            lum_fix = 1
-        else:
-            lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+        lum_fix = row['st_lum_correction']
 
         for k,I in enumerate(Is):
             s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
@@ -961,7 +961,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
     photinterps2 = photdict['photinterps']
     feinterp = photdict['feinterp']
     distinterp = photdict['distinterp']
-    lambdas = []
+    lambdas = [l for l, band, bw, ws, wstep in bandzip]
 
     orbdata = None
     orbitfits = None
@@ -997,17 +997,23 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
         t = np.zeros(100) * np.nan
         M = np.linspace(0, 2 * np.pi, 100)
 
-        if not np.isnan(tau) and not np.isnan(Tp):
+        if not np.isnan(Tp):
+            if np.isnan(tau):
+                tau_temp = 0.0
+            else:
+                tau_temp = tau
             n = 2 * np.pi / Tp
             num_steps = Tp / 30
             t = np.arange(t0.jd, t0.jd + Tp, 30)
             if num_steps < 100:  # At least 100 steps
                 t = np.linspace(t0.jd, t0.jd + Tp, 100)
-            elif num_steps > 150:  # Truncated at 150 steps
-                t_temp = np.arange(t0.jd, t0.jd + Tp, 30)
-                t = t_temp[0:149]
 
-            M = np.mod((t - tau) * n, 2 * np.pi)
+            M = np.mod((t - tau_temp) * n, 2 * np.pi)
+
+            if row['pl_name'] == 'RR Cae b':
+                print(M)
+                print(t)
+                print(tau_temp)
 
         # Calculate periaps after current date and after 1/1/2026
         if not np.isnan(tau):
@@ -1061,12 +1067,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
             print(j, plannames[j], WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
 
             # Adjusts planet distance for luminosity
-            lum = row['st_lum']
-
-            if np.isnan(lum):
-                lum_fix = 1
-            else:
-                lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+            lum_fix = row['st_lum_correction']
 
             orbitfits_dict = {'pl_id': [j],
                               'pl_orbincl':  [IList[k] * 180 / np.pi],
@@ -1095,18 +1096,38 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                        'default_orb': [defs[k]] * len(M)}
             orbitfit_id = orbitfit_id + 1
 
+            alldMags = np.zeros((len(photdict['clouds']), len(lambdas), len(beta)))
+            allpphis = np.zeros((len(photdict['clouds']), len(lambdas), len(beta)))
 
             # Photometry calcs
             inds = np.argsort(beta)
-            for c in photdict['clouds']:
-                for l, band, bw, ws, wstep in bandzip:
+            for count1, c in enumerate(photdict['clouds']):
+                for count2, (l, band, bw, ws, wstep) in enumerate(bandzip):
                     pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a / lum_fix))][c](
                         beta.to(u.deg).value[inds], ws).sum(1) * wstep / bw)[np.argsort(inds)]
                     pphi[np.isinf(pphi)] = np.nan
                     outdict['pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"] = pphi
+                    allpphis[count1, count2] = pphi
                     dMag = deltaMag(1, Rp * u.R_jupiter, d * u.AU, pphi)
                     dMag[np.isinf(dMag)] = np.nan
                     outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM"] = dMag
+                    alldMags[count1, count2] = dMag
+
+            pphismin = np.nanmin(allpphis, axis=0)
+            dMagsmin = np.nanmin(alldMags, axis=0)
+            pphismax = np.nanmax(allpphis, axis=0)
+            dMagsmax = np.nanmax(alldMags, axis=0)
+            pphismed = np.nanmedian(allpphis, axis=0)
+            dMagsmed = np.nanmedian(alldMags, axis=0)
+
+            for count3, l in enumerate(lambdas):
+                outdict["dMag_min_" + str(l) + "NM"] = dMagsmin[count3]
+                outdict["dMag_max_" + str(l) + "NM"] = dMagsmax[count3]
+                outdict["dMag_med_" + str(l) + "NM"] = dMagsmed[count3]
+                outdict["pPhi_min_" + str(l) + "NM"] = pphismin[count3]
+                outdict["pPhi_max_" + str(l) + "NM"] = pphismax[count3]
+                outdict["pPhi_med_" + str(l) + "NM"] = pphismed[count3]
+
             out = pandas.DataFrame(outdict)
 
             if orbdata is None:
@@ -1120,34 +1141,6 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
                 orbitfits = orbitfits.append(pandas.DataFrame(orbitfits_dict))
 
     orbdata = orbdata.sort_values(by=['pl_id', 'orbitfit_id', 't', 'M']).reset_index(drop=True)
-    tmpout = {}
-    for l in lambdas:
-        tmpout["dMag_min_" + str(l) + "NM"] = np.zeros(len(orbdata))
-        tmpout["dMag_max_" + str(l) + "NM"] = np.zeros(len(orbdata))
-        tmpout["dMag_med_" + str(l) + "NM"] = np.zeros(len(orbdata))
-        tmpout["pPhi_min_" + str(l) + "NM"] = np.zeros(len(orbdata))
-        tmpout["pPhi_max_" + str(l) + "NM"] = np.zeros(len(orbdata))
-        tmpout["pPhi_med_" + str(l) + "NM"] = np.zeros(len(orbdata))
-
-    for name in np.unique(orbdata['pl_name']):
-        print(name)
-        loc = orbdata['pl_name'] == name
-        for l in lambdas:
-            tmp = []
-            tmp2 = []
-            for c in photdict['clouds']:
-                tmp.append(orbdata.loc[loc, 'dMag_' + "%03dC_" % (c * 100) + str(l) + "NM"].values)
-                tmp2.append(orbdata.loc[loc, 'pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"].values)
-            tmp = np.vstack(tmp)
-            tmp2 = np.vstack(tmp2)
-            tmpout["dMag_min_" + str(l) + "NM"][loc.values] = np.nanmin(tmp, axis=0)
-            tmpout["dMag_max_" + str(l) + "NM"][loc.values] = np.nanmax(tmp, axis=0)
-            tmpout["dMag_med_" + str(l) + "NM"][loc.values] = np.nanmedian(tmp, axis=0)
-            tmpout["pPhi_min_" + str(l) + "NM"][loc.values] = np.nanmin(tmp2, axis=0)
-            tmpout["pPhi_max_" + str(l) + "NM"][loc.values] = np.nanmax(tmp2, axis=0)
-            tmpout["pPhi_med_" + str(l) + "NM"][loc.values] = np.nanmedian(tmp2, axis=0)
-
-    orbdata = orbdata.join(pandas.DataFrame(tmpout))
     orbitfits = orbitfits.reset_index(drop=True)
 
     return orbdata, orbitfits
@@ -1340,12 +1333,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
             rnorm = d
 
-            lum = row['st_lum']
-
-            if np.isnan(lum):
-                lum_fix = 1
-            else:
-                lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+            lum_fix = row['st_lum_correction']
 
             pphi = np.zeros(n)
             for clevel in np.unique(cl):
