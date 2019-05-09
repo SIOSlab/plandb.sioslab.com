@@ -109,10 +109,10 @@ def getIPACdata():
     data = data.combine_first(data2)
 
     #############################################################
-    pl_names_df = pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\outputwbad.csv")
-    pl_names = pl_names_df["pl_name"]
-
-    data = data.loc[data['pl_name'].isin(pl_names)]
+    # pl_names_df = pandas.read_csv("C:\\Users\\NathanelKinzly\\github\\orbits\\plandb.sioslab.com\\output_new.csv")
+    # pl_names = pl_names_df["pl_name"]
+    #
+    # data = data.loc[data['pl_name'].isin(pl_names)]
     #############################################################
 
     # substitute data from the extended table.
@@ -123,7 +123,7 @@ def getIPACdata():
     data_ext = pandas.read_csv(StringIO(r_ext.content))
 
     #############################################################
-    data_ext = data_ext.loc[data_ext['mpl_name'].isin(pl_names)]
+    # data_ext = data_ext.loc[data_ext['mpl_name'].isin(pl_names)]
     #############################################################
 
     extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
@@ -284,11 +284,10 @@ def getIPACdata():
     nolum_teff = np.isnan(data['st_lum'].values) & ~np.isnan(data['st_teff'].values)
     teffs = data.loc[nolum_teff, 'st_teff']
     lums_1 = ms.TeffOther('logL', teffs) # Calculates Luminosity when teff exists
-    # data.loc[nolum_teff, 'st_lum_correction'] = (10 ** lums_1) ** .5  # Since lum is log base 10 of solar luminosity
 
     data.loc[nolum_teff, 'st_lum_correction'] = (10 ** lums_1) ** .5 # Since lum is log base 10 of solar luminosity
 
-    nolum_noteff_spect = np.isnan(data['st_lum'].values) & ~data['st_spstr'].isnull().values
+    nolum_noteff_spect = np.isnan(data['st_lum_correction'].values) & ~data['st_spstr'].isnull().values
     spects = data.loc[nolum_noteff_spect, 'st_spstr']
     lums2 = []
     for str_row in spects.values:
