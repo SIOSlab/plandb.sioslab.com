@@ -1010,11 +1010,6 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
 
             M = np.mod((t - tau_temp) * n, 2 * np.pi)
 
-            if row['pl_name'] == 'RR Cae b':
-                print(M)
-                print(t)
-                print(tau_temp)
-
         # Calculate periaps after current date and after 1/1/2026
         if not np.isnan(tau):
             if not np.isnan(Tp):
@@ -1619,7 +1614,7 @@ def writeSQL2(engine, data=None, stdata=None, orbitfits=None, orbdata=None, comp
         result = engine.execute('ALTER TABLE Stars ADD INDEX (st_id)')
 
         # add comments
-        # addSQLcomments(engine, 'StarProps')
+        addSQLcomments(engine, 'Stars')
 
     if data is not None:
         print("Writing Planets")
@@ -1637,7 +1632,7 @@ def writeSQL2(engine, data=None, stdata=None, orbitfits=None, orbdata=None, comp
         result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES StarProps(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         #add comments
-        # addSQLcomments(engine,'KnownPlanets')
+        addSQLcomments(engine,'Planets')
 
     if orbitfits is not None:
         print("Writing OrbitFits")
@@ -1652,7 +1647,7 @@ def writeSQL2(engine, data=None, stdata=None, orbitfits=None, orbdata=None, comp
         result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
         result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        # addSQLcomments(engine,'PlanetOrbits')
+        addSQLcomments(engine,'OrbitFits')
 
     if orbdata is not None:
         print("Writing Orbits")
@@ -1670,7 +1665,7 @@ def writeSQL2(engine, data=None, stdata=None, orbitfits=None, orbdata=None, comp
         result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
         result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        # addSQLcomments(engine,'PlanetOrbits')
+        addSQLcomments(engine,'Orbits')
 
     if comps is not None:
         print("Writing Completeness")
@@ -1687,7 +1682,7 @@ def writeSQL2(engine, data=None, stdata=None, orbitfits=None, orbdata=None, comp
         result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
         result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        # addSQLcomments(engine,'Completeness')
+        addSQLcomments(engine,'Completeness')
 
     if aliases is not None:
         print("Writing Alias")
@@ -1698,39 +1693,6 @@ def writeSQL2(engine, data=None, stdata=None, orbitfits=None, orbdata=None, comp
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (st_id)")
         result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
-
-
-def addSQLcomments2(engine,tablename):
-        """Add comments to table schema based on entries in spreadsheet"""
-
-        #read in spreadsheet and grab data from appropriate sheet
-        coldefs = pandas.ExcelFile('coldefs.xlsx')
-        coldefs = coldefs.parse(tablename)
-        cols = coldefs['Column'][coldefs['Definition'].notnull()].values
-        cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
-        cnames =  coldefs['Name'][coldefs['Definition'].notnull()].values
-
-        result = engine.execute("show create table %s"%tablename)
-        res = result.fetchall()
-        res = res[0]['Create Table']
-        res = res.split("\n")
-
-        p = re.compile('`(\S+)`[\s\S]+')
-        keys = []
-        defs = []
-        for r in res:
-          r = r.strip().strip(',')
-          if "COMMENT" in r: continue
-          m = p.match(r)
-          if m:
-            keys.append(m.groups()[0])
-            defs.append(r)
-
-        for key,d in zip(keys,defs):
-          if not key in cols: continue
-          comm =  """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";"""%(tablename,key,d,cnames[cols == key][0].strip('"'),cdefs[cols == key][0])
-          print(comm)
-          r = engine.execute(comm)
 
 # Separates data into pl_data and st_data
 def generateTables(data, orbitfits):
