@@ -9,6 +9,7 @@ except ImportError:
 import astropy.units as u
 import astropy.constants as const
 import EXOSIMS.PlanetPhysicalModel.Forecaster
+import EXOSIMS.PlanetPhysicalModel.ForecasterMod as ForecasterMod
 import numpy as np
 from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, griddata
 from astropy.time import Time
@@ -18,46 +19,12 @@ import re
 import os
 from EXOSIMS.util.deltaMag import deltaMag
 from EXOSIMS.util.eccanom import eccanom
+from EXOSIMS.util.getExoplanetArchive import getExoplanetArchivePSCP
+from EXOSIMS.util.getExoplanetArchive import getExoplanetArchivePS
 from astroquery.simbad import Simbad
 from requests.exceptions import ConnectionError
 import math
 from MeanStars import MeanStars
-
-
-def RfromM(m):
-    '''
-    Given masses m (in Earth masses) return radii (in Earth radii) \
-    based on modified forecaster
-
-    '''
-    m = np.array(m,ndmin=1)
-    R = np.zeros(m.shape)
-
-
-    S = np.array([0.2790,0,0,0,0.881])
-    C = np.array([np.log10(1.008), 0, 0, 0, 0])
-    T = np.array([2.04,95.16,(u.M_jupiter).to(u.M_earth),((0.0800*u.M_sun).to(u.M_earth)).value])
-
-    Rj = u.R_jupiter.to(u.R_earth)
-    Rs = 8.522 #saturn radius
-
-    S[1] = (np.log10(Rs) - (C[0] + np.log10(T[0])*S[0]))/(np.log10(T[1]) - np.log10(T[0]))
-    C[1] = np.log10(Rs) - np.log10(T[1])*S[1]
-
-    S[2] = (np.log10(Rj) - np.log10(Rs))/(np.log10(T[2]) - np.log10(T[1]))
-    C[2] = np.log10(Rj) - np.log10(T[2])*S[2]
-
-    C[3] = np.log10(Rj)
-
-    C[4] = np.log10(Rj) - np.log10(T[3])*S[4]
-
-
-    inds = np.digitize(m,np.hstack((0,T,np.inf)))
-    for j in range(1,inds.max()+1):
-        R[inds == j] = 10.**(C[j-1] + np.log10(m[inds == j])*S[j-1])
-
-    return R
-
 
 
 def getIPACdata():
@@ -67,13 +34,15 @@ def getIPACdata():
     '''
 
     print("Querying IPAC for all data.")
-    query = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=compositepars&select=*&format=csv"""
-    r = requests.get(query)
-    data = pandas.read_csv(StringIO(r.content))
+    # query = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=compositepars&select=*&format=csv"""
+    # r = requests.get(query)
+    # data = pandas.read_csv(StringIO(r.content))
 
-    query2 = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exoplanets&select=*&format=csv"""
-    r2 = requests.get(query2)
-    data2 = pandas.read_csv(StringIO(r2.content))
+    # query2 = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exoplanets&select=*&format=csv"""
+    # r2 = requests.get(query2)
+    # data2 = pandas.read_csv(StringIO(r2.content))
+    data = getExoplanetArchivePSCP()
+    data = getExoplanetArchivePS()
 
     #strip leading 'f' on data colnames
     colmap = {k:k[1:] if (k.startswith('fst_') | k.startswith('fpl_')) else k for k in data.keys()}
@@ -291,8 +260,8 @@ def getIPACdata():
 
     m = ((data['pl_bmassj'][noR].values*u.M_jupiter).to(u.M_earth)).value
     merr = (((data['pl_bmassjerr1'][noR].values - data['pl_bmassjerr2'][noR].values)/2.0)*u.M_jupiter).to(u.M_earth).value
-    R = RfromM(m)
-    Rerr = [RfromM(np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std() if not(np.isnan(merr[j])) else np.nan for j in range(len(m))]
+    R = ForecasterMod.calc_radius_from_mass(m)
+    Rerr = [ForecasterMod.calc_radius_from_mass(np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std() if not(np.isnan(merr[j])) else np.nan for j in range(len(m))]
 
     #create mod forecaster radius column and error cols
     data = data.assign(pl_radj_forecastermod=data['pl_radj'].values)
@@ -1069,7 +1038,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
                         Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
                     Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
 
-                R = (RfromM(Mp)*u.R_earth).to(u.R_jupiter).value
+                R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
                 R[R > 1.0] = 1.0
             else:
                 Rmu = row['pl_radj']
