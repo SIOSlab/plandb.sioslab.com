@@ -22,6 +22,7 @@ from MeanStars import MeanStars
 from requests.exceptions import ConnectionError
 from scipy.interpolate import RectBivariateSpline, griddata, interp1d, interp2d
 from sqlalchemy import create_engine
+from tqdm import trange
 
 try:
     from StringIO import StringIO
@@ -42,7 +43,7 @@ def getIPACdata():
     #only keep stuff related to the star from composite
     composite_cols = [col for col in data.columns if (col == 'pl_name') or
                       str.startswith(col, 'st_')]
-    composite_cols.extend(['pl_radj', 'pl_radreflink'])
+    composite_cols.extend(['pl_radj', 'pl_rade_reflink'])
     data = data[composite_cols]
 
     #sort by planet name
@@ -61,8 +62,12 @@ def getIPACdata():
 
     #pick best attribute row for each planet
     print("Choosing best attributes for all planets.")
+    max_justification = data.pl_name.str.len().max()
+    t_bar = trange(len(data), leave=True)
     for j,name in enumerate(data['pl_name'].values):
-        print("%s: %d/%d"%(name,j+1,len(data)))
+        # print("%s: %d/%d"%(name,j+1,len(data)))
+        t_bar.set_description(name.ljust(max_justification))
+        t_bar.update(1)
 
         planet_rows = data.loc[data["pl_name"] == name]
 
@@ -74,31 +79,49 @@ def getIPACdata():
                         (not pd.isnull(row["pl_bmassj"]) or not pd.isnull(row["pl_radj"]))
 
             # Has everything
-            if good_lvl < 4 and (base_need
+            if good_lvl < 8 and (base_need
                                  and not pd.isnull(row["pl_orbeccen"]) and not pd.isnull(row["pl_orbtper"])
                                  and not pd.isnull(row["pl_orblper"]) and not pd.isnull(row["pl_orbincl"])):
-                good_idx = index
-                good_lvl = 4
-                break
+                if not pd.isnull(row["pl_radj"]):
+                    good_idx = index
+                    good_lvl = 8
+                    break
+                elif good_lvl < 7:
+                    good_idx = index
+                    good_lvl = 7
 
             # Has everything except inclination
-            if good_lvl < 3 and (base_need
+            if good_lvl < 6 and (base_need
                                  and not pd.isnull(row["pl_orbeccen"]) and not pd.isnull(row["pl_orbtper"])
                                  and not pd.isnull(row["pl_orblper"])):
-                good_idx = index
-                good_lvl = 3
+                if not pd.isnull(row["pl_radj"]):
+                    good_idx = index
+                    good_lvl = 6
+                elif good_lvl < 5:
+                    good_idx = index
+                    good_lvl = 5
 
             # Has either periapsis time or argument of pariapsis
-            elif good_lvl < 2 and (base_need
+            elif good_lvl < 4 and (base_need
                                    and not pd.isnull(row["pl_orbeccen"]) and (not pd.isnull(row["pl_orbtper"])
                                                                           or not pd.isnull(row["pl_orblper"]))):
-                good_idx = index
-                good_lvl = 2
+                if not pd.isnull(row["pl_radj"]):
+                    good_idx = index
+                    good_lvl = 4
+                elif good_lvl < 3:
+                    good_idx = index
+                    good_lvl = 3
+
             # Has eccentricity
-            elif good_lvl < 1 and (base_need
+            elif good_lvl < 2 and (base_need
                                    and not pd.isnull(row["pl_orbeccen"])):
-                good_idx = index
-                good_lvl = 1
+                if not pd.isnull(row["pl_radj"]):
+                    good_idx = index
+                    good_lvl = 2
+                elif good_lvl < 1:
+                    good_idx = index
+                    good_lvl = 1
+
             # 1st doesn't have basic info
             elif index == good_idx and not base_need:
                 good_idx = -1
