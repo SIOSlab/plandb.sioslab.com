@@ -1,7 +1,7 @@
 from __future__ import print_function
 from __future__ import division
 import requests
-import pandas
+import pandas as pd
 try:
     from StringIO import StringIO
 except ImportError:
@@ -34,36 +34,8 @@ def getIPACdata():
     '''
 
     print("Querying IPAC for all data.")
-    # query = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=compositepars&select=*&format=csv"""
-    # r = requests.get(query)
-    # data = pandas.read_csv(StringIO(r.content))
-
-    # query2 = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exoplanets&select=*&format=csv"""
-    # r2 = requests.get(query2)
-    # data2 = pandas.read_csv(StringIO(r2.content))
-    data = getExoplanetArchivePSCP()
-    data = getExoplanetArchivePS()
-
-    #strip leading 'f' on data colnames
-    colmap = {k:k[1:] if (k.startswith('fst_') | k.startswith('fpl_')) else k for k in data.keys()}
-    data = data.rename(columns=colmap)
-    #sma, eccen, metallicity cols were renamed so name them back for merge
-    data = data.rename(columns={#'pl_smax':'pl_orbsmax',
-                                #'pl_smaxerr1':'pl_orbsmaxerr1',
-                                #'pl_smaxerr2':'pl_orbsmaxerr2',
-                                #'pl_smaxlim':'pl_orbsmaxlim',
-                                #'pl_smaxreflink':'pl_orbsmaxreflink',
-                                #'pl_eccen':'pl_orbeccen',
-                                #'pl_eccenerr1':'pl_orbeccenerr1',
-                                #'pl_eccenerr2':'pl_orbeccenerr2',
-                                #'pl_eccenlim':'pl_orbeccenlim',
-                                #'pl_eccenreflink':'pl_orbeccenreflink',
-                                'st_met':'st_metfe',
-                                'st_meterr1':'st_metfeerr1',
-                                'st_meterr2':'st_metfeerr2',
-                                'st_metreflink':'st_metfereflink',
-                                'st_metlim':'st_metfelim',
-                                })
+    data = getExoplanetArchivePSCP() # Composite table
+    data2 = getExoplanetArchivePS()
 
     #only keep stuff related to the star from composite
     composite_cols = [col for col in data.columns if (col == 'pl_name') or
@@ -80,60 +52,60 @@ def getIPACdata():
 
 
     # substitute data from the extended table.
-    print("Querying extended data table.")
-    #grab extended data table
-    query_ext = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"""
-    r_ext = requests.get(query_ext)
-    data_ext = pandas.read_csv(StringIO(r_ext.content))
+    # print("Querying extended data table.")
+    # #grab extended data table
+    # query_ext = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"""
+    # r_ext = requests.get(query_ext)
+    # data_ext = pandas.read_csv(StringIO(r_ext.content))
 
     #create columns for short references and publication years
-    extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
-    authregex = re.compile(r"(<a.*f>)|(</a>)")
-    shortrefs = [authregex.sub("", extended['mpl_reflink'][j]).strip() for j in range(len(extended))]
-    refs = extended["mpl_reflink"].values
-    refyrs = [int(re.findall('(\d{4})', ref)[0]) for ref in refs]
-    extended = extended.assign(ref_author=shortrefs,\
-                               publication_year=refyrs,\
-                               best_data=np.zeros(len(extended)))
+    # extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
+    # authregex = re.compile(r"(<a.*f>)|(</a>)")
+    # shortrefs = [authregex.sub("", extended['mpl_reflink'][j]).strip() for j in range(len(extended))]
+    # refs = extended["mpl_reflink"].values
+    # refyrs = [int(re.findall('(\d{4})', ref)[0]) for ref in refs]
+    # extended = extended.assign(ref_author=shortrefs,\
+                               # publication_year=refyrs,\
+                               # best_data=np.zeros(len(extended)))
 
     #pick best attribute row for each planet
     print("Choosing best attributes for all planets.")
     for j,name in enumerate(data['pl_name'].values):
         print("%s: %d/%d"%(name,j+1,len(data)))
 
-        planet_rows = extended.loc[extended["mpl_name"] == name]
+        planet_rows = extended.loc[extended["pl_name"] == name]
 
         sorted_rows = planet_rows.sort_values(by=["publication_year"], axis=0, ascending=False)
         good_idx = sorted_rows.index[0]
         good_lvl = 0
         for index, row in sorted_rows.iterrows():
-            base_need = (not pandas.isnull(row["mpl_orbsmax"]) or not pandas.isnull(row["mpl_orbper"])) and \
-                        (not pandas.isnull(row["mpl_bmassj"]) or not pandas.isnull(row["mpl_radj"]))
+            base_need = (not pd.isnull(row["pl_orbsmax"]) or not pd.isnull(row["pl_orbper"])) and \
+                        (not pd.isnull(row["pl_bmassj"]) or not pd.isnull(row["pl_radj"]))
 
             # Has everything
             if good_lvl < 4 and (base_need
-                                 and not pandas.isnull(row["mpl_orbeccen"]) and not pandas.isnull(row["mpl_orbtper"])
-                                 and not pandas.isnull(row["mpl_orblper"]) and not pandas.isnull(row["mpl_orbincl"])):
+                                 and not pd.isnull(row["pl_orbeccen"]) and not pd.isnull(row["pl_orbtper"])
+                                 and not pd.isnull(row["pl_orblper"]) and not pd.isnull(row["pl_orbincl"])):
                 good_idx = index
                 good_lvl = 4
                 break
 
             # Has everything except inclination
             if good_lvl < 3 and (base_need
-                                 and not pandas.isnull(row["mpl_orbeccen"]) and not pandas.isnull(row["mpl_orbtper"])
-                                 and not pandas.isnull(row["mpl_orblper"])):
+                                 and not pd.isnull(row["pl_orbeccen"]) and not pd.isnull(row["pl_orbtper"])
+                                 and not pd.isnull(row["pl_orblper"])):
                 good_idx = index
                 good_lvl = 3
 
             # Has either periapsis time or argument of pariapsis
             elif good_lvl < 2 and (base_need
-                                   and not pandas.isnull(row["mpl_orbeccen"]) and (not pandas.isnull(row["mpl_orbtper"])
-                                                                          or not pandas.isnull(row["mpl_orblper"]))):
+                                   and not pd.isnull(row["pl_orbeccen"]) and (not pd.isnull(row["pl_orbtper"])
+                                                                          or not pd.isnull(row["pl_orblper"]))):
                 good_idx = index
                 good_lvl = 2
             # Has eccentricity
             elif good_lvl < 1 and (base_need
-                                   and not pandas.isnull(row["mpl_orbeccen"])):
+                                   and not pd.isnull(row["pl_orbeccen"])):
                 good_idx = index
                 good_lvl = 1
             # 1st doesn't have basic info
@@ -228,7 +200,7 @@ def getIPACdata():
     T = data['pl_orbper'][nosma].values*u.day
     tmpsma = p2sma(GMs,T)
     data.loc[nosma,'pl_orbsmax'] = tmpsma
-    data['pl_calc_sma'] = pandas.Series(np.zeros(len(data['pl_name'])), index=data.index)
+    data['pl_calc_sma'] = pd.Series(np.zeros(len(data['pl_name'])), index=data.index)
     data.loc[nosma, 'pl_calc_sma'] = 1
 
     #propagate filled in sma errors
@@ -255,7 +227,7 @@ def getIPACdata():
     noR = ((data['pl_radreflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') |\
            (data['pl_radreflink'] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') |\
             data['pl_radj'].isnull()).values
-    data['pl_calc_rad'] = pandas.Series(np.zeros(len(data['pl_name'])), index=data.index)
+    data['pl_calc_rad'] = pd.Series(np.zeros(len(data['pl_name'])), index=data.index)
     data.loc[noR, 'pl_calc_rad'] = 1
 
     m = ((data['pl_bmassj'][noR].values*u.M_jupiter).to(u.M_earth)).value
@@ -388,7 +360,7 @@ def packagePhotometryData(dbfile=None):
     enginel = create_engine('sqlite:///' + dbfile)
 
     # getting values
-    meta_alb = pandas.read_sql_table('header',enginel)
+    meta_alb = pd.read_sql_table('header',enginel)
     metallicities = meta_alb.metallicity.unique()
     metallicities.sort()
     betas = meta_alb.phase.unique()
@@ -405,7 +377,7 @@ def packagePhotometryData(dbfile=None):
     cloudstr[cloudstr == 'f3.0'] = 'f3'
     cloudstr[cloudstr == 'f6.0'] = 'f6'
 
-    tmp = pandas.read_sql_table('g25_t150_m0.0_d0.5_NC_phang000',enginel)
+    tmp = pd.read_sql_table('g25_t150_m0.0_d0.5_NC_phang000',enginel)
     wavelns = tmp.WAVELN.values
 
     allphotdata = np.zeros((metallicities.size, dists.size, clouds.size, betas.size, wavelns.size))
@@ -419,7 +391,7 @@ def packagePhotometryData(dbfile=None):
                 for l,beta in enumerate(betas):
                     name = basename3+"%03d"%beta
                     try:
-                        tmp = pandas.read_sql_table(name,enginel)
+                        tmp = pd.read_sql_table(name,enginel)
                     except:
                         print("Missing: %s"%name)
                         allphotdata[i,j,k,l,:] = np.nan
@@ -539,7 +511,7 @@ def calcQuadratureVals(data, bandzip, photdict):
     """
 
     smas = data['pl_orbsmax'].values
-    fes = data['st_metfe'].values
+    fes = data['st_met'].values
     fes[np.isnan(fes)] = 0.0
     Rps = data['pl_radj_forecastermod'].values
     inc = data['pl_orbincl'].values
@@ -626,7 +598,7 @@ def calcQuadratureVals(data, bandzip, photdict):
         tmpout["quad_dMag_max_"+str(l)+"NM"] = np.nanmax(tmp,axis=0)
         tmpout["quad_dMag_med_"+str(l)+"NM"] = np.nanmedian(tmp,axis=0)
 
-    data = data.join(pandas.DataFrame(tmpout))
+    data = data.join(pd.DataFrame(tmpout))
 
     return data
 
@@ -665,7 +637,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
         if np.isnan(w): w = 0.0
         Rp = row['pl_radj_forecastermod']
         dist = row['st_dist']
-        fe = row['st_metfe']
+        fe = row['st_met']
         if np.isnan(fe): fe = 0.0
 
         #time
@@ -742,7 +714,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             outdict["pPhi_max_"+str(l)+"NM"] = pphismax[count3]
             outdict["pPhi_med_"+str(l)+"NM"] = pphismed[count3]
 
-        out = pandas.DataFrame(outdict)
+        out = pd.DataFrame(outdict)
 
         if orbdata is None:
             orbdata = out.copy()
@@ -797,7 +769,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
         if np.isnan(w): w = 0.0
         Rp = row['pl_radj_forecastermod']
         dist = row['st_dist']
-        fe = row['st_metfe']
+        fe = row['st_met']
         if np.isnan(fe): fe = 0.0
 
         #time
@@ -862,7 +834,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
             outdict['dMag_'+"%03dC_"%(c*100)+str(l)+"NM_I"+Itag] = dMag
 
 
-        out = pandas.DataFrame(outdict)
+        out = pd.DataFrame(outdict)
 
         if altorbdata is None:
             altorbdata = out.copy()
@@ -1001,7 +973,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             genw = lambda n: np.random.randn(n)*wstd + wmu
 
         #just a single metallicity
-        fe = row['st_metfe']
+        fe = row['st_met']
         if np.isnan(fe): fe = 0.0
 
         #initialize loops vars
@@ -1114,7 +1086,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     cs = np.array(cs)
     goodinds = np.array(goodinds)
 
-    out2 = pandas.DataFrame({'Name': np.hstack(names),
+    out2 = pd.DataFrame({'Name': np.hstack(names),
                              'alpha': np.hstack(WAcs),
                              'dMag': np.hstack(dMagcs),
                              'H':    np.hstack(hs),
@@ -1226,7 +1198,7 @@ def genAliases(starnames):
         priname.append(list((np.array(tmp) == star).astype(int)))
 
 
-    out3 = pandas.DataFrame({'SID': np.hstack(ids),
+    out3 = pd.DataFrame({'SID': np.hstack(ids),
                              'Alias': np.hstack(aliases),
                              'NEAName':np.hstack(priname)
                              })
@@ -1303,7 +1275,7 @@ def addSQLcomments(engine,tablename):
         """Add comments to table schema based on entries in spreadsheet"""
 
         #read in spreadsheet and grab data from appropriate sheet
-        coldefs = pandas.ExcelFile('coldefs.xlsx')
+        coldefs = pd.ExcelFile('coldefs.xlsx')
         coldefs = coldefs.parse(tablename)
         cols = coldefs['Column'][coldefs['Definition'].notnull()].values
         cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
