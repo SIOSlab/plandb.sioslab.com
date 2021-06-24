@@ -1,30 +1,32 @@
-from __future__ import print_function
-from __future__ import division
-import requests
+from __future__ import division, print_function
+
+import math
+import os
+import re
+
+import astropy.constants as const
+import astropy.units as u
+import EXOSIMS.PlanetPhysicalModel.Forecaster
+import EXOSIMS.PlanetPhysicalModel.ForecasterMod as ForecasterMod
+import numpy as np
 import pandas as pd
+import requests
+import sqlalchemy.types
+from astropy.time import Time
+from astroquery.simbad import Simbad
+from EXOSIMS.util.deltaMag import deltaMag
+from EXOSIMS.util.eccanom import eccanom
+from EXOSIMS.util.getExoplanetArchive import (getExoplanetArchivePS,
+                                              getExoplanetArchivePSCP)
+from MeanStars import MeanStars
+from requests.exceptions import ConnectionError
+from scipy.interpolate import RectBivariateSpline, griddata, interp1d, interp2d
+from sqlalchemy import create_engine
+
 try:
     from StringIO import StringIO
 except ImportError:
     from io import BytesIO as StringIO
-import astropy.units as u
-import astropy.constants as const
-import EXOSIMS.PlanetPhysicalModel.Forecaster
-import EXOSIMS.PlanetPhysicalModel.ForecasterMod as ForecasterMod
-import numpy as np
-from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, griddata
-from astropy.time import Time
-import sqlalchemy.types
-from sqlalchemy import create_engine
-import re
-import os
-from EXOSIMS.util.deltaMag import deltaMag
-from EXOSIMS.util.eccanom import eccanom
-from EXOSIMS.util.getExoplanetArchive import getExoplanetArchivePSCP
-from EXOSIMS.util.getExoplanetArchive import getExoplanetArchivePS
-from astroquery.simbad import Simbad
-from requests.exceptions import ConnectionError
-import math
-from MeanStars import MeanStars
 
 
 def getIPACdata():
@@ -245,7 +247,8 @@ def getIPACdata():
 
 
     # now the Fortney model
-    from EXOSIMS.PlanetPhysicalModel.FortneyMarleyCahoyMix1 import FortneyMarleyCahoyMix1
+    from EXOSIMS.PlanetPhysicalModel.FortneyMarleyCahoyMix1 import \
+        FortneyMarleyCahoyMix1
     fortney = FortneyMarleyCahoyMix1()
 
     ml10 = m <= 17
