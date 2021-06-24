@@ -52,30 +52,19 @@ def getIPACdata():
     #merge data sets
     data = data.combine_first(data2)
 
-
-    # substitute data from the extended table.
-    # print("Querying extended data table.")
-    # #grab extended data table
-    # query_ext = """https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=exomultpars&select=*&format=csv"""
-    # r_ext = requests.get(query_ext)
-    # data_ext = pandas.read_csv(StringIO(r_ext.content))
-
     #create columns for short references and publication years
-    # extended = (data_ext.sort_values('mpl_name')).reset_index(drop=True)
-    # authregex = re.compile(r"(<a.*f>)|(</a>)")
-    # shortrefs = [authregex.sub("", extended['mpl_reflink'][j]).strip() for j in range(len(extended))]
-    # refs = extended["mpl_reflink"].values
-    # refyrs = [int(re.findall('(\d{4})', ref)[0]) for ref in refs]
-    # extended = extended.assign(ref_author=shortrefs,\
-                               # publication_year=refyrs,\
-                               # best_data=np.zeros(len(extended)))
+    authregex = re.compile(r"(<a.*f>)|(</a>)")
+    data['publication_year'] = data.disc_refname.str.extract('(\d{4})')
+    data['shortrefs'] = [authregex.sub("", data['disc_refname'][j]).strip() for j in range(len(data))]
+    data['refs'] = data["disc_refname"].values
+    data['best_data'] = np.zeros(len(data))
 
     #pick best attribute row for each planet
     print("Choosing best attributes for all planets.")
     for j,name in enumerate(data['pl_name'].values):
         print("%s: %d/%d"%(name,j+1,len(data)))
 
-        planet_rows = extended.loc[extended["pl_name"] == name]
+        planet_rows = data.loc[data["pl_name"] == name]
 
         sorted_rows = planet_rows.sort_values(by=["publication_year"], axis=0, ascending=False)
         good_idx = sorted_rows.index[0]
@@ -121,11 +110,11 @@ def getIPACdata():
         if good_idx == -1:
             good_idx = sorted_rows.index[0]
 
-        extended.at[good_idx, "best_data"] = 1
+        data.at[good_idx, "best_data"] = 1
 
     #strip leading 'm' from all col names
-    colmap = {k: k[1:] if (k.startswith('mst_') | k.startswith('mpl_')) else k for k in extended.keys()}
-    extended = extended.rename(columns=colmap)
+    colmap = {k: k[1:] if (k.startswith('mst_') | k.startswith('mpl_')) else k for k in data.keys()}
+    data = data.rename(columns=colmap)
 
     columns_to_null = ["pl_orbper", "pl_orbpererr1", "pl_orbpererr2", "pl_orbperlim", "pl_orbsmax",
                           "pl_orbsmaxerr1", "pl_orbsmaxerr2", "pl_orbsmaxlim", "pl_orbeccen",
@@ -144,19 +133,19 @@ def getIPACdata():
     for j,name in enumerate(data['pl_name'].values):
         print("%s: %d/%d"%(name,j+1,len(data)))
 
-        row_extended = extended.loc[(extended["best_data"] == 1) & (extended["pl_name"] == name)]
+        row_data = data.loc[(data["best_data"] == 1) & (data["pl_name"] == name)]
         idx = data.loc[(data["pl_name"] == name)].index
 
-        row_extended.index = idx
-        row_extended_replace = row_extended[final_replace_columns]
+        row_data.index = idx
+        row_data_replace = row_data[final_replace_columns]
         # Want to keep radius vals from composite table instead of replacing with null, so we don't null radius columns
         data.loc[(data["pl_name"] == name,columns_to_null)] = np.nan
-        data.update(row_extended_replace,overwrite=True)
+        data.update(row_data_replace,overwrite=True)
         data.loc[idx,'pl_def_override'] = 1
-        data.loc[idx, 'pl_reflink'] = row_extended['pl_reflink'].values[0]
+        data.loc[idx, 'pl_reflink'] = row_data['pl_reflink'].values[0]
 
-        if not np.isnan(row_extended['pl_radj'].values[0]):
-            data.loc[idx, 'pl_radreflink'] = row_extended['pl_reflink'].values[0]
+        if not np.isnan(row_data['pl_radj'].values[0]):
+            data.loc[idx, 'pl_radreflink'] = row_data['pl_reflink'].values[0]
 
 
     #sort by planet name
