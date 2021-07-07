@@ -7,13 +7,13 @@ import re
 import astropy.constants as const
 import astropy.units as u
 import EXOSIMS.PlanetPhysicalModel.Forecaster
-import EXOSIMS.PlanetPhysicalModel.ForecasterMod as ForecasterMod
 import numpy as np
 import pandas as pd
 import requests
 import sqlalchemy.types
 from astropy.time import Time
 from astroquery.simbad import Simbad
+from EXOSIMS.PlanetPhysicalModel.ForecasterMod import ForecasterMod
 from EXOSIMS.util.deltaMag import deltaMag
 from EXOSIMS.util.eccanom import eccanom
 from EXOSIMS.util.getExoplanetArchive import (getExoplanetArchivePS,
@@ -22,7 +22,7 @@ from MeanStars import MeanStars
 from requests.exceptions import ConnectionError
 from scipy.interpolate import RectBivariateSpline, griddata, interp1d, interp2d
 from sqlalchemy import create_engine
-from tqdm import trange
+from tqdm import trange, tqdm
 
 try:
     from StringIO import StringIO
@@ -51,8 +51,28 @@ def getIPACdata():
     ps_data = ps_data.sort_values(by=['pl_name']).reset_index(drop=True)
 
     #merge data sets
-    merged_data = pscp_data.combine_first(ps_data)
+    merged_data = ps_data.copy()
+    blank_col = [None]*len(ps_data)
+    for col in composite_cols:
+        if col not in merged_data.columns:
+            merged_data[col] = blank_col
+    # Writing as a loop for now...
+    t_bar = trange(len(merged_data), leave=False)
+    last_pl = None
+    for i, row in merged_data.iterrows():
+        t_bar.update(1)
+        pl = row.pl_name
 
+        if pl != last_pl:
+            # Get the composite row
+            c_row = pscp_data.loc[pscp_data.pl_name == row.pl_name]
+
+        # Now take all the stellar data from the composite table
+        for col in composite_cols:
+            if col != 'pl_name':
+                merged_data.at[i, col] = c_row[col].values[0]
+        last_pl = pl
+    t_bar.close()
     #create columns for short references and publication years
     authregex = re.compile(r"(<a.*f>)|(</a>)")
     merged_data['publication_year'] = merged_data.pl_refname.str.extract('(\d{4})')
@@ -64,7 +84,7 @@ def getIPACdata():
     print("Choosing best attributes for all planets.")
     # This is used for typesetting the progress bar
     max_justification = merged_data.pl_name.str.len().max()
-    t_bar = trange(len(merged_data), leave=True)
+    t_bar = trange(len(merged_data), leave=False)
     for j,name in enumerate(merged_data['pl_name'].values):
         # print("%s: %d/%d"%(name,j+1,len(data)))
         t_bar.set_description(name.ljust(max_justification))
@@ -136,6 +156,7 @@ def getIPACdata():
 
         merged_data.at[good_idx, "best_data"] = 1
 
+    t_bar.close()
     columns_to_null = ["pl_orbper", "pl_orbpererr1", "pl_orbpererr2", "pl_orbperlim", "pl_orbsmax",
                           "pl_orbsmaxerr1", "pl_orbsmaxerr2", "pl_orbsmaxlim", "pl_orbeccen",
                           "pl_orbeccenerr1", "pl_orbeccenerr2", "pl_orbeccenlim", "pl_orbtper",
@@ -152,25 +173,29 @@ def getIPACdata():
     max_justification = pscp_data.pl_name.str.len().max()
     t_bar = trange(len(pscp_data), leave=True)
     merged_data = merged_data.assign(pl_def_override=np.zeros(len(merged_data)))
-    for j,name in enumerate(merged_data['pl_name'].values):
-        # print("%s: %d/%d"%(name,j+1,len(data)))
+    # return ps_data, pscp_data, merged_data
+    # for j,name in enumerate(merged_data['pl_name'].values):
+        # # print("%s: %d/%d"%(name,j+1,len(data)))
         # t_bar.set_description(name.ljust(max_justification))
         # t_bar.update(1)
 
-        row_data = merged_data.loc[(merged_data["best_data"] == 1) & (merged_data["pl_name"] == name)]
-        idx = merged_data.loc[(merged_data["pl_name"] == name)].index
+        # row_data = merged_data.loc[(merged_data["best_data"] == 1) & (merged_data["pl_name"] == name)]
+        # idx = merged_data.loc[(merged_data["pl_name"] == name)].index
 
-        row_data.index = idx
-        row_data_replace = row_data[final_replace_columns]
-        # Want to keep radius vals from composite table instead of replacing with null, so we don't null radius columns
-        merged_data.loc[(merged_data["pl_name"] == name,columns_to_null)] = np.nan
-        merged_data.update(row_data_replace,overwrite=True)
-        merged_data.loc[idx,'pl_def_override'] = 1
-        merged_data.loc[idx, 'disc_refname'] = row_data['disc_refname'].values[0]
+        # # row_data.index = idx
+        # row_data_replace = row_data[final_replace_columns]
+        # # Want to keep radius vals from composite table instead of replacing with null, so we don't null radius columns
+        # merged_data.loc[(merged_data["pl_name"] == name,columns_to_null)] = np.nan
+        # merged_data.update(row_data_replace,overwrite=True)
+        # merged_data.loc[idx,'pl_def_override'] = 1
+        # merged_data.loc[idx, 'disc_refname'] = row_data['disc_refname'].values[0]
 
-        if not np.isnan(row_data['pl_radj'].values[0]):
-            merged_data.loc[idx, 'pl_radreflink'] = row_data['disc_refname'].values[0]
+        # if not np.isnan(row_data['pl_radj'].values[0]):
+            # merged_data.loc[idx, 'pl_radreflink'] = row_data['disc_refname'].values[0]
 
+    # Drop rows that aren't marked as the best data
+    merged_data = merged_data.loc[merged_data.best_data == 1]
+    # return ps_data, pscp_data, merged_data
 
     #sort by planet name
     merged_data = merged_data.sort_values(by=['pl_name']).reset_index(drop=True)
@@ -182,7 +207,8 @@ def getIPACdata():
     # distance AND
     # (sma OR (period AND stellar mass)) AND
     # (radius OR mass (either true or m\sin(i)))
-    keep = (merged_data['pl_status'].values != 0) & ~np.isnan(merged_data['st_dist'].values) & (~np.isnan(merged_data['pl_orbsmax'].values) | \
+    # return ps_data, pscp_data, merged_data
+    keep = (~np.isnan(merged_data['sy_dist'].values)) & (~np.isnan(merged_data['pl_orbsmax'].values) | \
             (~np.isnan(merged_data['pl_orbper'].values) & ~np.isnan(merged_data['st_mass'].values))) & \
            (~np.isnan(merged_data['pl_bmassj'].values) | ~np.isnan(merged_data['pl_radj'].values))
     merged_data = merged_data[keep]
@@ -191,12 +217,12 @@ def getIPACdata():
     #remove extraneous columns
     merged_data = merged_data.drop(columns=['pl_rade',
                               'pl_radelim',
-                              'pl_radserr2',
+                              # 'pl_radserr2',
                               'pl_radeerr1',
-                              'pl_rads',
-                              'pl_radslim',
+                              # 'pl_rads',
+                              # 'pl_radslim',
                               'pl_radeerr2',
-                              'pl_radserr1',
+                              # 'pl_radserr1',
                               'pl_masse',
                               'pl_masseerr1',
                               'pl_masseerr2',
@@ -229,34 +255,39 @@ def getIPACdata():
 
 
     #update all WAs (and errors) based on sma
-    WA = np.arctan((merged_data['pl_orbsmax'].values*u.AU)/(merged_data['st_dist'].values*u.pc)).to('mas')
+    WA = np.arctan((merged_data['pl_orbsmax'].values*u.AU)/(merged_data['sy_dist'].values*u.pc)).to('mas')
     merged_data['pl_angsep'] = WA.value
     sigma_a = ((merged_data['pl_orbsmaxerr1']- merged_data['pl_orbsmaxerr2'])/2.).values*u.AU
-    sigma_d = ((merged_data['st_disterr1']- merged_data['st_disterr2'])/2.).values*u.pc
-    sigma_wa = (np.sqrt(( (merged_data['pl_orbsmax'].values*u.AU)**2.0*sigma_d**2 + (merged_data['st_dist'].values*u.pc)**2.0*sigma_a**2)/\
-            ((merged_data['pl_orbsmax'].values*u.AU)**2.0 + (merged_data['st_dist'].values*u.pc)**2.0)**2.0).decompose()*u.rad).to(u.mas)
+    sigma_d = ((merged_data['sy_disterr1']- merged_data['sy_disterr2'])/2.).values*u.pc
+    sigma_wa = (np.sqrt(( (merged_data['pl_orbsmax'].values*u.AU)**2.0*sigma_d**2 + (merged_data['sy_dist'].values*u.pc)**2.0*sigma_a**2)/\
+            ((merged_data['pl_orbsmax'].values*u.AU)**2.0 + (merged_data['sy_dist'].values*u.pc)**2.0)**2.0).decompose()*u.rad).to(u.mas)
     merged_data['pl_angseperr1'] = sigma_wa
     merged_data['pl_angseperr2'] = -sigma_wa
 
     #fill in radius based on mass
-    noR = ((merged_data['pl_radreflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') |\
-           (merged_data['pl_radreflink'] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') |\
-            merged_data['pl_radj'].isnull()).values
-    merged_data['pl_calc_rad'] = pd.Series(np.zeros(len(merged_data['pl_name'])), index=merged_data.index)
-    merged_data.loc[noR, 'pl_calc_rad'] = 1
+    # noR = ((merged_data['pl_rade_reflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') |\
+           # (merged_data['pl_rade_reflink'] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') |\
+            # merged_data['pl_radj'].isnull()).values
+    # merged_data['pl_calc_rad'] = pd.Series(np.zeros(len(merged_data['pl_name'])), index=merged_data.index)
+    # merged_data.loc[noR, 'pl_calc_rad'] = 1
+    noR = (merged_data['pl_radj'].isnull()).values
+    # return ps_data, pscp_data, merged_data
 
+    # Initialize the ForecasterMod
+    forecaster_mod = ForecasterMod()
     m = ((merged_data['pl_bmassj'][noR].values*u.M_jupiter).to(u.M_earth)).value
     merr = (((merged_data['pl_bmassjerr1'][noR].values - merged_data['pl_bmassjerr2'][noR].values)/2.0)*u.M_jupiter).to(u.M_earth).value
-    R = ForecasterMod.calc_radius_from_mass(m)
-    Rerr = [ForecasterMod.calc_radius_from_mass(np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std() if not(np.isnan(merr[j])) else np.nan for j in range(len(m))]
+    R = forecaster_mod.calc_radius_from_mass(m*u.M_earth)
+    # R = [forecaster_m.calc_radius_from_mass(mp*u.M_earth) for mp in m]
+    Rerr = np.array([forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value if not(np.isnan(merr[j])) else np.nan for j in range(len(m))])*u.R_earth
 
     #create mod forecaster radius column and error cols
     merged_data = merged_data.assign(pl_radj_forecastermod=merged_data['pl_radj'].values)
-    merged_data.loc[noR,'pl_radj_forecastermod'] = ((R*u.R_earth).to(u.R_jupiter)).value
+    merged_data.loc[noR,'pl_radj_forecastermod'] = (R.to(u.R_jupiter)).value
     merged_data = merged_data.assign(pl_radj_forecastermoderr1=merged_data['pl_radjerr1'].values)
-    merged_data.loc[noR,'pl_radj_forecastermoderr1'] = ((Rerr*u.R_earth).to(u.R_jupiter)).value
+    merged_data.loc[noR,'pl_radj_forecastermoderr1'] = (Rerr.to(u.R_jupiter)).value
     merged_data = merged_data.assign(pl_radj_forecastermoderr2=merged_data['pl_radjerr2'].values)
-    merged_data.loc[noR,'pl_radj_forecastermoderr2'] = -((Rerr*u.R_earth).to(u.R_jupiter)).value
+    merged_data.loc[noR,'pl_radj_forecastermoderr2'] = -(Rerr.to(u.R_jupiter)).value
 
 
     # now the Fortney model
@@ -328,7 +359,7 @@ def getIPACdata():
     #populate max WA based on available eccentricity data (otherwise maxWA = WA)
     hase = ~np.isnan(merged_data['pl_orbeccen'].values)
     maxWA = WA[:]
-    maxWA[hase] = np.arctan((merged_data['pl_orbsmax'][hase].values*(1 + merged_data['pl_orbeccen'][hase].values)*u.AU)/(merged_data['st_dist'][hase].values*u.pc)).to('mas')
+    maxWA[hase] = np.arctan((merged_data['pl_orbsmax'][hase].values*(1 + merged_data['pl_orbeccen'][hase].values)*u.AU)/(merged_data['sy_dist'][hase].values*u.pc)).to('mas')
     merged_data = merged_data.assign(pl_maxangsep=maxWA.value)
 
     #populate min WA based on eccentricity & inclination data (otherwise minWA = WA)
@@ -337,7 +368,7 @@ def getIPACdata():
     s[hase] *= (1 - merged_data['pl_orbeccen'][hase].values)
     s[hasI] *= np.cos(merged_data['pl_orbincl'][hasI].values*u.deg)
     s[~hasI] = 0
-    minWA = np.arctan(s/(merged_data['st_dist'].values*u.pc)).to('mas')
+    minWA = np.arctan(s/(merged_data['sy_dist'].values*u.pc)).to('mas')
     merged_data = merged_data.assign(pl_minangsep=minWA.value)
 
     #Fill in missing luminosity from meanstars
@@ -347,8 +378,8 @@ def getIPACdata():
     lums_1 = ms.TeffOther('logL', teffs) # Calculates Luminosity when teff exists
     merged_data.loc[nolum_teff, 'st_lum'] = lums_1
 
-    nolum_noteff_spect = np.isnan(merged_data['st_lum'].values) & ~merged_data['st_spstr'].isnull().values
-    spects = merged_data.loc[nolum_noteff_spect, 'st_spstr']
+    nolum_noteff_spect = np.isnan(merged_data['st_lum'].values) & ~merged_data['st_spectype'].isnull().values
+    spects = merged_data.loc[nolum_noteff_spect, 'st_spectype']
     lums2 = []
     for str_row in spects.values:
         spec_letter = str_row[0]
@@ -652,7 +683,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
         w = row['pl_orblper']*np.pi/180.0
         if np.isnan(w): w = 0.0
         Rp = row['pl_radj_forecastermod']
-        dist = row['st_dist']
+        dist = row['sy_dist']
         fe = row['st_met']
         if np.isnan(fe): fe = 0.0
 
@@ -784,7 +815,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
         w = row['pl_orblper']*np.pi/180.0
         if np.isnan(w): w = 0.0
         Rp = row['pl_radj_forecastermod']
-        dist = row['st_dist']
+        dist = row['sy_dist']
         fe = row['st_met']
         if np.isnan(fe): fe = 0.0
 
@@ -1013,9 +1044,9 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             cl = vget_fsed(np.random.rand(n))
 
             #define mass/radius distribution depending on data provenance
-            if ((row['pl_radreflink'] ==\
+            if ((row['pl_rade_reflink'] ==\
                     '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') | \
-                    (row['pl_radreflink'] == \
+                    (row['pl_rade_reflink'] == \
                     '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>')):
                 if row['pl_bmassprov'] == 'Msini':
                     Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
@@ -1061,7 +1092,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             pphi[pphi <= 0.0] = 1e-16
 
             dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
-            WA = np.arctan((s*u.AU)/(row['st_dist']*u.pc)).to('mas').value # working angle
+            WA = np.arctan((s*u.AU)/(row['sy_dist']*u.pc)).to('mas').value # working angle
 
             h += np.histogram2d(WA,dMag,bins=(WAbins,dMagbins))[0][1:-1,0:-1]
             k += 1.0
