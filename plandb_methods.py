@@ -574,8 +574,10 @@ def calcQuadratureVals(data, bandzip, photdict):
     lambdas = []
 
     #iterate over all data rows
+    t_bar = trange(len(Rps), leave=False)
     for j, (Rp, fe,a, I, e, w, lm) in enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum)):
-        print("%d/%d"%(j+1,len(Rps)))
+        t_bar.update(1)
+        # print("%d/%d"%(j+1,len(Rps)))
         for c in photdict['clouds']:
             for l,band,bw,ws,wstep in bandzip:
                 if j == 0:
@@ -671,7 +673,9 @@ def genOrbitData(data, bandzip, photdict, t0=None):
 
 
     orbdata = None
+    t_bar = trange(len(plannames), leave=False)
     for j in range(len(plannames)):
+        t_bar.update(1)
         row = data.iloc[j]
 
         #orbital parameters
@@ -713,7 +717,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
         beta = np.arccos(-np.sin(I)*np.sin(nu+w))*u.rad
 
         WA = np.arctan((s*u.AU)/(dist*u.pc)).to('mas').value
-        print(j,plannames[j],WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
+        # print(j,plannames[j],WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
 
         outdict = {'Name': [plannames[j]]*len(M),
                     'M': M,
@@ -791,10 +795,12 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
     c = 3.0
 
     altorbdata = None
+    t_bar = trange(len(plannames), leave=False)
     for j in range(len(plannames)):
         row = data.iloc[j]
-        print("%d/%d  %s"%(j+1,len(plannames),plannames[j]))
-
+        # print("%d/%d  %s"%(j+1,len(plannames),plannames[j]))
+        t_bar.set_description(plannames[j].ljust(20))
+        t_bar.update(1)
 
         #if there is an inclination error, then we're going to skip the row altogether
         if not(np.isnan(row['pl_orbinclerr1'])) and not(np.isnan(row['pl_orbinclerr1'])):
@@ -936,6 +942,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     feinterp = photdict['feinterp']
     distinterp = photdict['distinterp']
 
+    import ipdb; ipdb.set_trace()
     wfirstcontr = np.genfromtxt(contrfile)
     contr = wfirstcontr[:,1]
     angsep = wfirstcontr[:,0] #l/D
