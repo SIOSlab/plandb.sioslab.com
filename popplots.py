@@ -62,9 +62,76 @@ ax2 = ax.twinx()
 ax2.set_yscale('log')
 ax2.set_ylim(np.array(ax.get_ylim())/Ms[2])
 ax2.set_ylabel('M$_\oplus$')
-fig.set_size_inches([6.8,5.5])
-plt.savefig('/Users/ds264/Documents/Presentations/AAS233/popplot1.png')
+fig.set_size_inches([8.,4])
+plt.subplots_adjust(top=0.98,bottom=0.11,left=0.09,right=0.93)
+#plt.savefig('/Users/ds264/Documents/Presentations/AAS233/popplot1.png')
+
+
 #plt.tight_layout()
+
+
+############ Second plot (plot with radius info)
+szrange = np.log10([np.min(data['pl_rade']),np.max(data['pl_rade'])])
+sfun = lambda R: 200./np.log10(20.)*np.log10(R)+60.
+offs = [(0,0),(-4,-12),(-4,4),(0,0),(8,-4),(8,1),(-8,-10),(-8,4),(0,0)]
+
+n = 0
+fig,ax = plt.subplots()
+for m,s,c in zip(methods,syms,cmap):
+    inds = data['pl_discmethod'] == m
+    mj = data[inds][~data[inds]['pl_rade'].mask]['pl_massj']
+    msinij = data[inds][~data[inds]['pl_rade'].mask]['pl_msinij']
+    ms = mj.copy()
+    tmp = ms.mask & ~msinij.mask
+    ms[tmp] = msinij[tmp]
+    if np.all(data[inds][~data[inds]['pl_rade'].mask]['pl_orbsmax'].mask) | np.all(ms.mask): continue
+    n+= len(data[inds][~data[inds]['pl_rade'].mask])
+    ax.scatter(data[inds][~data[inds]['pl_rade'].mask]['pl_orbsmax'],ms,
+            marker=s,s=sfun(data[inds]['pl_rade']),
+            facecolors=c,edgecolors='k',alpha=0.75,label=m)
+print n
+
+ax.scatter(smas,Ms,marker='o',s=sfun(Rs),facecolors='yellow',edgecolors='k',alpha=1)
+for a,m,n,ha,off in zip(smas,Ms,planetnames,has,offs):
+    ax.annotate(n,(a,m),ha=ha,xytext=off,textcoords='offset points')
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlim([1e-2,1e3])
+ax.set_ylim([1e-3,40])
+ax.set_xlabel('Semi-Major Axis (AU)')
+ax.set_ylabel('(Minimum) Mass (M$_J$)')
+ax.legend(loc='lower right',scatterpoints=1,fancybox=True,prop={'size':14})
+ax2 = ax.twinx()
+ax2.set_yscale('log')
+ax2.set_ylim(np.array(ax.get_ylim())/Ms[2])
+ax2.set_ylabel('M$_\oplus$')
+plt.tight_layout()
+
+
+#############plot everything in contrast v angsep space#######
+fig,ax = plt.subplots()
+contrasts = 10.0**(-data['quad_dMag_med_575NM'].values/2.5)
+angseps = data['pl_angsep'].values
+for m,s,c,o in zip(methods,syms,cmap,methodorder):
+    inds = data['pl_discmethod'] == m
+    ax.scatter(data[inds]['pl_angsep'],10.0**(-data[inds]['quad_dMag_med_575NM'].values/2.5),marker=s,s=60,
+            facecolors=c,edgecolors='k',alpha=0.75,label=m,zorder=o)
+
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlim([1e-3,2e5])
+ax.set_ylim([1e-15,1e-3])
+ax.set_xlabel('Angular Separation (mas)')
+ax.set_ylabel('Median Contrast at Quadrature at 575 nm')
+ax.legend(loc='lower left',scatterpoints=1,fancybox=True,prop={'size':14})
+
+fig.set_size_inches([8.,4])
+plt.subplots_adjust(top=0.975,bottom=0.115,left=0.09,right=0.99)  
+
+
+
 
 ############# Second plot (highlight non-null completeness targs)
 fig,ax = plt.subplots()
@@ -141,10 +208,10 @@ densplans = ((data['pl_bmassprov'].values == 'Mass') & \
     (data['pl_radreflink'].values != '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>'))
 
 
-transitspec = pandas.read_csv('/Users/ds264/Downloads/transitspec.csv',header=26)
-emissionspec = pandas.read_csv('/Users/ds264/Downloads/emissionspec.csv',header=18)
+#transitspec = pandas.read_csv('/Users/ds264/Downloads/transitspec.csv',header=26)
+#emissionspec = pandas.read_csv('/Users/ds264/Downloads/emissionspec.csv',header=18)
 
-specplans =  np.array(list(set(emissionspec['plntname'].unique()) | set(transitspec['plntname'].unique())))
+#specplans =  np.array(list(set(emissionspec['plntname'].unique()) | set(transitspec['plntname'].unique())))
 
 
 
@@ -154,7 +221,7 @@ for m,s,c,o in zip(methods,syms,cmap,methodorder):
     names = data['pl_name'][inds].values
     psmas = data[inds]['pl_orbsmax']
     pms = data[inds]['pl_bmassj']
-    havespec = np.array([n in specplans for n in names])
+    #havespec = np.array([n in specplans for n in names])
     havedens = densplans[inds.values]
 
     ax.scatter(psmas[havedens],pms[havedens],marker=s,s=60,
@@ -178,7 +245,12 @@ ax2 = ax.twinx()
 ax2.set_yscale('log')
 ax2.set_ylim(np.array(ax.get_ylim())/Ms[2])
 ax2.set_ylabel('M$_\oplus$')
-plt.tight_layout()
+
+fig.set_size_inches([8.,4])
+plt.subplots_adjust(top=0.98,bottom=0.11,left=0.09,right=0.93)
+
+
+#plt.tight_layout()
 
 
 fig,ax = plt.subplots()
@@ -215,4 +287,38 @@ ax2.set_ylim(np.array(ax.get_ylim())/Ms[2])
 ax2.set_ylabel('M$_\oplus$')
 plt.tight_layout()
 
+
+
+
+#######
+fig,ax = plt.subplots()
+for m,s,c,o in zip(methods,syms,cmap,methodorder):
+    inds = data['pl_discmethod'] == m
+    psmas = data[inds]['pl_orbsmax'].values
+    pms = data[inds]['pl_bmassj'].values
+    keplerfind = data[inds]['pl_facility'].values == 'Kepler'
+    print(np.where(keplerfind)[0].shape)
+
+    ax.scatter(psmas[keplerfind],pms[keplerfind],marker=s,s=60,
+            facecolors=c,edgecolors='k',alpha=0.75,label=m,zorder=o)
+    ax.scatter(psmas[~keplerfind],pms[~keplerfind],marker=s,s=60,
+            facecolors='None',edgecolors='gray',alpha=0.75,zorder=-1,label=None)
+
+
+ax.scatter(smas,Ms,marker='o',s=60,facecolors='yellow',edgecolors='k',alpha=1,zorder = methodorder.max())
+for a,m,n,ha,off in zip(smas,Ms,planetnames,has,offs):
+    ax.annotate(n,(a,m),ha=ha,xytext=off,textcoords='offset points')
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlim([1e-2,1e3])
+ax.set_ylim([1e-3,40])
+ax.set_xlabel('Semi-Major Axis (AU)')
+ax.set_ylabel('(Minimum) Mass (M$_J$)')
+ax.legend(loc='lower right',scatterpoints=1,fancybox=True,prop={'size':14})
+ax2 = ax.twinx()
+ax2.set_yscale('log')
+ax2.set_ylim(np.array(ax.get_ylim())/Ms[2])
+ax2.set_ylabel('M$_\oplus$')
+fig.set_size_inches([6.8,5.5])
 

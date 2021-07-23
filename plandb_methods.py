@@ -12,7 +12,7 @@ import EXOSIMS.PlanetPhysicalModel.Forecaster
 import numpy as np
 from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, griddata
 from astropy.time import Time
-import sqlalchemy.types 
+import sqlalchemy.types
 from sqlalchemy import create_engine
 import re
 import os
@@ -62,7 +62,7 @@ def RfromM(m):
 
 def getIPACdata():
     '''
-    grab everything from exoplanet and composite tables, merge, 
+    grab everything from exoplanet and composite tables, merge,
     add additional column info and return/save to disk
     '''
 
@@ -194,7 +194,7 @@ def getIPACdata():
     rad_columns = ["pl_radj", "pl_radjerr1", "pl_radjerr2", "pl_radjlim"]
     final_replace_columns = list(columns_to_null)
     final_replace_columns.extend(rad_columns)
-   
+
     #update rows as needed
     print("Updating planets with best attributes.")
     data = data.assign(pl_def_override=np.zeros(len(data)))
@@ -211,12 +211,12 @@ def getIPACdata():
         data.update(row_extended_replace,overwrite=True)
         data.loc[idx,'pl_def_override'] = 1
         data.loc[idx, 'pl_reflink'] = row_extended['pl_reflink'].values[0]
-        
+
         if not np.isnan(row_extended['pl_radj'].values[0]):
             data.loc[idx, 'pl_radreflink'] = row_extended['pl_reflink'].values[0]
-            
 
-    #sort by planet name 
+
+    #sort by planet name
     data = data.sort_values(by=['pl_name']).reset_index(drop=True)
 
     print("Filtering to useable planets and calculating additional properties.")
@@ -291,7 +291,7 @@ def getIPACdata():
 
     m = ((data['pl_bmassj'][noR].values*u.M_jupiter).to(u.M_earth)).value
     merr = (((data['pl_bmassjerr1'][noR].values - data['pl_bmassjerr2'][noR].values)/2.0)*u.M_jupiter).to(u.M_earth).value
-    R = RfromM(m)   
+    R = RfromM(m)
     Rerr = [RfromM(np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std() if not(np.isnan(merr[j])) else np.nan for j in range(len(m))]
 
     #create mod forecaster radius column and error cols
@@ -415,7 +415,7 @@ def packagePhotometryData(dbfile=None):
     if dbfile is None:
         dbfile = os.path.join(os.getenv('HOME'),'Documents','AFTA-Coronagraph','ColorFun','AlbedoModels_2015.db')
 
-    # grab photometry data 
+    # grab photometry data
     enginel = create_engine('sqlite:///' + dbfile)
 
     # getting values
@@ -589,7 +589,7 @@ def calcQuadratureVals(data, bandzip, photdict):
     for j, (Rp, fe,a, I, e, w, lm) in enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum)):
         print("%d/%d"%(j+1,len(Rps)))
         for c in photdict['clouds']:
-            for l,band,bw,ws,wstep in bandzip: 
+            for l,band,bw,ws,wstep in bandzip:
                 if j == 0:
                     lambdas.append(l)
                     #allocate output arrays
@@ -603,7 +603,7 @@ def calcQuadratureVals(data, bandzip, photdict):
                     lum_fix = (10 ** lm) ** .5  # Since lum is log base 10 of solar luminosity
 
 
-                #Only calculate quadrature distance if known eccentricity and argument of periaps, 
+                #Only calculate quadrature distance if known eccentricity and argument of periaps,
                 #and not face-on orbit
                 if not np.isnan(e) and not np.isnan(w) and I != 0:
                     nu1 = -w
@@ -643,7 +643,7 @@ def calcQuadratureVals(data, bandzip, photdict):
                     dMag = deltaMag(1, Rp*u.R_jupiter, a*u.AU, pphi)
                     tmpout['quad_radius_' + "%03dC_" % (c * 100) + str(l) + "NM"][j] = a / lum_fix
 
-                if np.isinf(dMag): 
+                if np.isinf(dMag):
                     print("Inf value encountered in dmag")
                     dMag = np.nan
                 tmpout['quad_dMag_'+"%03dC_"%(c*100)+str(l)+"NM"][j] = dMag
@@ -663,8 +663,8 @@ def calcQuadratureVals(data, bandzip, photdict):
 
 
 def genOrbitData(data, bandzip, photdict, t0=None):
-    """ Generate data for one orbital period starting at absolute time t0 (if time 
-    of periapsis is known) for all planets in data (output of getIPACdata) 
+    """ Generate data for one orbital period starting at absolute time t0 (if time
+    of periapsis is known) for all planets in data (output of getIPACdata)
     based on photometric data in photdict (output of loadPhotometryData) for bands
     in bandzip (output of genBands)
     """
@@ -684,16 +684,16 @@ def genOrbitData(data, bandzip, photdict, t0=None):
 
     orbdata = None
     for j in range(len(plannames)):
-        row = data.iloc[j] 
+        row = data.iloc[j]
 
         #orbital parameters
         a = row['pl_orbsmax']
-        e = row['pl_orbeccen'] 
+        e = row['pl_orbeccen']
         if np.isnan(e): e = 0.0
         I = row['pl_orbincl']*np.pi/180.0
         if np.isnan(I): I = np.pi/2.0
         w = row['pl_orblper']*np.pi/180.0
-        if np.isnan(w): w = 0.0                   
+        if np.isnan(w): w = 0.0
         Rp = row['pl_radj_forecastermod']
         dist = row['st_dist']
         fe = row['st_metfe']
@@ -717,7 +717,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                 t = np.linspace(t0.jd,t0.jd+Tp,100)
                 M = np.mod((t - tau)*n,2*np.pi)
 
-        #calculate orbital values        
+        #calculate orbital values
         E = eccanom(M, e)
         nu = 2*np.arctan(np.sqrt((1.0 + e)/(1.0 - e))*np.tan(E/2.0));
         d = a*(1.0 - e**2.0)/(1 + e*np.cos(nu))
@@ -750,7 +750,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             for count2,(l,band,bw,ws,wstep) in enumerate(bandzip):
                 pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a/lum_fix))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
                 pphi[np.isinf(pphi)] = np.nan
-                outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = pphi 
+                outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM"] = pphi
                 allpphis[count1,count2] = pphi
                 dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
                 dMag[np.isinf(dMag)] = np.nan
@@ -774,7 +774,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             outdict["pPhi_med_"+str(l)+"NM"] = pphismed[count3]
 
         out = pandas.DataFrame(outdict)
-        
+
         if orbdata is None:
             orbdata = out.copy()
         else:
@@ -784,8 +784,8 @@ def genOrbitData(data, bandzip, photdict, t0=None):
 
 
 def genAltOrbitData(data, bandzip, photdict, t0=None):
-    """ Generate data for one orbital period starting at absolute time t0 (if time 
-    of periapsis is known) for all planets in data (output of getIPACdata) 
+    """ Generate data for one orbital period starting at absolute time t0 (if time
+    of periapsis is known) for all planets in data (output of getIPACdata)
     based on photometric data in photdict (output of loadPhotometryData) for bands
     in bandzip (output of genBands) for varying values of inclination.
     """
@@ -810,9 +810,9 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
 
         #if there is an inclination error, then we're going to skip the row altogether
         if not(np.isnan(row['pl_orbinclerr1'])) and not(np.isnan(row['pl_orbinclerr1'])):
-            continue 
-            
-        
+            continue
+
+
         if row['pl_bmassprov'] == 'Msini':
                 Icrit = np.arcsin( ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value/((0.0800*u.M_sun).to(u.M_earth)).value )
         else:
@@ -822,10 +822,10 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
 
         #orbital parameters
         a = row['pl_orbsmax']
-        e = row['pl_orbeccen'] 
+        e = row['pl_orbeccen']
         if np.isnan(e): e = 0.0
         w = row['pl_orblper']*np.pi/180.0
-        if np.isnan(w): w = 0.0                   
+        if np.isnan(w): w = 0.0
         Rp = row['pl_radj_forecastermod']
         dist = row['st_dist']
         fe = row['st_metfe']
@@ -841,7 +841,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
                 continue
             mu = const.G*(Mstar*u.solMass).decompose()
             Tp = (2*np.pi*np.sqrt(((a*u.AU)**3.0)/mu)).decompose().to(u.d).value
-            
+
         n = 2*np.pi/Tp
         if Tp > 10*365.25:
             tend = 10*365.25
@@ -852,7 +852,7 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
             tau = 0.0
         M = np.mod((t - tau)*n,2*np.pi)
 
-        E = eccanom(M, e)  
+        E = eccanom(M, e)
         nu = 2*np.arctan(np.sqrt((1.0 + e)/(1.0 - e))*np.tan(E/2.0));
         d = a*(1.0 - e**2.0)/(1 + e*np.cos(nu))
 
@@ -887,14 +887,14 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
             inds = np.argsort(beta)
             pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a / lum_fix))][c](beta.to(u.deg).value[inds],ws).sum(1)*wstep/bw)[np.argsort(inds)]
             pphi[np.isinf(pphi)] = np.nan
-            outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM_I"+Itag] = pphi 
+            outdict['pPhi_'+"%03dC_"%(c*100)+str(l)+"NM_I"+Itag] = pphi
             dMag = deltaMag(1, Rp*u.R_jupiter, d*u.AU, pphi)
             dMag[np.isinf(dMag)] = np.nan
             outdict['dMag_'+"%03dC_"%(c*100)+str(l)+"NM_I"+Itag] = dMag
 
 
         out = pandas.DataFrame(outdict)
-        
+
         if altorbdata is None:
             altorbdata = out.copy()
         else:
@@ -938,8 +938,8 @@ def get_fsed(num):
 
 
 def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,contrfile='WFIRST_pred_imaging.txt'):
-    """ For all known planets in data (output from getIPACdata), calculate obscurational 
-    and photometric completeness for those cases where obscurational completeness is 
+    """ For all known planets in data (output from getIPACdata), calculate obscurational
+    and photometric completeness for those cases where obscurational completeness is
     non-zero.
     """
 
@@ -985,17 +985,17 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     cs = []
     goodinds = []
     for i,j in enumerate(inds):
-        row = data.iloc[j] 
+        row = data.iloc[j]
         print("%d/%d  %s"%(i+1,len(inds),row['pl_name']))
 
-        #sma distribution        
+        #sma distribution
         amu = row['pl_orbsmax']
         astd = (row['pl_orbsmaxerr1'] - row['pl_orbsmaxerr2'])/2.
         if np.isnan(astd): astd = 0.01*amu
         gena = lambda n: np.clip(np.random.randn(n)*astd + amu,0,np.inf)
 
         #eccentricity distribution
-        emu = row['pl_orbeccen'] 
+        emu = row['pl_orbeccen']
         if np.isnan(emu):
             gene = lambda n: 0.175/np.sqrt(np.pi/2.)*np.sqrt(-2.*np.log(1 - np.random.uniform(size=n)))
         else:
@@ -1017,17 +1017,17 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
                 genI = lambda n: np.arccos(1 - 2.*np.random.uniform(size=n))
         else:
             Istd = (row['pl_orbinclerr1'] - row['pl_orbinclerr2'])/2.*np.pi/180.0
-            if np.isnan(Istd) or (Istd == 0): 
+            if np.isnan(Istd) or (Istd == 0):
                 Istd = Imu*0.01
             genI = lambda n: np.random.randn(n)*Istd + Imu
-        
+
         #arg. of periastron distribution
         wmu = row['pl_orblper']*np.pi/180.0
         if np.isnan(wmu):
             genw = lambda n: np.random.uniform(size=n,low=0.0,high=2*np.pi)
         else:
             wstd = (row['pl_orblpererr1'] - row['pl_orblpererr2'])/2.*np.pi/180.0
-            if np.isnan(wstd) or (wstd == 0): 
+            if np.isnan(wstd) or (wstd == 0):
                 wstd = wmu*0.01
             genw = lambda n: np.random.randn(n)*wstd + wmu
 
@@ -1076,7 +1076,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
                 Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
                 if np.isnan(Rstd): Rstd = Rmu*0.1
                 R = np.random.randn(n)*Rstd + Rmu
-            
+
             M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
             E = eccanom(M0, e)
             nu = 2*np.arctan(np.sqrt((1+e)/(1-e))*np.tan(E/2))
@@ -1092,7 +1092,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
                 lum_fix = 1
             else:
                 lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
-                        
+
             pphi = np.zeros(n)
             for clevel in np.unique(cl):
                 tmpinds = cl == clevel
@@ -1100,7 +1100,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
                 binds = np.argsort(betatmp)
                 pphi[tmpinds] = (photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm) / lum_fix))][clevel](betatmp.to(u.deg).value[binds],ws).sum(1)*wstep/bw)[np.argsort(binds)].flatten()
 
-            pphi[np.isinf(pphi)] = np.nan 
+            pphi[np.isinf(pphi)] = np.nan
             pphi[pphi <= 0.0] = 1e-16
 
             dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
@@ -1180,11 +1180,11 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = minCWA
     data = data.assign(compMinWA=tmp)
-    
+
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = maxCWA
     data = data.assign(compMaxWA=tmp)
-    
+
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = minCdMag
     data = data.assign(compMindMag=tmp)
@@ -1198,7 +1198,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
 
 def genAliases(starnames):
     """ Grab all available aliases for list of targets. """
-    
+
     s = Simbad()
     s.add_votable_fields('ids')
     baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI"
@@ -1211,15 +1211,15 @@ def genAliases(starnames):
     priname = []
     for j,star in enumerate(starnames):
         print("%d/%d  %s"%(j+1,len(starnames),star))
-        
+
         #get aliases from IPAC
         r = requests.get(baseurl,{'table':'aliastable','objname':star})
-        if "ERROR" not in r.content: 
+        if "ERROR" not in r.content:
             tmp = r.content.strip().split("\n")
         else:
             noipacalias.append(star)
             tmp = [star]
-        
+
         #get aliases from SIMBAD
         try:
             r = s.query_object(star)
@@ -1251,7 +1251,7 @@ def genAliases(starnames):
         if star not in tmp: tmp.append(star)
         if 'aliasdis' in tmp: tmp.remove('aliasdis')
         tmp = list(np.unique(tmp))
-            
+
         ids.append([j]*len(tmp))
         aliases.append(tmp)
         priname.append(list((np.array(tmp) == star).astype(int)))
@@ -1293,7 +1293,7 @@ def writeSQL(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=No
 
         #add comments
         addSQLcomments(engine,'KnownPlanets')
-    
+
     if orbdata is not None:
         print("Writing PlanetOrbits")
         namemxchar = np.array([len(n) for n in orbdata['Name'].values]).max()
@@ -1332,7 +1332,7 @@ def writeSQL(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=No
 
 def addSQLcomments(engine,tablename):
         """Add comments to table schema based on entries in spreadsheet"""
-        
+
         #read in spreadsheet and grab data from appropriate sheet
         coldefs = pandas.ExcelFile('coldefs.xlsx')
         coldefs = coldefs.parse(tablename)

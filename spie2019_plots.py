@@ -2,7 +2,7 @@
 import pickle
 from plandb_methods import *
 photdict = loadPhotometryData()
-
+import scipy
 matplotlib.rcParams.update({'font.size': 14}) 
 
 #comparison plots for photometry
@@ -435,18 +435,176 @@ for j,t in enumerate(ts):
 outdict = {'allhs':allhs,'allcs':allcs}
 np.savez('47UMac_comps',**outdict)
 
+#####
+tmp = np.load('47UMac_comps.npz') 
+allhs = tmp['allhs']
+allcs = tmp['allcs']
+####
 
-def plotplancomp(h):
-    fig = plt.figure()
+fig = plt.figure()
+def plotplancomp(h,fig=None):
+    if fig is None:
+        fig = plt.figure()
+    fig.clf()
     ax = fig.add_subplot(111)
-    cs = ax.contourf(WAc,dMagc,np.log10(h))
+    ax.cla()
+    cs = ax.contourf(WAc,dMagc,np.log10(h),np.arange(-6,-2.7,0.2))
     ax.set_xlabel('Separation (mas)')
     ax.set_ylabel('$\Delta$mag')
     cbar = fig.colorbar(cs)
-    cbar.ax.set_title('log$_{10}(f_{\Delta\\mathrm{mag},\\alpha})$')
+    cbar.ax.set_title('log$_{10}(f_{\Delta\\mathrm{mag},\\alpha})$',pad=15)
 
-    ax.set_xlim([150,400])
-    ax.set_ylim([17,26])
+    ax.set_xlim([150,350])
+    ax.set_ylim([19,26])
 
     plt.plot(angsep,-2.5*np.log10(contr),'r')
+
+
+plotplancomp(hall)
+plt.savefig('47UMa_comp_all.pdf')
+
+
+plotplancomp(allhs[np.argmin(allcs)])
+plt.savefig('47UMa_comp_min.pdf')
+
+plotplancomp(allhs[np.argmax(allcs)])
+plt.savefig('47UMa_comp_max.pdf')
+
+fig,ax = plt.subplots()
+plt.plot(ts/ts.max(),allcs)
+ax.set_xlabel('Fraction of Orbital Period')
+ax.set_ylabel('Completeness')
+
+plt.savefig('47UMa_comps.pdf')   
+
+
+
+###orb params exact, unknown I & f_sed
+
+n = int(1e6)
+c = 0.
+h = np.zeros((len(WAbins)-3, len(dMagbins)-2))
+k = 0.0
+cprev = 0.0
+pdiff = 1.0
+
+a = amu
+e = emu
+w = wmu
+Mp0 = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+Tp = Tmu
+M0 = ts[43]/Tp*2*np.pi
+E = eccanom(M0, e)
+nu = 2*np.arctan(np.sqrt((1+e)/(1-e))*np.tan(E/2))
+d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
+
+while (pdiff > 0.0001) | (k <3):
+    print("%d \t %5.5e \t %5.5e"%( k,pdiff,c))
+
+    #sample orbital parameters
+    I = genI(n)
+
+    #sample cloud vals
+    cl = vget_fsed(np.random.rand(n))
+
+    #define mass/radius distribution depending on data provenance
+    Mp = Mp0/np.sin(I)
+    R = (RfromM(Mp)*u.R_earth).to(u.R_jupiter).value
+    R[R > 1.0] = 1.0
+
+    s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
+    beta = np.arccos(np.sin(I) * np.sin(nu + w)) * u.rad
+    rnorm = d
+
+    lum = row['st_lum']
+
+    if np.isnan(lum):
+        lum_fix = 1
+    else:
+        lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+
+    pphi = np.zeros(n)
+    for clevel in np.unique(cl):
+        tmpinds = cl == clevel
+        betatmp = beta[tmpinds]
+        binds = np.argsort(betatmp)
+        pphi[tmpinds] = (photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm) / lum_fix))][clevel](betatmp.to(u.deg).value[binds],ws).sum(1)*wstep/bw)[np.argsort(binds)].flatten()
+
+
+    pphi[np.isinf(pphi)] = np.nan 
+    pphi[pphi <= 0.0] = 1e-16
+
+    dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
+    WA = np.arctan((s*u.AU)/(row['st_dist']*u.pc)).to('mas').value # working angle
+
+    h += np.histogram2d(WA,dMag,bins=(WAbins,dMagbins))[0][1:-1,0:-1]
+    k += 1.0
+
+    dMaglimtmp = -2.5*np.log10(wfirstc(WA))
+    currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= dMaglimtmp))[0]))/n
+
+    #currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= 22.5))[0]))/n
+    cprev = c
+    if k == 1.0:
+        c = currc
+    else:
+        c = ((k-1)*c + currc)/k
+    if c == 0:
+        pdiff = 1.0
+    else:
+        pdiff = np.abs(c - cprev)/c
+
+    if (c == 0.0) & (k > 2):
+        break
+
+    if (c < 1e-5) & (k > 25):
+        break
+
+h = h/float(n*k)
+
+
+
+###########
+
+basepath = '/Users/ds264/Downloads/StabilityData/Data/SystemsPrioritization'
+#tname = '70 Vir'
+
+tname = 'GJ 649'
+
+dos = scipy.io.loadmat("%s"%os.path.join(basepath,'StabCompGrids',tname+'_G.mat'))
+
+
+Redges = scipy.io.loadmat("%s"%os.path.join(basepath,'Edges',tname+'_Redges.mat'))
+aedges = scipy.io.loadmat("%s"%os.path.join(basepath,'Edges',tname+'_aedges.mat'))
+Redges = Redges['Rvect'].flatten()
+aedges = aedges['avect'].flatten()  
+acents = 0.5*(aedges[1:]+aedges[:-1])
+Rcents = 0.5*(Redges[1:]+Redges[:-1])
+
+
+stabtypes = ['G','H','P']
+
+for st in stabtypes:
+    tmp = scipy.io.loadmat("%s"%os.path.join(basepath,'StabGrids',tname+'_'+st+'.mat'))
+
+    fig,ax = plt.subplots()
+    cs = ax.contourf(acents,Rcents,tmp['GStab'+st],np.linspace(0,1,100))  
+    #ax.set_xscale('log')
+    #ax.set_yscale('log')
+    cbar = fig.colorbar(cs)
+    ax.set_xlabel('Semi-major Axis (AU)')
+    ax.set_ylabel('Radius (R$_\\oplus$)')
+
+    plt.savefig('GJ_649_stab'+st+'.png')
+
+
+
+
+
+fig,ax = plt.subplots()
+cs = ax.contourf(Rcents,acents,dos['GScompG'],np.linspace(0,1,100))  
+ax.set_xscale('log')
+ax.set_yscale('log')
+cbar = fig.colorbar(cs)
+
 
