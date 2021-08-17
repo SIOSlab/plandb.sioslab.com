@@ -43,7 +43,7 @@ def getIPACdata():
     #only keep stuff related to the star from composite
     composite_cols = [col for col in pscp_data.columns if (col == 'pl_name') or
                       str.startswith(col, 'st_')]
-    composite_cols.extend(['pl_radj', 'pl_rade_reflink'])
+    # composite_cols.extend(['pl_radj', 'pl_radj_reflink'])
     pscp_data = pscp_data[composite_cols]
 
     #sort by planet name
@@ -71,13 +71,14 @@ def getIPACdata():
         for col in composite_cols:
             if col != 'pl_name':
                 merged_data.at[i, col] = c_row[col].values[0]
+
         last_pl = pl
     t_bar.close()
     #create columns for short references and publication years
     authregex = re.compile(r"(<a.*f>)|(</a>)")
     merged_data['publication_year'] = merged_data.pl_refname.str.extract('(\d{4})')
-    merged_data['shortrefs'] = [authregex.sub("", merged_data['disc_refname'][j]).strip() for j in range(len(merged_data))]
-    merged_data['refs'] = merged_data["disc_refname"].values
+    merged_data['shortrefs'] = [authregex.sub("", merged_data['pl_refname'][j]).strip() for j in range(len(merged_data))]
+    merged_data['refs'] = merged_data["pl_refname"].values
     merged_data['best_data'] = np.zeros(len(merged_data))
 
     #pick best attribute row for each planet
@@ -270,15 +271,30 @@ def getIPACdata():
     # merged_data['pl_calc_rad'] = pd.Series(np.zeros(len(merged_data['pl_name'])), index=merged_data.index)
     # merged_data.loc[noR, 'pl_calc_rad'] = 1
     noR = (merged_data['pl_radj'].isnull()).values
-    # return ps_data, pscp_data, merged_data
 
     # Initialize the ForecasterMod
     forecaster_mod = ForecasterMod()
+    merged_data.loc[3856, 'pl_bmassjerr2'] = -.18
+    # merged_data.loc[3905, 'pl_bmassjerr1'] = 0.1
     m = ((merged_data['pl_bmassj'][noR].values*u.M_jupiter).to(u.M_earth)).value
     merr = (((merged_data['pl_bmassjerr1'][noR].values - merged_data['pl_bmassjerr2'][noR].values)/2.0)*u.M_jupiter).to(u.M_earth).value
     R = forecaster_mod.calc_radius_from_mass(m*u.M_earth)
     # R = [forecaster_m.calc_radius_from_mass(mp*u.M_earth) for mp in m]
-    Rerr = np.array([forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value if not(np.isnan(merr[j])) else np.nan for j in range(len(m))])*u.R_earth
+
+    # Turning what was a list comprehension into a loop to handle edge case
+    Rerr = np.zeros(len(m))
+    for j in range(len(m)):
+        if np.isnan(merr[j]):
+            Rerr[j] = np.nan
+        elif merr[j] == 0:
+            # Happens with truncation error sometimes, check if the error in earth radii is input to IPAC correctly
+            merr_earth = (((merged_data.iloc[j]['pl_bmasseerr1'] - merged_data.iloc[j]['pl_bmasseerr2'])/2.0)*u.M_earth).to(u.M_earth).value
+            Rerr[j] = forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr_earth, size=int(1e4))).std().value
+        else:
+            Rerr[j] = forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value
+    Rerr = Rerr*u.R_earth
+
+    # Rerr = np.array([forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value if not(np.isnan(merr[j])) else np.nan for j in range(len(m))])*u.R_earth
 
     #create mod forecaster radius column and error cols
     merged_data = merged_data.assign(pl_radj_forecastermod=merged_data['pl_radj'].values)
@@ -287,6 +303,7 @@ def getIPACdata():
     merged_data.loc[noR,'pl_radj_forecastermoderr1'] = (Rerr.to(u.R_jupiter)).value
     merged_data = merged_data.assign(pl_radj_forecastermoderr2=merged_data['pl_radjerr2'].values)
     merged_data.loc[noR,'pl_radj_forecastermoderr2'] = -(Rerr.to(u.R_jupiter)).value
+    # breakpoint()
 
 
     # now the Fortney model
@@ -945,8 +962,10 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     # contr = wfirstcontr[:,1]
     # angsep = wfirstcontr[:,0] #l/D
     # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
-    contr = np.ones(10)
-    angsep = np.ones(10)
+    wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
+    contr = wfirstcontr[:,1]
+    angsep = wfirstcontr[:,0]
+    angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
     wfirstc = interp1d(angsep,contr,bounds_error = False, fill_value = 'extrapolate')
 
     inds = np.where((data['pl_maxangsep'].values > minangsep) & (data['pl_minangsep'].values < maxangsep))[0]
@@ -1065,6 +1084,8 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
                         Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
                     Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
 
+                if row['pl_name'] == '51 Eri b':
+                    breakpoint()
                 R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
                 # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
                 R[R > 1.0] = 1.0
