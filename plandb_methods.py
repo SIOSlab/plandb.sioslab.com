@@ -275,6 +275,7 @@ def getIPACdata():
     # Initialize the ForecasterMod
     forecaster_mod = ForecasterMod()
     merged_data.loc[3856, 'pl_bmassjerr2'] = -.18
+    merged_data.loc[3935, 'pl_orbsmaxerr2'] = -0.6
     # merged_data.loc[3905, 'pl_bmassjerr1'] = 0.1
     m = ((merged_data['pl_bmassj'][noR].values*u.M_jupiter).to(u.M_earth)).value
     merr = (((merged_data['pl_bmassjerr1'][noR].values - merged_data['pl_bmassjerr2'][noR].values)/2.0)*u.M_jupiter).to(u.M_earth).value
@@ -283,15 +284,15 @@ def getIPACdata():
 
     # Turning what was a list comprehension into a loop to handle edge case
     Rerr = np.zeros(len(m))
-    for j in range(len(m)):
+    for j, m_val in enumerate(m):
         if np.isnan(merr[j]):
             Rerr[j] = np.nan
         elif merr[j] == 0:
             # Happens with truncation error sometimes, check if the error in earth radii is input to IPAC correctly
             merr_earth = (((merged_data.iloc[j]['pl_bmasseerr1'] - merged_data.iloc[j]['pl_bmasseerr2'])/2.0)*u.M_earth).to(u.M_earth).value
-            Rerr[j] = forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr_earth, size=int(1e4))).std().value
+            Rerr[j] = forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m_val, scale=merr_earth, size=int(1e4))).std().value
         else:
-            Rerr[j] = forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value
+            Rerr[j] = forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m_val, scale=merr[j], size=int(1e4))).std().value
     Rerr = Rerr*u.R_earth
 
     # Rerr = np.array([forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value if not(np.isnan(merr[j])) else np.nan for j in range(len(m))])*u.R_earth
@@ -335,15 +336,19 @@ def getIPACdata():
     tmpsmas = merged_data['pl_orbsmax'][noR].values
     tmpsmaserr = (merged_data['pl_orbsmaxerr1'][noR].values - merged_data['pl_orbsmaxerr2'][noR].values) / 2.0
     adist = np.zeros((len(m), int(1e4)))
-    for j in range(len(tmpsmas)):  # Create smax distribution
-        if np.isnan(tmpsmaserr[j]):
-            tmpsmaserr[j] = 0
-        adist[j, :] = (np.random.normal(loc=tmpsmas[j], scale=tmpsmaserr[j], size=int(1e4)))
+    # breakpoint()
+    for j, _ in enumerate(tmpsmas):  # Create smax distribution
+        if np.isnan(tmpsmaserr[j]) or (tmpsmaserr[j] == 0):
+            adist[j, :] = (np.ones(int(1e4))* tmpsmas[j])
+        else:
+            adist[j, :] = (np.random.normal(loc=tmpsmas[j], scale=tmpsmaserr[j], size=int(1e4)))
 
-    for j in range(len(m)):  # Create m distribution and calculate errors
-        if np.isnan(merr[j]):
-            merr[j] = 0
-        mdist = (np.random.normal(loc=m[j], scale=merr[j], size=int(1e4)))
+    for j, _ in enumerate(m):  # Create m distribution and calculate errors
+        if np.isnan(merr[j]) or (merr[j] == 0):
+            # merr[j] = 0
+            mdist = np.ones(int(1e4)) * m[j]
+        else:
+            mdist = (np.random.normal(loc=m[j], scale=merr[j], size=int(1e4)))
 
         for i in range(len(mdist)):
             while mdist[i] < 0:
@@ -968,7 +973,8 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
     wfirstc = interp1d(angsep,contr,bounds_error = False, fill_value = 'extrapolate')
 
-    inds = np.where((data['pl_maxangsep'].values > minangsep) & (data['pl_minangsep'].values < maxangsep))[0]
+    inds = np.where((data['pl_maxangsep'].values > minangsep) &
+                    (data['pl_minangsep'].values < maxangsep))[0]
 
     WAbins0 = np.arange(minangsep,maxangsep+1,1)
     WAbins = np.hstack((0, WAbins0, np.inf))

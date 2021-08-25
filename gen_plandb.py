@@ -38,7 +38,7 @@ bandzip = list(genBands())
 
 #completeness
 print('Doing completeness calculations')
-comps,compdict,data = calcPlanetCompleteness(data, bandzip, photdict)
+comps,compdict,data = calcPlanetCompleteness(data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
 if cache:
     comps.to_pickle('completeness_'+datestr+'.pkl')
     np.savez('completeness_'+datestr,**compdict)
