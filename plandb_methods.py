@@ -1076,30 +1076,52 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
             cl = vget_fsed(np.random.rand(n))
 
             forecaster_mod = ForecasterMod()
-            #define mass/radius distribution depending on data provenance
-            if ((row['pl_rade_reflink'] ==\
-                    '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') | \
-                    (row['pl_rade_reflink'] == \
-                    '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>')):
-                if row['pl_bmassprov'] == 'Msini':
+            # Rewriting the calculation to not rely on potentially calculated values of mass
+            if not np.isnan(row.pl_radj):
+                # If we have the radius we can just use it
+                Rmu = row.pl_radj
+                Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
+                if np.isnan(Rstd): Rstd = Rmu*0.1
+                R = np.random.randn(n)*Rstd + Rmu
+            else:
+                # If we don't have radius then we need to calculate it based on the mass
+                if row.pl_bmassprov == 'Msini':
+                    # Sometimes given in Msini which we use the generated inclination values to get the Mp value from
                     Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
                     Mp = Mp/np.sin(I)
                 else:
+                    # Standard calculation
                     Mstd = (((row['pl_bmassjerr1'] - row['pl_bmassjerr2'])*u.M_jupiter).to(u.M_earth)).value
                     if np.isnan(Mstd):
                         Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
                     Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
 
-                if row['pl_name'] == '51 Eri b':
-                    breakpoint()
+                # Now use the Mp value to get the planet radius
                 R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
                 # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
                 R[R > 1.0] = 1.0
-            else:
-                Rmu = row['pl_radj']
-                Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
-                if np.isnan(Rstd): Rstd = Rmu*0.1
-                R = np.random.randn(n)*Rstd + Rmu
+
+            # if ((row['pl_rade_reflink'] ==\
+                    # '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') | \
+                    # (row['pl_rade_reflink'] == \
+                    # '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>')):
+                # if row['pl_bmassprov'] == 'Msini':
+                    # Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+                    # Mp = Mp/np.sin(I)
+                # else:
+                    # Mstd = (((row['pl_bmassjerr1'] - row['pl_bmassjerr2'])*u.M_jupiter).to(u.M_earth)).value
+                    # if np.isnan(Mstd):
+                        # Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
+                    # Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+
+                # R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
+                # # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
+                # R[R > 1.0] = 1.0
+            # else:
+                # Rmu = row['pl_radj']
+                # Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
+                # if np.isnan(Rstd): Rstd = Rmu*0.1
+                # R = np.random.randn(n)*Rstd + Rmu
 
             M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
             E = eccanom(M0, e)
