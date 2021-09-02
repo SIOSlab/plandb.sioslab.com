@@ -968,7 +968,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     # angsep = wfirstcontr[:,0] #l/D
     # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
     wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
-    contr = wfirstcontr[:,1]
+    contr = wfirstcontr[:,3]
     angsep = wfirstcontr[:,0]
     angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
     wfirstc = interp1d(angsep,contr,bounds_error = False, fill_value = 'extrapolate')
@@ -1100,28 +1100,6 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
                 R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
                 # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
                 R[R > 1.0] = 1.0
-
-            # if ((row['pl_rade_reflink'] ==\
-                    # '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') | \
-                    # (row['pl_rade_reflink'] == \
-                    # '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>')):
-                # if row['pl_bmassprov'] == 'Msini':
-                    # Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
-                    # Mp = Mp/np.sin(I)
-                # else:
-                    # Mstd = (((row['pl_bmassjerr1'] - row['pl_bmassjerr2'])*u.M_jupiter).to(u.M_earth)).value
-                    # if np.isnan(Mstd):
-                        # Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
-                    # Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
-
-                # R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
-                # # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
-                # R[R > 1.0] = 1.0
-            # else:
-                # Rmu = row['pl_radj']
-                # Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
-                # if np.isnan(Rstd): Rstd = Rmu*0.1
-                # R = np.random.randn(n)*Rstd + Rmu
 
             M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
             E = eccanom(M0, e)
