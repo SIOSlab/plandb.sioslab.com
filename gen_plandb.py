@@ -4,8 +4,10 @@ import getpass
 
 import keyring
 
+import pickle
 from plandb_methods import *
 import pandas as pd
+from pathlib import Path
 
 cache = True
 from sqlalchemy.types import String
@@ -13,7 +15,19 @@ from sqlalchemy.types import String
 datestr = Time.now().datetime.strftime("%Y-%m-%d")
 
 #initial data dump
-data = getIPACdata()
+data_path = Path(f'cache/data_cache_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if data_path.exists():
+        with open(data_path, 'rb') as f:
+            data = pickle.load(f)
+    else:
+        data = getIPACdata()
+        with open(data_path, 'wb') as f:
+            pickle.dump(data, f)
+else:
+    data = getIPACdata()
+
 
 # #photometric data
 photdict = loadPhotometryData()
@@ -21,33 +35,36 @@ photdict = loadPhotometryData()
 # #band info
 bandzip = list(genBands())
 
-# #calculate quadrature columns:
+#calculate quadrature columns:
 # print('Computing quadrature values')
 # data = calcQuadratureVals(data, bandzip, photdict)
-# if cache: data.to_pickle('data_'+datestr+'.pkl')
+# if cache:
+    # data.to_pickle('data_'+datestr+'.pkl')
 
 # # #get orbital data
 # print("Getting orbit data")
 # orbdata = genOrbitData(data,bandzip,photdict)
-# if cache: orbdata.to_pickle('orbdata_'+datestr+'.pkl')
+# if cache:
+    # orbdata.to_pickle('orbdata_'+datestr+'.pkl')
 
 # print('Getting alt orbit data')
 # altorbdata =genAltOrbitData(data, bandzip, photdict)
-# if cache: altorbdata.to_pickle('altorbdata_'+datestr+'.pkl')
+# if cache:
+    # altorbdata.to_pickle('altorbdata_'+datestr+'.pkl')
 
-
-#completeness
-print('Doing completeness calculations')
-comps,compdict,data = calcPlanetCompleteness(data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
-if cache:
-    comps.to_pickle('completeness_'+datestr+'.pkl')
-    np.savez('completeness_'+datestr,**compdict)
-    data.to_pickle('data_'+datestr+'.pkl')
+# #completeness
+# print('Doing completeness calculations')
+# comps,compdict,data = calcPlanetCompleteness(data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
+# if cache:
+    # comps.to_pickle('completeness_'+datestr+'.pkl')
+    # np.savez('completeness_'+datestr,**compdict)
+    # data.to_pickle('data_'+datestr+'.pkl')
 
 
 #aliases
 aliases = genAliases(data)
-if cache: aliases.to_pickle('aliases_'+datestr+'.pkl')
+if cache:
+    aliases.to_pickle('aliases_'+datestr+'.pkl')
 
 
 #testdb
