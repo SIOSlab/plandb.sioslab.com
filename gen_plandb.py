@@ -28,41 +28,101 @@ if cache:
 else:
     data = getIPACdata()
 
+#photometric data
+photdict_path = Path(f'cache/photdict_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if photdict_path.exists():
+        with open(photdict_path, 'rb') as f:
+            photdict = pickle.load(f)
+    else:
+        photdict = loadPhotometryData()
+        with open(photdict_path, 'wb') as f:
+            pickle.dump(photdict, f)
+else:
+    photdict = loadPhotometryData()
 
-# #photometric data
-photdict = loadPhotometryData()
-
-# #band info
-bandzip = list(genBands())
+#band info
+bandzip_path = Path(f'cache/bandzip_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if bandzip_path.exists():
+        with open(bandzip_path, 'rb') as f:
+            bandzip = pickle.load(f)
+    else:
+        bandzip = list(genBands())
+        with open(bandzip_path, 'wb') as f:
+            pickle.dump(bandzip, f)
+else:
+    bandzip = list(genBands())
 
 #calculate quadrature columns:
-# print('Computing quadrature values')
-# data = calcQuadratureVals(data, bandzip, photdict)
-# if cache:
-    # data.to_pickle('data_'+datestr+'.pkl')
+print('Computing quadrature values')
+quadrature_data_path = Path(f'cache/quadrature_data_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if quadrature_data_path.exists():
+        with open(quadrature_data_path, 'rb') as f:
+            quadrature_data = pickle.load(f)
+    else:
+        quadrature_data = calcQuadratureVals(data, bandzip, photdict)
+        with open(quadrature_data_path, 'wb') as f:
+            pickle.dump(quadrature_data, f)
+else:
+    quadrature_data = calcQuadratureVals(data, bandzip, photdict)
 
-# # #get orbital data
-# print("Getting orbit data")
-# orbdata = genOrbitData(data,bandzip,photdict)
-# if cache:
-    # orbdata.to_pickle('orbdata_'+datestr+'.pkl')
+#get orbital data
+print("Getting orbit data")
+orbdata_path = Path(f'cache/orbdata_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if orbdata_path.exists():
+        with open(orbdata_path, 'rb') as f:
+            orbdata = pickle.load(f)
+    else:
+        orbdata = genOrbitData(quadrature_data, bandzip, photdict)
+        with open(orbdata_path, 'wb') as f:
+            pickle.dump(orbdata, f)
+else:
+    orbdata = genOrbitData(quadrature_data, bandzip, photdict)
 
 # print('Getting alt orbit data')
-# altorbdata =genAltOrbitData(data, bandzip, photdict)
-# if cache:
-    # altorbdata.to_pickle('altorbdata_'+datestr+'.pkl')
+altorbdata_path = Path(f'cache/altorbdata_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if altorbdata_path.exists():
+        with open(altorbdata_path, 'rb') as f:
+            altorbdata = pickle.load(f)
+    else:
+        altorbdata = genAltOrbitData(quadrature_data, bandzip, photdict)
+        with open(altorbdata_path, 'wb') as f:
+            pickle.dump(altorbdata, f)
+else:
+    altorbdata = genAltOrbitData(quadrature_data, bandzip, photdict)
 
-# #completeness
-# print('Doing completeness calculations')
-# comps,compdict,data = calcPlanetCompleteness(data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
-# if cache:
-    # comps.to_pickle('completeness_'+datestr+'.pkl')
-    # np.savez('completeness_'+datestr,**compdict)
-    # data.to_pickle('data_'+datestr+'.pkl')
-
+#completeness
+print('Doing completeness calculations')
+comps_path = Path(f'cache/comps_{datestr}.p')
+compdict_path = Path(f'cache/compdict_{datestr}.p')
+comps_data_path = Path(f'cache/comps_data_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if comps_path.exists():
+        comps = pd.read_pickle(comps_path)
+        with open(compdict_path, 'rb') as f:
+            compdict = pickle.load(f)
+        comps_data = pd.read_pickle(comps_data_path)
+    else:
+        comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
+        comps.to_pickle(comps_path)
+        with open(compdict_path, 'wb') as f:
+            pickle.dump(compdict, f)
+        comps_data.to_pickle(comps_data_path)
+else:
+    comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
 
 #aliases
-aliases = genAliases(data)
+aliases = genAliases(comps_data)
 if cache:
     aliases.to_pickle('aliases_'+datestr+'.pkl')
 
