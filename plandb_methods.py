@@ -3,6 +3,7 @@ from __future__ import division, print_function
 import math
 import os
 import re
+from io import BytesIO
 
 import astropy.constants as const
 import astropy.units as u
@@ -1220,12 +1221,13 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     return out2,outdict,data
 
 
-def genAliases(starnames):
+def genAliases(data):
     """ Grab all available aliases for list of targets. """
 
     s = Simbad()
     s.add_votable_fields('ids')
-    baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI"
+    # baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI"
+    baseurl = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query="
 
     ids = []
     aliases = []
@@ -1233,13 +1235,18 @@ def genAliases(starnames):
     nosimbadalias = []
     badstars = []
     priname = []
+    starnames = data.pl_name
     for j,star in enumerate(starnames):
         print("%d/%d  %s"%(j+1,len(starnames),star))
 
         #get aliases from IPAC
-        r = requests.get(baseurl,{'table':'aliastable','objname':star})
-        if "ERROR" not in r.content:
-            tmp = r.content.strip().split("\n")
+        r = requests.get(f"{baseurl}select+*+from+object_aliases+where+resolved_name='{star}'&format=csv")
+        r_content = pd.read_csv(BytesIO(r.content))
+        if r_content.size > 1:
+            breakpoint()
+        if r_content.size != 0:
+            tmp = list(r_content.values)
+
         else:
             noipacalias.append(star)
             tmp = [star]
