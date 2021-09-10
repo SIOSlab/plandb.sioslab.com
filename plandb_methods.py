@@ -299,13 +299,19 @@ def getIPACdata():
     # Rerr = np.array([forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value if not(np.isnan(merr[j])) else np.nan for j in range(len(m))])*u.R_earth
 
     #create mod forecaster radius column and error cols
-    merged_data = merged_data.assign(pl_radj_forecastermod=merged_data['pl_radj'].values)
-    merged_data.loc[noR,'pl_radj_forecastermod'] = (R.to(u.R_jupiter)).value
-    merged_data = merged_data.assign(pl_radj_forecastermoderr1=merged_data['pl_radjerr1'].values)
-    merged_data.loc[noR,'pl_radj_forecastermoderr1'] = (Rerr.to(u.R_jupiter)).value
-    merged_data = merged_data.assign(pl_radj_forecastermoderr2=merged_data['pl_radjerr2'].values)
-    merged_data.loc[noR,'pl_radj_forecastermoderr2'] = -(Rerr.to(u.R_jupiter)).value
     # breakpoint()
+    # merged_data = merged_data.assign(pl_radj_forecastermod=merged_data['pl_radj'].values)
+    merged_data['pl_radj_forecastermod'] = merged_data['pl_radj'].values
+    merged_data.loc[noR,'pl_radj_forecastermod'] = (R.to(u.R_jupiter)).value
+
+    # merged_data = merged_data.assign(pl_radj_forecastermoderr1=merged_data['pl_radjerr1'].values)
+    merged_data['pl_radj_forecastermoderr1'] = merged_data['pl_radjerr1'].values
+    merged_data.loc[noR,'pl_radj_forecastermoderr1'] = (Rerr.to(u.R_jupiter)).value
+
+    # merged_data = merged_data.assign(pl_radj_forecastermoderr2=merged_data['pl_radjerr2'].values)
+    merged_data['pl_radj_forecastermoderr2'] = merged_data['pl_radjerr2'].values
+    merged_data.loc[noR,'pl_radj_forecastermoderr2'] = -(Rerr.to(u.R_jupiter)).value
+
 
 
     # now the Fortney model
@@ -328,7 +334,8 @@ def getIPACdata():
 
     Rf[mg10] = griddata(fortney.giant_pts2, fortney.giant_vals2,( np.array([10.]*np.where(mg10)[0].size), tmpsmas, tmpmass))
 
-    merged_data = merged_data.assign(pl_radj_fortney=merged_data['pl_radj'].values)
+    # merged_data = merged_data.assign(pl_radj_fortney=merged_data['pl_radj'].values)
+    merged_data['pl_radj_fortney'] = merged_data['pl_radj'].values
     #data['pl_radj_fortney'][noR] = ((Rf*u.R_earth).to(u.R_jupiter)).value
     merged_data.loc[noR,'pl_radj_fortney'] = ((Rf*u.R_earth).to(u.R_jupiter)).value
 
@@ -372,9 +379,11 @@ def getIPACdata():
                                       (np.array([10.] * np.where(mg10_dist)[0].size), tmpsmas, tmpmass))
         Rf_err.append(Rf_dist.std())
 
-    merged_data = merged_data.assign(pl_radj_fortneyerr1=merged_data['pl_radjerr1'].values)
+    # merged_data = merged_data.assign(pl_radj_fortneyerr1=merged_data['pl_radjerr1'].values)
+    merged_data['pl_radj_fortneyerr1'] = merged_data['pl_radjerr1'].values
     merged_data.loc[noR, 'pl_radj_fortneyerr1'] = ((Rf_err * u.R_earth).to(u.R_jupiter)).value
-    merged_data = merged_data.assign(pl_radj_forecastermoderr2=merged_data['pl_radjerr2'].values)
+    # merged_data = merged_data.assign(pl_radj_forecastermoderr2=merged_data['pl_radjerr2'].values)
+    merged_data['pl_radj_fortneyerr2'] = merged_data['pl_radjerr2'].values
     merged_data.loc[noR, 'pl_radj_fortneyerr2'] = -((Rf_err * u.R_earth).to(u.R_jupiter)).value
 
 
@@ -382,7 +391,8 @@ def getIPACdata():
     hase = ~np.isnan(merged_data['pl_orbeccen'].values)
     maxWA = WA[:]
     maxWA[hase] = np.arctan((merged_data['pl_orbsmax'][hase].values*(1 + merged_data['pl_orbeccen'][hase].values)*u.AU)/(merged_data['sy_dist'][hase].values*u.pc)).to('mas')
-    merged_data = merged_data.assign(pl_maxangsep=maxWA.value)
+    # merged_data = merged_data.assign(pl_maxangsep=maxWA.value)
+    merged_data['pl_maxangsep'] = maxWA.value
 
     #populate min WA based on eccentricity & inclination data (otherwise minWA = WA)
     hasI =  ~np.isnan(merged_data['pl_orbincl'].values)
@@ -391,7 +401,8 @@ def getIPACdata():
     s[hasI] *= np.cos(merged_data['pl_orbincl'][hasI].values*u.deg)
     s[~hasI] = 0
     minWA = np.arctan(s/(merged_data['sy_dist'].values*u.pc)).to('mas')
-    merged_data = merged_data.assign(pl_minangsep=minWA.value)
+    # merged_data = merged_data.assign(pl_minangsep=minWA.value)
+    merged_data['pl_minangsep'] =minWA.value
 
     #Fill in missing luminosity from meanstars
     ms = MeanStars()
@@ -1200,23 +1211,28 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
 
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = cs
-    data = data.assign(completeness=tmp)
+    data['completeness'] = tmp
+    # data = data.assign(completeness=tmp)
 
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = minCWA
-    data = data.assign(compMinWA=tmp)
+    data['compMinWA'] = tmp
+    # data = data.assign(compMinWA=tmp)
 
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = maxCWA
-    data = data.assign(compMaxWA=tmp)
+    data['compMaxWA'] = tmp
+    # data = data.assign(compMaxWA=tmp)
 
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = minCdMag
-    data = data.assign(compMindMag=tmp)
+    data['compMindMag'] = tmp
+    # data = data.assign(compMindMag=tmp)
 
     tmp = np.full(len(data),np.nan)
     tmp[goodinds] = maxCdMag
-    data = data.assign(compMaxdMag=tmp)
+    data['compMaxdMag'] = tmp
+    # data = data.assign(compMaxdMag=tmp)
 
     return out2,outdict,data
 
@@ -1227,7 +1243,9 @@ def genAliases(data):
     s = Simbad()
     s.add_votable_fields('ids')
     # baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI"
-    baseurl = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query="
+    # baseurl = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query="
+    baseurl = "https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI?table=aliastable&objname="
+    # https://exoplanetarchive.ipac.caltech.edu/docs/program_interfaces.html
 
     ids = []
     aliases = []
@@ -1236,20 +1254,24 @@ def genAliases(data):
     badstars = []
     priname = []
     starnames = data.pl_name
+    max_justification = data.pl_name.str.len().max()
+    t_bar = trange(len(starnames), leave=False)
+    print('Getting star aliases')
     for j,star in enumerate(starnames):
-        print("%d/%d  %s"%(j+1,len(starnames),star))
+        t_bar.set_description(star.ljust(max_justification))
+        t_bar.update(1)
 
         #get aliases from IPAC
-        r = requests.get(f"{baseurl}select+*+from+object_aliases+where+resolved_name='{star}'&format=csv")
-        r_content = pd.read_csv(BytesIO(r.content))
-        if r_content.size > 1:
-            breakpoint()
-        if r_content.size != 0:
-            tmp = list(r_content.values)
+        # r = requests.get(f"{baseurl}select+*+from+object_aliases+where+resolved_name='{star}'")
+        r = requests.get(f"{baseurl}{star}")
 
-        else:
+        if 'ERROR' in str(r.content):
             noipacalias.append(star)
             tmp = [star]
+        else:
+            r_content = pd.read_csv(BytesIO(r.content))
+            tmp = r_content.aliasdis.tolist()
+            print(tmp)
 
         #get aliases from SIMBAD
         try:
