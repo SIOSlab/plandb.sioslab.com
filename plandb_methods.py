@@ -262,8 +262,8 @@ def getIPACdata():
     sigma_d = ((merged_data['sy_disterr1']- merged_data['sy_disterr2'])/2.).values*u.pc
     sigma_wa = (np.sqrt(( (merged_data['pl_orbsmax'].values*u.AU)**2.0*sigma_d**2 + (merged_data['sy_dist'].values*u.pc)**2.0*sigma_a**2)/\
             ((merged_data['pl_orbsmax'].values*u.AU)**2.0 + (merged_data['sy_dist'].values*u.pc)**2.0)**2.0).decompose()*u.rad).to(u.mas)
-    merged_data['pl_angseperr1'] = sigma_wa
-    merged_data['pl_angseperr2'] = -sigma_wa
+    merged_data['pl_angseperr1'] = sigma_wa.value
+    merged_data['pl_angseperr2'] = -sigma_wa.value
 
     #fill in radius based on mass
     # noR = ((merged_data['pl_rade_reflink'] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>') |\
@@ -1068,15 +1068,15 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
         if np.isnan(fe): fe = 0.0
 
         #initialize loops vars
-        n = int(1e6)
-        c = 0.
+        n = int(1e6) # Number of planets
+        c = 0. # Completeness of the current loop
         h = np.zeros((len(WAbins)-3, len(dMagbins)-2))
-        k = 0.0
-        cprev = 0.0
-        pdiff = 1.0
+        k = 0.0 # A counter
+        cprev = 0.0 # Previous completeness value
+        pdiff = 1.0 # Percent difference
 
         while (pdiff > 0.0001) | (k <3):
-            print("%d \t %5.5e \t %5.5e"%( k,pdiff,c))
+            print(f"Iteration:{k} \t Percent difference between previous completeness value:{pdiff:5.5e} \t Calculated completeness:{c:5.5e}")
 
             #sample orbital parameters
             a = gena(n)
@@ -1271,7 +1271,6 @@ def genAliases(data):
         else:
             r_content = pd.read_csv(BytesIO(r.content))
             tmp = r_content.aliasdis.tolist()
-            print(tmp)
 
         #get aliases from SIMBAD
         try:

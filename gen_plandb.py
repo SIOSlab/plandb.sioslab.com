@@ -113,18 +113,27 @@ if cache:
             compdict = pickle.load(f)
         comps_data = pd.read_pickle(comps_data_path)
     else:
-        comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
+        comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_20190210b.csv")
         comps.to_pickle(comps_path)
         with open(compdict_path, 'wb') as f:
             pickle.dump(compdict, f)
         comps_data.to_pickle(comps_data_path)
 else:
-    comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_PhB_20190129.csv")
+    comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_20190210b.csv")
 
 #aliases
-aliases = genAliases(comps_data)
+aliases_path = Path(f'cache/aliases_{datestr}.p')
 if cache:
-    aliases.to_pickle('aliases_'+datestr+'.pkl')
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if aliases_path.exists():
+        with open(aliases_path, 'rb') as f:
+            aliases = pickle.load(f)
+    else:
+        aliases = genAliases(comps_data)
+        with open(aliases_path, 'wb') as f:
+            pickle.dump(aliases_path, f)
+else:
+    aliases = genAliases(comps_data)
 
 
 #testdb
