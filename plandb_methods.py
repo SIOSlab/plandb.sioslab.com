@@ -3,18 +3,22 @@ from __future__ import division, print_function
 import math
 import os
 import re
+from pathlib import Path
 from io import BytesIO
 
 import astropy.constants as const
 import astropy.units as u
 import EXOSIMS.PlanetPhysicalModel.Forecaster
+import json
 import numpy as np
 import pandas as pd
 import requests
 import sqlalchemy.types
 from astropy.time import Time
 from astroquery.simbad import Simbad
+from EXOSIMS.OpticalSystem.Nemati_2019 import Nemati_2019
 from EXOSIMS.PlanetPhysicalModel.ForecasterMod import ForecasterMod
+from EXOSIMS.TargetList.KnownRVPlanetsTargetList import KnownRVPlanetsTargetList
 from EXOSIMS.util.deltaMag import deltaMag
 from EXOSIMS.util.eccanom import eccanom
 from EXOSIMS.util.getExoplanetArchive import (getExoplanetArchivePS,
@@ -963,6 +967,102 @@ def get_fsed(num):
         r = 6
     return float(r)
 
+def calcContrastCurves(data, raw_contr_file):
+    """
+    This function will be used to calculate the contrast curves for every
+    star in the IPAC database based on the provided raw contrast file
+    Arguments:
+        data (pandas DataFrame):
+            Contains the best fit data from IPAC
+        raw_contr_file (Path):
+            Path to the CGPERF_performance file
+    Output:
+        data (pandas DataFrame):
+            Same dataframe, but with an additional column that contains the path to each contrast curve
+    """
+
+    # Go through the target list and change the Vmag to match IPAC's data
+    std_form_re = re.compile('\\s\w$')
+    stupid_koi_re = re.compile('\\.\d\d$')
+
+    # Declaring lists
+    star_names = []
+    star_Vmags = []
+    star_spectypes = []
+
+    # This is meant to track with sInds from EXOSIMS, so start at the final one
+    for _, row in data.iterrows():
+        pl_name = row.pl_name
+        re_search = std_form_re.search(pl_name)
+        koi_search = stupid_koi_re.search(pl_name)
+        if re_search:
+            star_name = pl_name[:-2]
+        elif koi_search:
+            star_name = pl_name[:-3]
+        else:
+            raise ValueError(f"Unexpected planet name format: {pl_name}")
+        if star_name in star_names:
+            # This catches when a star has already been added due to another planet
+            continue
+        star_names.append(star_name)
+        star_Vmags.append(row.sy_vmag)
+        star_spectypes.append(row.st_spectype)
+
+
+    sInds = np.arange(len(star_names))
+
+    # Need to create EXOSIMS TargetList, get the observation mode, get fZ, and fEZ, working angles
+    path = Path('exosims_input.json')
+    # path = Path('wfirst_nemati2019_knownRV_bands1and3.json')
+    with open(path) as ff:
+         specs = json.loads(ff.read())
+    TL = EXOSIMS.TargetList.KnownRVPlanetsTargetList.KnownRVPlanetsTargetList(**specs)
+    OS = TL.OpticalSystem
+    TL.Name = star_names
+    TL.Vmag = star_Vmags
+    mode = list(filter(lambda mode: mode['instName'] == 'imager', OS.observingModes))[0]
+    # Create new F0dict based on these stars
+    star_F0s = []
+    for spectype in star_spectypes:
+        # print(spectype)
+        # F0 seems incapable of handling sub-dwarves so exclude them
+        if type(spectype) is str and not "VI" in spectype:
+            star_F0s.append(TL.F0(mode["BW"], mode["lam"], spec=spectype).value)
+        else:
+            star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
+    TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
+    lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
+    working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
+    working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
+    fZ0 = TL.ZodiacalLight.fZ0
+    fEZ = TL.ZodiacalLight.fEZ(5.05, [20]*u.deg, 2.9*u.AU) # Taken from the Nemati spreadsheet
+    # for star in tqdm(star_names):
+        # contrasts = []
+    contrasts = []
+
+    # Create the cache location for the contrast curves
+    datestr = Time.now().datetime.strftime("%Y_%m")
+    contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
+    contrast_curve_cache.mkdir(parents=True, exist_ok=True)
+    int_time = 100*u.hr
+    for i, ind in enumerate(sInds):
+        contr_df = pd.DataFrame()
+        contrasts = []
+        for working_angle in working_angles_as:
+            dMag = OS.calc_dMag_per_intTime([int_time.to(u.hr).value]*u.hr, TL, [ ind ], fZ0, fEZ, working_angle, mode)
+            contr = 10**(dMag/(-2.5))
+            # print(f'\tWA {working_angle.value:0.3f} contrast: {contr[0]:5.5e}')
+            contrasts.append(contr[0])
+        contr_df['r_lamD'] = working_angles_lam_D
+        contr_df['r_as'] = working_angles_as.value
+        contr_df['contrast'] = contrasts
+        contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
+        contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
+        contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angle)]*len(working_angles_as)
+        contr_df.to_pickle(f'{contrast_curve_cache}/{star_names[i].replace(" ","_")}.p')
+        print(f'\nStar: {star_names[i]}\nSpectral type: {star_Vmags[i]}')
+        print(contr_df)
+    return data
 
 def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,contrfile='WFIRST_pred_imaging.txt'):
     """ For all known planets in data (output from getIPACdata), calculate obscurational
@@ -979,6 +1079,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     # contr = wfirstcontr[:,1]
     # angsep = wfirstcontr[:,0] #l/D
     # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
+    breakpoint()
     wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
     contr = wfirstcontr[:,3]
     angsep = wfirstcontr[:,0]

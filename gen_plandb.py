@@ -100,6 +100,19 @@ if cache:
 else:
     altorbdata = genAltOrbitData(quadrature_data, bandzip, photdict)
 
+# Calculating contrast curves for stars
+print('Contrast curve calculations')
+contr_data_path = Path(f'cache/contr_data_{datestr}.p')
+if cache:
+    if contr_data_path.exists():
+        contr_data = pd.read_pickle(contr_data_path)
+    else:
+        contr_data = calcContrastCurves(quadrature_data, 'CGPERF_HLC_20190210b')
+        with open(contr_data_path, 'wb') as f:
+            pickle.dump(contr_data, f)
+else:
+    contr_data = calcContrastCurves(quadrature_data, 'CGPERF_HLC_20190210b')
+
 #completeness
 print('Doing completeness calculations')
 comps_path = Path(f'cache/comps_{datestr}.p')
