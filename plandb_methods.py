@@ -12,6 +12,7 @@ import EXOSIMS.PlanetPhysicalModel.Forecaster
 import json
 import numpy as np
 import pandas as pd
+import pickle
 import requests
 import sqlalchemy.types
 from astropy.time import Time
@@ -1046,6 +1047,9 @@ def calcContrastCurves(data, raw_contr_file):
     contrast_curve_cache.mkdir(parents=True, exist_ok=True)
     int_time = 100*u.hr
     for i, ind in enumerate(sInds):
+        star_path = Path(f'{contrast_curve_cache}/{star_names[i].replace(" ","_")}.p')
+        if star_path.exists():
+            continue
         contr_df = pd.DataFrame()
         contrasts = []
         for working_angle in working_angles_as:
@@ -1055,16 +1059,17 @@ def calcContrastCurves(data, raw_contr_file):
             contrasts.append(contr[0])
         contr_df['r_lamD'] = working_angles_lam_D
         contr_df['r_as'] = working_angles_as.value
+        contr_df['r_mas'] = working_angles_as.value*1000
         contr_df['contrast'] = contrasts
         contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
         contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
         contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angle)]*len(working_angles_as)
-        contr_df.to_pickle(f'{contrast_curve_cache}/{star_names[i].replace(" ","_")}.p')
+        contr_df.to_pickle(star_path)
         print(f'\nStar: {star_names[i]}\nSpectral type: {star_Vmags[i]}')
         print(contr_df)
     return data
 
-def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,contrfile='WFIRST_pred_imaging.txt'):
+def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450):
     """ For all known planets in data (output from getIPACdata), calculate obscurational
     and photometric completeness for those cases where obscurational completeness is
     non-zero.
@@ -1075,16 +1080,44 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     feinterp = photdict['feinterp']
     distinterp = photdict['distinterp']
 
+    # Go through the target list and change the Vmag to match IPAC's data
+    std_form_re = re.compile('\\s\w$')
+    stupid_koi_re = re.compile('\\.\d\d$')
+
+    # Getting the list of the contrast and star names curves
+    datestr = Time.now().datetime.strftime("%Y_%m")
+    contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
+
+    # Declaring lists
+    star_names = []
+    contr_paths = []
+    for _, row in data.iterrows():
+        pl_name = row.pl_name
+        re_search = std_form_re.search(pl_name)
+        koi_search = stupid_koi_re.search(pl_name)
+        if re_search:
+            star_name = pl_name[:-2]
+        elif koi_search:
+            star_name = pl_name[:-3]
+        else:
+            raise ValueError(f"Unexpected planet name format: {pl_name}")
+        star_names.append(star_name)
+        contr_paths.append(Path(f'{contrast_curve_cache}/{star_name.replace(" ","_")}.p'))
+
     # wfirstcontr = np.genfromtxt(contrfile)
     # contr = wfirstcontr[:,1]
     # angsep = wfirstcontr[:,0] #l/D
     # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
-    breakpoint()
-    wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
-    contr = wfirstcontr[:,3]
-    angsep = wfirstcontr[:,0]
-    angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
-    wfirstc = interp1d(angsep,contr,bounds_error = False, fill_value = 'extrapolate')
+    # breakpoint()
+    # wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
+    # contr = wfirstcontr[:,3]
+    # angsep = wfirstcontr[:,0]
+    # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
+    wfirstc_list = []
+    for path in contr_paths:
+        with open(path, 'rb') as f:
+            contr_df = pickle.load(f)
+        wfirstc_list.append(interp1d(contr_df.r_as*1000, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate'))
 
     inds = np.where((data['pl_maxangsep'].values > minangsep) &
                     (data['pl_minangsep'].values < maxangsep))[0]
@@ -1104,7 +1137,8 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450,
     WAinds = WAinds.T
     dMaginds = dMaginds.T
 
-    dMaglimsc = wfirstc(WAc[:,0])
+    dMaglimsc = wfirstc_list[0](WAc[:,0])
+    dMaglimsc_list = [wfirstc(WAc[:,0]) for wfirstc in wfirstc_list]
 
     #define vectorized f_sed sampler
     vget_fsed = np.vectorize(get_fsed)
