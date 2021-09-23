@@ -968,7 +968,7 @@ def get_fsed(num):
         r = 6
     return float(r)
 
-def calcContrastCurves(data, raw_contr_file):
+def calcContrastCurves(data):
     """
     This function will be used to calculate the contrast curves for every
     star in the IPAC database based on the provided raw contrast file
@@ -991,6 +991,13 @@ def calcContrastCurves(data, raw_contr_file):
     star_Vmags = []
     star_spectypes = []
 
+    # These are used to keep track of where each planet's star's contrast curves
+    # are going to be saved
+    datestr = Time.now().datetime.strftime("%Y_%m")
+    contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
+    contrast_curve_cache.mkdir(parents=True, exist_ok=True)
+    star_path_list = []
+
     # This is meant to track with sInds from EXOSIMS, so start at the final one
     for _, row in data.iterrows():
         pl_name = row.pl_name
@@ -1002,6 +1009,8 @@ def calcContrastCurves(data, raw_contr_file):
             star_name = pl_name[:-3]
         else:
             raise ValueError(f"Unexpected planet name format: {pl_name}")
+        star_path = Path(f'{contrast_curve_cache}/{star_name.replace(" ","_")}.p')
+        star_path_list.append(star_path)
         if star_name in star_names:
             # This catches when a star has already been added due to another planet
             continue
@@ -1009,7 +1018,7 @@ def calcContrastCurves(data, raw_contr_file):
         star_Vmags.append(row.sy_vmag)
         star_spectypes.append(row.st_spectype)
 
-
+    data['contr_curve_path'] = star_path_list
     sInds = np.arange(len(star_names))
 
     # Need to create EXOSIMS TargetList, get the observation mode, get fZ, and fEZ, working angles
@@ -1042,12 +1051,10 @@ def calcContrastCurves(data, raw_contr_file):
     contrasts = []
 
     # Create the cache location for the contrast curves
-    datestr = Time.now().datetime.strftime("%Y_%m")
-    contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
-    contrast_curve_cache.mkdir(parents=True, exist_ok=True)
     int_time = 100*u.hr
-    for i, ind in enumerate(sInds):
+    for i, ind in enumerate(tqdm( sInds )):
         star_path = Path(f'{contrast_curve_cache}/{star_names[i].replace(" ","_")}.p')
+        star_path_list.append(star_path)
         if star_path.exists():
             continue
         contr_df = pd.DataFrame()
@@ -1065,8 +1072,8 @@ def calcContrastCurves(data, raw_contr_file):
         contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
         contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angle)]*len(working_angles_as)
         contr_df.to_pickle(star_path)
-        print(f'\nStar: {star_names[i]}\nSpectral type: {star_Vmags[i]}')
-        print(contr_df)
+        # print(f'\nStar: {star_names[i]}\nSpectral type: {star_Vmags[i]}')
+        # print(contr_df)
     return data
 
 def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450):
@@ -1088,21 +1095,6 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450)
     datestr = Time.now().datetime.strftime("%Y_%m")
     contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
 
-    # Declaring lists
-    star_names = []
-    contr_paths = []
-    for _, row in data.iterrows():
-        pl_name = row.pl_name
-        re_search = std_form_re.search(pl_name)
-        koi_search = stupid_koi_re.search(pl_name)
-        if re_search:
-            star_name = pl_name[:-2]
-        elif koi_search:
-            star_name = pl_name[:-3]
-        else:
-            raise ValueError(f"Unexpected planet name format: {pl_name}")
-        star_names.append(star_name)
-        contr_paths.append(Path(f'{contrast_curve_cache}/{star_name.replace(" ","_")}.p'))
 
     # wfirstcontr = np.genfromtxt(contrfile)
     # contr = wfirstcontr[:,1]
@@ -1114,10 +1106,12 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450)
     # angsep = wfirstcontr[:,0]
     # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
     wfirstc_list = []
-    for path in contr_paths:
-        with open(path, 'rb') as f:
+    for _, planet in data.iterrows():
+        with open(planet['contr_curve_path'], 'rb') as f:
             contr_df = pickle.load(f)
-        wfirstc_list.append(interp1d(contr_df.r_as*1000, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate'))
+        planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate')
+        wfirstc_list = planet_wfirstc
+    data["contr_curve"] = wfirstc_list
 
     inds = np.where((data['pl_maxangsep'].values > minangsep) &
                     (data['pl_minangsep'].values < maxangsep))[0]
@@ -1137,8 +1131,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450)
     WAinds = WAinds.T
     dMaginds = dMaginds.T
 
-    dMaglimsc = wfirstc_list[0](WAc[:,0])
-    dMaglimsc_list = [wfirstc(WAc[:,0]) for wfirstc in wfirstc_list]
+    # dMaglimsc = wfirstc(WAc[:,0])
 
     #define vectorized f_sed sampler
     vget_fsed = np.vectorize(get_fsed)
@@ -1153,6 +1146,8 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450)
     goodinds = []
     for i,j in enumerate(inds):
         row = data.iloc[j]
+        wfirstc = row.contr_curve
+        # dMaglimsc = wfirstc(WAc[:, 0])
         print("%d/%d  %s"%(i+1,len(inds),row['pl_name']))
 
         #sma distribution

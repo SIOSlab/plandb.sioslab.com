@@ -107,11 +107,11 @@ if cache:
     if contr_data_path.exists():
         contr_data = pd.read_pickle(contr_data_path)
     else:
-        contr_data = calcContrastCurves(quadrature_data, 'CGPERF_HLC_20190210b')
+        contr_data = calcContrastCurves(quadrature_data)
         with open(contr_data_path, 'wb') as f:
             pickle.dump(contr_data, f)
 else:
-    contr_data = calcContrastCurves(quadrature_data, 'CGPERF_HLC_20190210b')
+    contr_data = calcContrastCurves(quadrature_data)
 
 #completeness
 print('Doing completeness calculations')
@@ -126,13 +126,13 @@ if cache:
             compdict = pickle.load(f)
         comps_data = pd.read_pickle(comps_data_path)
     else:
-        comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_20190210b.csv")
+        comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict)
         comps.to_pickle(comps_path)
         with open(compdict_path, 'wb') as f:
             pickle.dump(compdict, f)
         comps_data.to_pickle(comps_data_path)
 else:
-    comps, compdict, comps_data = calcPlanetCompleteness(quadrature_data, bandzip, photdict, contrfile="CGPERF_HLC_20190210b.csv")
+    comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict)
 
 #aliases
 aliases_path = Path(f'cache/aliases_{datestr}.p')
