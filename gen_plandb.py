@@ -103,15 +103,16 @@ else:
 # Calculating contrast curves for stars
 print('Contrast curve calculations')
 contr_data_path = Path(f'cache/contr_data_{datestr}.p')
+exosims_json = 'ci_perf_exosims.json'
 if cache:
     if contr_data_path.exists():
         contr_data = pd.read_pickle(contr_data_path)
     else:
-        contr_data = calcContrastCurves(quadrature_data)
+        contr_data = calcContrastCurves(quadrature_data, exosims_json=exosims_json)
         with open(contr_data_path, 'wb') as f:
             pickle.dump(contr_data, f)
 else:
-    contr_data = calcContrastCurves(quadrature_data)
+    contr_data = calcContrastCurves(quadrature_data, exosims_json=exosims_json)
 
 #completeness
 print('Doing completeness calculations')
@@ -126,16 +127,17 @@ if cache:
             compdict = pickle.load(f)
         comps_data = pd.read_pickle(comps_data_path)
     else:
-        comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict)
+        comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict, exosims_json=exosims_json)
         comps.to_pickle(comps_path)
         with open(compdict_path, 'wb') as f:
             pickle.dump(compdict, f)
         comps_data.to_pickle(comps_data_path)
 else:
-    comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict)
+    comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict, exosims_json=exosims_json)
 
 #aliases
-aliases_path = Path(f'cache/aliases_{datestr}.p')
+# aliases_path = Path(f'cache/aliases_{datestr}.p')
+aliases_path = Path(f'cache/aliases_2021-09-22.p') # Saved version
 if cache:
     Path('cache/').mkdir(parents=True, exist_ok=True)
     if aliases_path.exists():
