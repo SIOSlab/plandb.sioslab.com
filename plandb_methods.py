@@ -304,7 +304,6 @@ def getIPACdata():
     # Rerr = np.array([forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value if not(np.isnan(merr[j])) else np.nan for j in range(len(m))])*u.R_earth
 
     #create mod forecaster radius column and error cols
-    # breakpoint()
     # merged_data = merged_data.assign(pl_radj_forecastermod=merged_data['pl_radj'].values)
     merged_data['pl_radj_forecastermod'] = merged_data['pl_radj'].values
     merged_data.loc[noR,'pl_radj_forecastermod'] = (R.to(u.R_jupiter)).value
@@ -349,7 +348,6 @@ def getIPACdata():
     tmpsmas = merged_data['pl_orbsmax'][noR].values
     tmpsmaserr = (merged_data['pl_orbsmaxerr1'][noR].values - merged_data['pl_orbsmaxerr2'][noR].values) / 2.0
     adist = np.zeros((len(m), int(1e4)))
-    # breakpoint()
     for j, _ in enumerate(tmpsmas):  # Create smax distribution
         if np.isnan(tmpsmaserr[j]) or (tmpsmaserr[j] == 0):
             adist[j, :] = (np.ones(int(1e4))* tmpsmas[j])
@@ -968,25 +966,30 @@ def get_fsed(num):
         r = 6
     return float(r)
 
-def calcContrastCurves(data):
+def calcContrastCurves(data, exosims_json):
     """
     This function will be used to calculate the contrast curves for every
     star in the IPAC database based on the provided raw contrast file
     Arguments:
         data (pandas DataFrame):
             Contains the best fit data from IPAC
-        raw_contr_file (Path):
-            Path to the CGPERF_performance file
+        exosims_json (Path):
+            Path to the exosims input json that is used to compute contrast curves for the different modes
     Output:
         data (pandas DataFrame):
-            Same dataframe, but with an additional column that contains the path to each contrast curve
+            Same dataframe, but with an additional columns that contain the path to each contrast curve
     """
 
     # Go through the target list and change the Vmag to match IPAC's data
     std_form_re = re.compile('\\s\w$')
     stupid_koi_re = re.compile('\\.\d\d$')
 
-    # Declaring lists
+    # This will store every value in the row in order
+    dup_star_names = []
+    dup_star_Vmags = []
+    dup_star_spectypes = []
+    dup_star_inds = []
+    # These lists don't contain duplicates
     star_names = []
     star_Vmags = []
     star_spectypes = []
@@ -994,11 +997,11 @@ def calcContrastCurves(data):
     # These are used to keep track of where each planet's star's contrast curves
     # are going to be saved
     datestr = Time.now().datetime.strftime("%Y_%m")
-    contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
-    contrast_curve_cache.mkdir(parents=True, exist_ok=True)
-    star_path_list = []
+    contrast_curve_cache_base = Path(f'cache/cont_curvs_{datestr}/')
+    contrast_curve_cache_base.mkdir(parents=True, exist_ok=True)
+    star_base_path_list = []
 
-    # This is meant to track with sInds from EXOSIMS, so start at the final one
+    # Get the stellar information for each star and keep track of them to add to the dataframe
     for _, row in data.iterrows():
         pl_name = row.pl_name
         re_search = std_form_re.search(pl_name)
@@ -1009,8 +1012,11 @@ def calcContrastCurves(data):
             star_name = pl_name[:-3]
         else:
             raise ValueError(f"Unexpected planet name format: {pl_name}")
-        star_path = Path(f'{contrast_curve_cache}/{star_name.replace(" ","_")}.p')
-        star_path_list.append(star_path)
+        star_base_path = Path(f'{contrast_curve_cache_base}/{star_name.replace(" ","_")}.p')
+        star_base_path_list.append(star_base_path)
+        dup_star_names.append(star_name)
+        dup_star_Vmags.append(row.sy_vmag)
+        dup_star_spectypes.append(row.st_spectype)
         if star_name in star_names:
             # This catches when a star has already been added due to another planet
             continue
@@ -1018,62 +1024,83 @@ def calcContrastCurves(data):
         star_Vmags.append(row.sy_vmag)
         star_spectypes.append(row.st_spectype)
 
-    data['contr_curve_path'] = star_path_list
-    sInds = np.arange(len(star_names))
+    dup_sInds = []
+    # This finds all the sInds values for the planets, this is needed
+    # because the targetlist only stores each star once, but IPAC has multiple
+    # planets for the stars. This keeps the sInd for each planet's associated
+    # star in order so that they can be assigned to the dataframe easily
+    for star_name in dup_star_names:
+        dup_sInds.append(np.where(np.array(star_names) == star_name)[0][0])
+    # data['contr_curve_base_path'] = star_base_path_list
+    # sInds = np.arange(len(star_names))
 
     # Need to create EXOSIMS TargetList, get the observation mode, get fZ, and fEZ, working angles
-    path = Path('exosims_input.json')
-    # path = Path('wfirst_nemati2019_knownRV_bands1and3.json')
-    with open(path) as ff:
-         specs = json.loads(ff.read())
-    TL = EXOSIMS.TargetList.KnownRVPlanetsTargetList.KnownRVPlanetsTargetList(**specs)
+    with open(exosims_json, 'rb') as ff:
+        specs = json.loads(ff.read())
+    # TL = EXOSIMS.TargetList.KnownRVPlanetsTargetList.KnownRVPlanetsTargetList(**specs)
+    TL = EXOSIMS.Prototypes.TargetList.TargetList(**specs)
     OS = TL.OpticalSystem
     TL.Name = star_names
     TL.Vmag = star_Vmags
-    mode = list(filter(lambda mode: mode['instName'] == 'imager', OS.observingModes))[0]
-    # Create new F0dict based on these stars
-    star_F0s = []
-    for spectype in star_spectypes:
-        # print(spectype)
-        # F0 seems incapable of handling sub-dwarves so exclude them
-        if type(spectype) is str and not "VI" in spectype:
-            star_F0s.append(TL.F0(mode["BW"], mode["lam"], spec=spectype).value)
-        else:
-            star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
-    TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
-    lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
-    working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
-    working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
-    fZ0 = TL.ZodiacalLight.fZ0
-    fEZ = TL.ZodiacalLight.fEZ(5.05, [20]*u.deg, 2.9*u.AU) # Taken from the Nemati spreadsheet
-    # for star in tqdm(star_names):
-        # contrasts = []
-    contrasts = []
+    modes = OS.observingModes
+    img_int_times = [25*u.hr, 100*u.hr, 10000*u.hr]
+    spe_int_times = [100*u.hr, 400*u.hr, 10000*u.hr]
 
-    # Create the cache location for the contrast curves
-    int_time = 100*u.hr
-    for i, ind in enumerate(tqdm( sInds )):
-        star_path = Path(f'{contrast_curve_cache}/{star_names[i].replace(" ","_")}.p')
-        star_path_list.append(star_path)
-        if star_path.exists():
-            continue
-        contr_df = pd.DataFrame()
-        contrasts = []
-        for working_angle in working_angles_as:
-            dMag = OS.calc_dMag_per_intTime([int_time.to(u.hr).value]*u.hr, TL, [ ind ], fZ0, fEZ, working_angle, mode)
-            contr = 10**(dMag/(-2.5))
-            # print(f'\tWA {working_angle.value:0.3f} contrast: {contr[0]:5.5e}')
-            contrasts.append(contr[0])
-        contr_df['r_lamD'] = working_angles_lam_D
-        contr_df['r_as'] = working_angles_as.value
-        contr_df['r_mas'] = working_angles_as.value*1000
-        contr_df['contrast'] = contrasts
-        contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
-        contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
-        contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angle)]*len(working_angles_as)
-        contr_df.to_pickle(star_path)
-        # print(f'\nStar: {star_names[i]}\nSpectral type: {star_Vmags[i]}')
-        # print(contr_df)
+    for mode in modes:
+        mode_name = mode['instName']
+        # Create new F0dict based on these stars
+        if 'Spec' in mode_name:
+            int_times = spe_int_times
+        elif 'Imager' in mode_name:
+            int_times = img_int_times
+        else:
+            raise ValueError(f"Invalid mode name: {mode_name}")
+        for int_time in int_times:
+            scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
+            scenario_path_list = []
+            star_F0s = []
+            for spectype in star_spectypes:
+                # F0 seems incapable of handling sub-dwarves so exclude them
+                if isinstance(spectype, str) and not "VI" in spectype:
+                    star_F0s.append(TL.F0(mode["BW"], mode["lam"], spec=spectype).value)
+                else:
+                    star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
+            TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
+            lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
+            working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
+            working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
+            fZ0 = TL.ZodiacalLight.fZ0
+            fEZ = TL.ZodiacalLight.fEZ(5.05, [20]*u.deg, 2.9*u.AU) # Taken from the Nemati spreadsheet
+            # for star in tqdm(star_names):
+                # contrasts = []
+            contrasts = []
+
+            # Create the cache location for the contrast curves
+            # int_time = 100*u.hr
+            print(f'Calculating contrast curves for {scenario_name}')
+            for i, star_name in enumerate(tqdm( dup_star_names )):
+                ind = dup_sInds[i]
+                star_scenario_path = Path(f'{contrast_curve_cache_base}/{star_name.replace(" ","_")}_{scenario_name}.p')
+                scenario_path_list.append(star_scenario_path)
+                if star_scenario_path.exists():
+                    continue
+                contr_df = pd.DataFrame()
+                contrasts = []
+                for working_angle in working_angles_as:
+                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.hr).value]*u.hr, TL, [ ind ], fZ0, fEZ, working_angle, mode)
+                    contr = 10**(dMag/(-2.5))
+                    # print(f'\tWA {working_angle.value:0.3f} contrast: {contr[0]:5.5e}')
+                    contrasts.append(contr[0])
+                contr_df['r_lamD'] = working_angles_lam_D
+                contr_df['r_as'] = working_angles_as.value
+                contr_df['r_mas'] = working_angles_as.value*1000
+                contr_df['contrast'] = contrasts
+                contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
+                contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
+                contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angles_as[0])]*len(working_angles_as)
+                contr_df.to_pickle(star_scenario_path)
+            breakpoint()
+            data[scenario_name] = scenario_path_list
     return data
 
 def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450):
@@ -1100,7 +1127,6 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450)
     # contr = wfirstcontr[:,1]
     # angsep = wfirstcontr[:,0] #l/D
     # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
-    # breakpoint()
     # wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
     # contr = wfirstcontr[:,3]
     # angsep = wfirstcontr[:,0]
