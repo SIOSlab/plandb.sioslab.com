@@ -29,12 +29,16 @@ from requests.exceptions import ConnectionError
 from scipy.interpolate import RectBivariateSpline, griddata, interp1d, interp2d
 from sqlalchemy import create_engine
 from tqdm import trange, tqdm
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import BytesIO as StringIO
 
+def comp_plot():
+    pass
 
 def getIPACdata():
     '''
@@ -47,8 +51,7 @@ def getIPACdata():
     ps_data = getExoplanetArchivePS()
 
     #only keep stuff related to the star from composite
-    composite_cols = [col for col in pscp_data.columns if (col == 'pl_name') or
-                      str.startswith(col, 'st_')]
+    composite_cols = [col for col in pscp_data.columns if (col == 'pl_name') or str.startswith(col, 'st_') or col == 'sy_vmag']
     # composite_cols.extend(['pl_radj', 'pl_radj_reflink'])
     pscp_data = pscp_data[composite_cols]
 
@@ -76,7 +79,8 @@ def getIPACdata():
         # Now take all the stellar data from the composite table
         for col in composite_cols:
             if col != 'pl_name':
-                merged_data.at[i, col] = c_row[col].values[0]
+                if pd.isnull(merged_data.loc[i, col]):
+                    merged_data.at[i, col] = c_row[col].values[0]
 
         last_pl = pl
     t_bar.close()
@@ -1030,7 +1034,10 @@ def calcContrastCurves(data, exosims_json):
     # planets for the stars. This keeps the sInd for each planet's associated
     # star in order so that they can be assigned to the dataframe easily
     for star_name in dup_star_names:
+        #TODO The star '2MASS J01225093-2439505' is somehow getting mixed up with '2MASS J12073346-3932539' in this step and the index seems to be off by one once we hit the contrast curve calculations
         dup_sInds.append(np.where(np.array(star_names) == star_name)[0][0])
+        # if star_name == '2MASS J01225093-2439505':
+            # breakpoint()
     # data['contr_curve_base_path'] = star_base_path_list
     # sInds = np.arange(len(star_names))
 
@@ -1043,11 +1050,34 @@ def calcContrastCurves(data, exosims_json):
     TL.Name = star_names
     TL.Vmag = star_Vmags
     modes = OS.observingModes
+
     img_int_times = [25*u.hr, 100*u.hr, 10000*u.hr]
     spe_int_times = [100*u.hr, 400*u.hr, 10000*u.hr]
 
+
+    #TODO remove override
+    # modes = [modes[0]]
+    # img_int_times = [25*u.hr]
+
+
     for mode in modes:
         mode_name = mode['instName']
+        minangsep = mode['IWA']
+        maxangsep = mode['OWA']
+        # Only care about planets that can be within our geometric constraints
+        inds = np.where((data['pl_maxangsep'].values > minangsep.to(u.mas).value) &
+                        (data['pl_minangsep'].values < maxangsep.to(u.mas).value) &
+                        (~data['sy_vmag'].isnull().values))[0]
+        lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
+        # working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
+        # working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
+        working_angles_as = np.linspace(minangsep.to(u.arcsec).value, maxangsep.to(u.arcsec).value)*u.arcsec
+        working_angles_lam_D = (working_angles_as.to(u.mas)/lam_D).value
+        # Now need to convert the inds into the corrected ones accounting for duplicates
+        viable_inds = []
+        for ind in inds:
+            viable_inds.append(dup_sInds[ind])
+
         # Create new F0dict based on these stars
         if 'Spec' in mode_name:
             int_times = spe_int_times
@@ -1055,6 +1085,8 @@ def calcContrastCurves(data, exosims_json):
             int_times = img_int_times
         else:
             raise ValueError(f"Invalid mode name: {mode_name}")
+
+        # Getting the IWA and OWA based on mode
         for int_time in int_times:
             scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
             scenario_path_list = []
@@ -1066,9 +1098,7 @@ def calcContrastCurves(data, exosims_json):
                 else:
                     star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
             TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
-            lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
-            working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
-            working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
+
             fZ0 = TL.ZodiacalLight.fZ0
             fEZ = TL.ZodiacalLight.fEZ(5.05, [20]*u.deg, 2.9*u.AU) # Taken from the Nemati spreadsheet
             # for star in tqdm(star_names):
@@ -1078,16 +1108,24 @@ def calcContrastCurves(data, exosims_json):
             # Create the cache location for the contrast curves
             # int_time = 100*u.hr
             print(f'Calculating contrast curves for {scenario_name}')
-            for i, star_name in enumerate(tqdm( dup_star_names )):
+            t_bar = trange(len(viable_inds), leave=True)
+            for i, star_name in enumerate(dup_star_names):
                 ind = dup_sInds[i]
                 star_scenario_path = Path(f'{contrast_curve_cache_base}/{star_name.replace(" ","_")}_{scenario_name}.p')
                 scenario_path_list.append(star_scenario_path)
+                # if i == 10:
+                    # breakpoint()
+                if ind not in viable_inds:
+                    continue
+                t_bar.update(1)
                 if star_scenario_path.exists():
                     continue
                 contr_df = pd.DataFrame()
                 contrasts = []
                 for working_angle in working_angles_as:
-                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.hr).value]*u.hr, TL, [ ind ], fZ0, fEZ, working_angle, mode)
+                    # print(f'Working angle: {working_angle}')
+                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ ind ], fZ0, fEZ, working_angle, mode)
+                    # breakpoint()
                     contr = 10**(dMag/(-2.5))
                     # print(f'\tWA {working_angle.value:0.3f} contrast: {contr[0]:5.5e}')
                     contrasts.append(contr[0])
@@ -1116,8 +1154,17 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
     modes = OS.observingModes
     img_int_times = [25*u.hr, 100*u.hr, 10000*u.hr]
     spe_int_times = [100*u.hr, 400*u.hr, 10000*u.hr]
+
+
+    # TODO remove mode override
+    # modes = [modes[0]]
+    # img_int_times = [25*u.hr]
+
+
     # Do completeness calculations for each scenario
     for mode in modes:
+        minangsep = mode['IWA'].to(u.mas).value
+        maxangsep = mode['OWA'].to(u.mas).value
         mode_name = mode['instName']
         # Create new F0dict based on these stars
         if 'Spec' in mode_name:
@@ -1128,6 +1175,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
             raise ValueError(f"Invalid mode name: {mode_name}")
         for int_time in int_times:
             scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
+            print(f'Calculating completeness for {scenario_name}')
 
             (l,band,bw,ws,wstep) = bandzip[0]
             photinterps2 = photdict['photinterps']
@@ -1146,15 +1194,22 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
             # angsep = wfirstcontr[:,0]
             # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
             wfirstc_list = []
-            for _, planet in data.iterrows():
+            # inds = np.where((data['pl_maxangsep'].values > minangsep) &
+                            # (data['pl_minangsep'].values < maxangsep))[0]
+            inds = np.where((data['pl_maxangsep'].values > minangsep) &
+                            (data['pl_minangsep'].values < maxangsep) &
+                            (~data['sy_vmag'].isnull().values))[0]
+            for ind, planet in data.iterrows():
+                if ind not in inds:
+                    wfirstc_list.append(np.nan)
+                    continue
                 with open(planet[scenario_name], 'rb') as f:
                     contr_df = pickle.load(f)
-                planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate')
-                wfirstc_list = planet_wfirstc
+                planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False)
+                # planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate')
+                wfirstc_list.append(planet_wfirstc)
+                # wfirstc_list = planet_wfirstc
             data[f"contr_curve_{scenario_name}"] = wfirstc_list
-
-            inds = np.where((data['pl_maxangsep'].values > minangsep) &
-                            (data['pl_minangsep'].values < maxangsep))[0]
 
             WAbins0 = np.arange(minangsep,maxangsep+1,1)
             WAbins = np.hstack((0, WAbins0, np.inf))
@@ -1317,6 +1372,29 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
 
                     dMaglimtmp = -2.5*np.log10(wfirstc(WA))
                     currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= dMaglimtmp))[0]))/n
+                    if k == 1:
+                        plt.style.use('dark_background')
+                        fig_path = Path('figures', f'{mode_name.replace(" ", "_")}_{str(int_time).replace(" ", "_")}')
+                        fig_path.mkdir(parents=True, exist_ok=True)
+                        save_path = Path(fig_path, f'{row["pl_name"].replace(" ", "_")}.png')
+                        fig, ax = plt.subplots()
+                        ax.set_title(f'Mode: {mode_name}. Int time: {int_time}. Planet: {row["pl_name"]}')
+                        ax.set_xlabel(r'$\alpha$ (mas)')
+                        ax.set_ylabel(r'$\Delta$mag')
+                        ax.set_xlim([0, 500])
+                        ax.set_ylim([10, 35])
+                        ax.annotate(f"C={currc:.4f}", xy=(250, 33), ha='center', va='center', zorder=6, size=20)
+
+                        IWA_ang = minangsep
+                        OWA_ang = maxangsep
+                        wa_range = np.linspace(minangsep, maxangsep)
+                        dmaglims = -2.5*np.log10(wfirstc(wa_range))
+                        # detectability_line = mpl.lines.Line2D([IWA_ang, OWA_ang], [dMaglimtmp[0], dMaglimtmp[0]], color='red')
+                        # ax.add_line(detectability_line)
+                        ax.scatter(WA, dMag, s=0.1, alpha=0.1)
+                        ax.plot(wa_range, dmaglims, c='r')
+                        fig.savefig(save_path)
+                        plt.close()
 
                     #currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= 22.5))[0]))/n
                     cprev = c
