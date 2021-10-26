@@ -1381,7 +1381,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
                         ax.set_title(f'Mode: {mode_name}. Int time: {int_time}. Planet: {row["pl_name"]}')
                         ax.set_xlabel(r'$\alpha$ (mas)')
                         ax.set_ylabel(r'$\Delta$mag')
-                        ax.set_xlim([0, 500])
+                        ax.set_xlim([0, maxangsep+100])
                         ax.set_ylim([10, 35])
                         ax.annotate(f"C={currc:.4f}", xy=(250, 33), ha='center', va='center', zorder=6, size=20)
 
