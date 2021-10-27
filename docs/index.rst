@@ -584,6 +584,50 @@ A few sample queries:
         
 
 
+Building Your Own
+========================
+
+All of the frontend and backend code for generating the database and web interface is available at https://github.com/sioslab/plandb.sioslab.com
+
+In order to build the database, you will need a mysql server (https://www.mysql.com/) or equivalent, along with a Python 3 installation (https://www.python.org/) and the following Python packages:
+
+    * astropy
+    * numpy
+    * scipy
+    * sqlalchemy
+    * EXOSIMS
+    * pandas
+    * MeanStars
+
+all of which are pip installable. The basic procedure for building the database is outlined in ``gen_plandb.py`` and consists of calling methods from ``plandb_methods.py``:
+
+    * ``getIPACdata`` to download NExSci Exoplanet Archive Data
+    * ``calcQuadratureVals`` to calculate orbital values at quadrature
+    * ``genOrbitData`` to calculate full orbits
+    * ``genAltOrbitData`` to calculate orbits for multiple inclinations in cases where the inclination is unknown 
+    * ``calcPlanetCompleteness`` to build the completeness table
+    * ``writeSQL`` to dump all of the data into the database
+
+You will need to prepare an SQL database to store the data.  This database should be accessible by two users: an administrative user which full permissions, and a read-only user with only query permissions (the latter is nominally called ``plandb_user``).
+
+The frontend is written in a mixture of php and javascript and can be run locally by executing (in the top level repository):
+
+    .. code-block:: 
+
+        php -S localhost:8000
+
+Where the final four digits are a port number that can be changed to any desired value.  You can then point your browser at the same address to access the frontend.  Note that this assumes that you have a local connection to your SQL server.  If the server is running on a different machine, you will need to create an SSH tunnel for the sql port (nominally 3306) to your localhost.
+
+Finally, you will need to provide the frontend with credentials to access your database.  This is done by adding a file called ``config.php`` to the top level of the repository with the contents:
+
+    .. code-block:: php
+
+        <?php 
+        $servername = "127.0.0.1";
+        $username = "your_readonly_db_username";
+        $password = "your_password";
+        $dbname = "your_db_name";
+        ?>
 
    
 References
