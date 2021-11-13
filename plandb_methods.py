@@ -27,14 +27,19 @@ from EXOSIMS.util.getExoplanetArchive import (getExoplanetArchivePS,
 from MeanStars import MeanStars
 from requests.exceptions import ConnectionError
 from scipy.interpolate import RectBivariateSpline, griddata, interp1d, interp2d
+from scipy.stats import gaussian_kde
 from sqlalchemy import create_engine
 from tqdm import trange, tqdm
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import BytesIO as StringIO
 
+def comp_plot():
+    pass
 
 def getIPACdata():
     '''
@@ -47,8 +52,7 @@ def getIPACdata():
     ps_data = getExoplanetArchivePS()
 
     #only keep stuff related to the star from composite
-    composite_cols = [col for col in pscp_data.columns if (col == 'pl_name') or
-                      str.startswith(col, 'st_')]
+    composite_cols = [col for col in pscp_data.columns if (col == 'pl_name') or str.startswith(col, 'st_') or col == 'sy_vmag']
     # composite_cols.extend(['pl_radj', 'pl_radj_reflink'])
     pscp_data = pscp_data[composite_cols]
 
@@ -76,7 +80,8 @@ def getIPACdata():
         # Now take all the stellar data from the composite table
         for col in composite_cols:
             if col != 'pl_name':
-                merged_data.at[i, col] = c_row[col].values[0]
+                if pd.isnull(merged_data.loc[i, col]):
+                    merged_data.at[i, col] = c_row[col].values[0]
 
         last_pl = pl
     t_bar.close()
@@ -238,6 +243,8 @@ def getIPACdata():
                               'pl_msinieerr2',
                               'pl_msinielim'
                               ])
+    has_lum = ~np.isnan(merged_data['st_lum'].values)
+    merged_data.loc[has_lum, 'st_lum_correction'] = (10 ** merged_data.loc[has_lum, 'st_lum']) ** .5  # Since lum is log base 10 of solar luminosity
 
 
     #fill in missing smas from period & star mass
@@ -304,7 +311,6 @@ def getIPACdata():
     # Rerr = np.array([forecaster_mod.calc_radius_from_mass(u.M_earth*np.random.normal(loc=m[j], scale=merr[j], size=int(1e4))).std().value if not(np.isnan(merr[j])) else np.nan for j in range(len(m))])*u.R_earth
 
     #create mod forecaster radius column and error cols
-    # breakpoint()
     # merged_data = merged_data.assign(pl_radj_forecastermod=merged_data['pl_radj'].values)
     merged_data['pl_radj_forecastermod'] = merged_data['pl_radj'].values
     merged_data.loc[noR,'pl_radj_forecastermod'] = (R.to(u.R_jupiter)).value
@@ -349,7 +355,6 @@ def getIPACdata():
     tmpsmas = merged_data['pl_orbsmax'][noR].values
     tmpsmaserr = (merged_data['pl_orbsmaxerr1'][noR].values - merged_data['pl_orbsmaxerr2'][noR].values) / 2.0
     adist = np.zeros((len(m), int(1e4)))
-    # breakpoint()
     for j, _ in enumerate(tmpsmas):  # Create smax distribution
         if np.isnan(tmpsmaserr[j]) or (tmpsmaserr[j] == 0):
             adist[j, :] = (np.ones(int(1e4))* tmpsmas[j])
@@ -690,7 +695,7 @@ def calcQuadratureVals(data, bandzip, photdict):
     return data
 
 
-def genOrbitData(data, bandzip, photdict, t0=None):
+def genOrbitData_old(data, bandzip, photdict, t0=None):
     """ Generate data for one orbital period starting at absolute time t0 (if time
     of periapsis is known) for all planets in data (output of getIPACdata)
     based on photometric data in photdict (output of loadPhotometryData) for bands
@@ -813,7 +818,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
     return orbdata
 
 
-def genAltOrbitData(data, bandzip, photdict, t0=None):
+def genAltOrbitData_old(data, bandzip, photdict, t0=None):
     """ Generate data for one orbital period starting at absolute time t0 (if time
     of periapsis is known) for all planets in data (output of getIPACdata)
     based on photometric data in photdict (output of loadPhotometryData) for bands
@@ -934,6 +939,202 @@ def genAltOrbitData(data, bandzip, photdict, t0=None):
 
     return altorbdata
 
+def genOrbitData_ET(data, bandzip, photdict, t0=None):
+    if t0 is None:
+        t0 = Time('2026-01-01T00:00:00', format='isot', scale='utc')
+
+    plannames = data['pl_name'].values
+    minWA = data['pl_minangsep'].values * u.mas
+    maxWA = data['pl_maxangsep'].values * u.mas
+
+    data['st_lum_ms'] = pd.Series(np.zeros(len(plannames)), index=data.index)
+
+    photinterps2 = photdict['photinterps']
+    feinterp = photdict['feinterp']
+    distinterp = photdict['distinterp']
+    lambdas = [l for l, band, bw, ws, wstep in bandzip]
+
+    orbdata = None
+    orbitfits = None
+    orbitfit_id = 0
+    for j in range(len(plannames)):
+        row = data.iloc[j]
+
+        # orbital parameters
+        a = row['pl_orbsmax']
+        e = row['pl_orbeccen']
+        if np.isnan(e): e = 0.0
+        w = row['pl_orblper'] * np.pi / 180.0
+        if np.isnan(w): w = 0.0
+        Rp = row['pl_radj_forecastermod']
+        dist = row['sy_dist']
+        fe = row['st_met']
+        if np.isnan(fe): fe = 0.0
+
+        # time
+        tau = row['pl_orbtper']  # jd
+        Tp = row['pl_orbper']  # days
+        if Tp == 0:
+            Tp = np.nan
+        if np.isnan(Tp):
+            Mstar = row['st_mass']  # solar masses
+            if not np.isnan(Mstar):
+                if not np.isnan(row['pl_bmassj']):
+                    mu = const.G * ((Mstar * u.solMass).decompose() + (row['pl_bmassj'] * u.jupiterMass).decompose())
+                else:
+                    mu = const.G * (Mstar * u.solMass).decompose()
+                Tp = (2 * np.pi * np.sqrt(((a * u.AU) ** 3.0) / mu)).decompose().to(u.d).value
+
+        t = np.zeros(100) * np.nan
+        M = np.linspace(0, 2 * np.pi, 100)
+
+        if not np.isnan(Tp):
+            if np.isnan(tau):
+                tau_temp = 0.0
+            else:
+                tau_temp = tau
+            n = 2 * np.pi / Tp
+            num_steps = Tp / 30
+            t = np.arange(t0.jd, t0.jd + Tp, 30)
+            if num_steps < 100:  # At least 100 steps
+                t = np.linspace(t0.jd, t0.jd + Tp, 100)
+            if Tp*u.day > 100*u.yr:
+                t = np.arange(t0.jd, t0.jd + (100*u.yr).to(u.day).value, 30)
+
+            M = np.mod((t - tau_temp) * n, 2 * np.pi)
+
+        # Calculate periaps after current date and after 1/1/2026
+        if not np.isnan(tau):
+            if not np.isnan(Tp):
+                period_nums_cur = (Time.now().jd - tau) * 1.0 / Tp
+                period_nums_2026 = (t0.jd - tau) * 1.0 / Tp
+
+                tper_next = math.ceil(period_nums_cur) * Tp + tau
+                tper_2026 = math.ceil(period_nums_2026) * Tp + tau
+            else:
+                tper_next = tau
+                tper_2026 = tau
+        else:
+            tper_next = np.nan
+            tper_2026 = np.nan
+
+        I = row['pl_orbincl'] * np.pi / 180.0
+        # Generate orbit fits based on if I is null
+        if np.isnan(I) or np.isnan(row['pl_orbinclerr1']) or np.isnan(row['pl_orbinclerr2']):
+            I = np.pi / 2.0
+            if row['pl_bmassprov'] == 'Msini':
+                Icrit = np.arcsin(
+                    ((row['pl_bmassj'] * u.M_jupiter).to(u.M_earth)).value / ((0.0800 * u.M_sun).to(u.M_earth)).value)
+            else:
+                Icrit = 10 * np.pi / 180.0
+            IList_temp = np.pi / 180 * np.array([90, 60, 30])
+            IList = np.hstack((IList_temp, Icrit))
+            defs = [1, 0, 0, 0]
+            icrit_flag = [0, 0, 0, 1]
+            err1 = [0, 0, 0, 0]
+            err2 = err1
+        else:
+            IList = np.array([I, I+row['pl_orbinclerr1']*np.pi/180, I + row['pl_orbinclerr2']*np.pi/180])
+            defs = [1, 0, 0]
+            icrit_flag = [0, 0, 0]
+            err1 = [row['pl_orbinclerr1'], row['pl_orbinclerr1'], row['pl_orbinclerr1']]
+            err2 = [row['pl_orbinclerr2'], row['pl_orbinclerr2'], row['pl_orbinclerr2']]
+
+        for k,i in enumerate(IList):
+            I = IList[k]
+            # calculate orbital values
+            E = eccanom(M, e)
+            nu = 2 * np.arctan(np.sqrt((1.0 + e) / (1.0 - e)) * np.tan(E / 2.0));
+            d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
+            s = d * np.sqrt(
+                4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(
+                    2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
+            beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
+            WA = np.arctan((s * u.AU) / (dist * u.pc)).to('mas').value
+
+            print(j, plannames[j], WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
+
+            # Adjusts planet distance for luminosity
+            lum_fix = row['st_lum_correction']
+
+            orbitfits_dict = {'pl_id': [j],
+                              'pl_orbincl':  [IList[k] * 180 / np.pi],
+                              'pl_orbinclerr1': err1[k],
+                              'pl_orbinclerr2': err2[k],
+                              'orbtper_next': [tper_next],
+                              'orbtper_2026': [tper_2026],
+                              'is_Icrit': [icrit_flag[k]],
+                              'default_fit': [defs[k]]}
+
+            # Build rest of orbitfits
+            for col_name in data.columns:
+                if col_name != 'pl_orbincl' and col_name != 'pl_orbinclerr1' and col_name != 'pl_orbinclerr2':
+                    orbitfits_dict[col_name] = row[col_name]
+
+            outdict = {'pl_id': [j] * len(M),
+                       'pl_name': [plannames[j]] * len(M),
+                       'orbitfit_id': [orbitfit_id] * len(M),
+                       'M': M,
+                       't': t - t0.jd,
+                       'r': d,
+                       's': s,
+                       'WA': WA,
+                       'beta': beta.to(u.deg).value,
+                       'is_icrit': [icrit_flag[k]] * len(M),
+                       'default_orb': [defs[k]] * len(M)}
+            orbitfit_id = orbitfit_id + 1
+
+            alldMags = np.zeros((len(photdict['clouds']), len(lambdas), len(beta)))
+            allpphis = np.zeros((len(photdict['clouds']), len(lambdas), len(beta)))
+
+            # Photometry calcs
+            inds = np.argsort(beta)
+            for count1, c in enumerate(photdict['clouds']):
+                for count2, (l, band, bw, ws, wstep) in enumerate(bandzip):
+                    pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a / lum_fix))][c](
+                        beta.to(u.deg).value[inds], ws).sum(1) * wstep / bw)[np.argsort(inds)]
+                    # print(f'calced_pphi: [{count1}, {count2}] : {pphi}')
+                    pphi[np.isinf(pphi)] = np.nan
+                    outdict['pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"] = pphi
+                    allpphis[count1, count2] = pphi
+                    dMag = deltaMag(1, Rp * u.R_jupiter, d * u.AU, pphi)
+                    # print(f'calced_dMag: [{count1}, {count2}] : {dMag}')
+                    dMag[np.isinf(dMag)] = np.nan
+                    outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM"] = dMag
+                    alldMags[count1, count2] = dMag
+
+            pphismin = np.nanmin(allpphis, axis=0)
+            dMagsmin = np.nanmin(alldMags, axis=0)
+            pphismax = np.nanmax(allpphis, axis=0)
+            dMagsmax = np.nanmax(alldMags, axis=0)
+            pphismed = np.nanmedian(allpphis, axis=0)
+            dMagsmed = np.nanmedian(alldMags, axis=0)
+
+            for count3, l in enumerate(lambdas):
+                outdict["dMag_min_" + str(l) + "NM"] = dMagsmin[count3]
+                outdict["dMag_max_" + str(l) + "NM"] = dMagsmax[count3]
+                outdict["dMag_med_" + str(l) + "NM"] = dMagsmed[count3]
+                outdict["pPhi_min_" + str(l) + "NM"] = pphismin[count3]
+                outdict["pPhi_max_" + str(l) + "NM"] = pphismax[count3]
+                outdict["pPhi_med_" + str(l) + "NM"] = pphismed[count3]
+
+            out = pd.DataFrame(outdict)
+
+            if orbdata is None:
+                orbdata = out.copy()
+            else:
+                orbdata = orbdata.append(out)
+
+            if orbitfits is None:
+                orbitfits = pd.DataFrame(orbitfits_dict).copy()
+            else:
+                orbitfits = orbitfits.append(pd.DataFrame(orbitfits_dict))
+
+    orbdata = orbdata.sort_values(by=['pl_id', 'orbitfit_id', 't', 'M']).reset_index(drop=True)
+    orbitfits = orbitfits.reset_index(drop=True)
+
+    return orbdata, orbitfits
+
 # Generates fsed based on a random number: 0 <= num < 1
 def get_fsed(num):
     """ Generate random value of f_sed based on distribution provided by Mark Marley:
@@ -968,25 +1169,30 @@ def get_fsed(num):
         r = 6
     return float(r)
 
-def calcContrastCurves(data):
+def calcContrastCurves(data, exosims_json):
     """
     This function will be used to calculate the contrast curves for every
     star in the IPAC database based on the provided raw contrast file
     Arguments:
         data (pandas DataFrame):
             Contains the best fit data from IPAC
-        raw_contr_file (Path):
-            Path to the CGPERF_performance file
+        exosims_json (Path):
+            Path to the exosims input json that is used to compute contrast curves for the different modes
     Output:
         data (pandas DataFrame):
-            Same dataframe, but with an additional column that contains the path to each contrast curve
+            Same dataframe, but with an additional columns that contain the path to each contrast curve
     """
 
     # Go through the target list and change the Vmag to match IPAC's data
     std_form_re = re.compile('\\s\w$')
     stupid_koi_re = re.compile('\\.\d\d$')
 
-    # Declaring lists
+    # This will store every value in the row in order
+    dup_star_names = []
+    dup_star_Vmags = []
+    dup_star_spectypes = []
+    dup_star_inds = []
+    # These lists don't contain duplicates
     star_names = []
     star_Vmags = []
     star_spectypes = []
@@ -994,11 +1200,11 @@ def calcContrastCurves(data):
     # These are used to keep track of where each planet's star's contrast curves
     # are going to be saved
     datestr = Time.now().datetime.strftime("%Y_%m")
-    contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
-    contrast_curve_cache.mkdir(parents=True, exist_ok=True)
-    star_path_list = []
+    contrast_curve_cache_base = Path(f'cache/cont_curvs_{datestr}/')
+    contrast_curve_cache_base.mkdir(parents=True, exist_ok=True)
+    star_base_path_list = []
 
-    # This is meant to track with sInds from EXOSIMS, so start at the final one
+    # Get the stellar information for each star and keep track of them to add to the dataframe
     for _, row in data.iterrows():
         pl_name = row.pl_name
         re_search = std_form_re.search(pl_name)
@@ -1009,8 +1215,11 @@ def calcContrastCurves(data):
             star_name = pl_name[:-3]
         else:
             raise ValueError(f"Unexpected planet name format: {pl_name}")
-        star_path = Path(f'{contrast_curve_cache}/{star_name.replace(" ","_")}.p')
-        star_path_list.append(star_path)
+        star_base_path = Path(f'{contrast_curve_cache_base}/{star_name.replace(" ","_")}.p')
+        star_base_path_list.append(star_base_path)
+        dup_star_names.append(star_name)
+        dup_star_Vmags.append(row.sy_vmag)
+        dup_star_spectypes.append(row.st_spectype)
         if star_name in star_names:
             # This catches when a star has already been added due to another planet
             continue
@@ -1018,351 +1227,476 @@ def calcContrastCurves(data):
         star_Vmags.append(row.sy_vmag)
         star_spectypes.append(row.st_spectype)
 
-    data['contr_curve_path'] = star_path_list
-    sInds = np.arange(len(star_names))
+    dup_sInds = []
+    # This finds all the sInds values for the planets, this is needed
+    # because the targetlist only stores each star once, but IPAC has multiple
+    # planets for the stars. This keeps the sInd for each planet's associated
+    # star in order so that they can be assigned to the dataframe easily
+    for star_name in dup_star_names:
+        #TODO The star '2MASS J01225093-2439505' is somehow getting mixed up with '2MASS J12073346-3932539' in this step and the index seems to be off by one once we hit the contrast curve calculations
+        dup_sInds.append(np.where(np.array(star_names) == star_name)[0][0])
+        # if star_name == '2MASS J01225093-2439505':
+            # breakpoint()
+    # data['contr_curve_base_path'] = star_base_path_list
+    # sInds = np.arange(len(star_names))
 
     # Need to create EXOSIMS TargetList, get the observation mode, get fZ, and fEZ, working angles
-    path = Path('exosims_input.json')
-    # path = Path('wfirst_nemati2019_knownRV_bands1and3.json')
-    with open(path) as ff:
-         specs = json.loads(ff.read())
-    TL = EXOSIMS.TargetList.KnownRVPlanetsTargetList.KnownRVPlanetsTargetList(**specs)
+    with open(exosims_json, 'rb') as ff:
+        specs = json.loads(ff.read())
+    # TL = EXOSIMS.TargetList.KnownRVPlanetsTargetList.KnownRVPlanetsTargetList(**specs)
+    TL = EXOSIMS.Prototypes.TargetList.TargetList(**specs)
     OS = TL.OpticalSystem
     TL.Name = star_names
     TL.Vmag = star_Vmags
-    mode = list(filter(lambda mode: mode['instName'] == 'imager', OS.observingModes))[0]
-    # Create new F0dict based on these stars
-    star_F0s = []
-    for spectype in star_spectypes:
-        # print(spectype)
-        # F0 seems incapable of handling sub-dwarves so exclude them
-        if type(spectype) is str and not "VI" in spectype:
-            star_F0s.append(TL.F0(mode["BW"], mode["lam"], spec=spectype).value)
-        else:
-            star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
-    TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
-    lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
-    working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
-    working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
-    fZ0 = TL.ZodiacalLight.fZ0
-    fEZ = TL.ZodiacalLight.fEZ(5.05, [20]*u.deg, 2.9*u.AU) # Taken from the Nemati spreadsheet
-    # for star in tqdm(star_names):
-        # contrasts = []
-    contrasts = []
+    modes = OS.observingModes
 
-    # Create the cache location for the contrast curves
-    int_time = 100*u.hr
-    for i, ind in enumerate(tqdm( sInds )):
-        star_path = Path(f'{contrast_curve_cache}/{star_names[i].replace(" ","_")}.p')
-        star_path_list.append(star_path)
-        if star_path.exists():
-            continue
-        contr_df = pd.DataFrame()
-        contrasts = []
-        for working_angle in working_angles_as:
-            dMag = OS.calc_dMag_per_intTime([int_time.to(u.hr).value]*u.hr, TL, [ ind ], fZ0, fEZ, working_angle, mode)
-            contr = 10**(dMag/(-2.5))
-            # print(f'\tWA {working_angle.value:0.3f} contrast: {contr[0]:5.5e}')
-            contrasts.append(contr[0])
-        contr_df['r_lamD'] = working_angles_lam_D
-        contr_df['r_as'] = working_angles_as.value
-        contr_df['r_mas'] = working_angles_as.value*1000
-        contr_df['contrast'] = contrasts
-        contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
-        contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
-        contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angle)]*len(working_angles_as)
-        contr_df.to_pickle(star_path)
-        # print(f'\nStar: {star_names[i]}\nSpectral type: {star_Vmags[i]}')
-        # print(contr_df)
+    img_int_times = [25*u.hr, 100*u.hr, 10000*u.hr]
+    spe_int_times = [100*u.hr, 400*u.hr, 10000*u.hr]
+
+
+    #TODO remove override
+    # modes = [modes[0]]
+    # img_int_times = [25*u.hr]
+
+
+    for mode in modes:
+        mode_name = mode['instName']
+        minangsep = mode['IWA']
+        maxangsep = mode['OWA']
+        # Only care about planets that can be within our geometric constraints
+        inds = np.where((data['pl_maxangsep'].values > minangsep.to(u.mas).value) &
+                        (data['pl_minangsep'].values < maxangsep.to(u.mas).value) &
+                        (~data['sy_vmag'].isnull().values))[0]
+        lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
+        # working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
+        # working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
+        working_angles_as = np.linspace(minangsep.to(u.arcsec).value, maxangsep.to(u.arcsec).value)*u.arcsec
+        working_angles_lam_D = (working_angles_as.to(u.mas)/lam_D).value
+        # Now need to convert the inds into the corrected ones accounting for duplicates
+        viable_inds = []
+        for ind in inds:
+            viable_inds.append(dup_sInds[ind])
+
+        # Create new F0dict based on these stars
+        if 'Spec' in mode_name:
+            int_times = spe_int_times
+        elif 'Imager' in mode_name:
+            int_times = img_int_times
+        else:
+            raise ValueError(f"Invalid mode name: {mode_name}")
+
+        # Getting the IWA and OWA based on mode
+        for int_time in int_times:
+            scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
+            scenario_path_list = []
+            star_F0s = []
+            for spectype in star_spectypes:
+                # F0 seems incapable of handling sub-dwarves so exclude them
+                if isinstance(spectype, str) and not "VI" in spectype:
+                    star_F0s.append(TL.F0(mode["BW"], mode["lam"], spec=spectype).value)
+                else:
+                    star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
+            TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
+
+            fZ0 = TL.ZodiacalLight.fZ0
+            fEZ = TL.ZodiacalLight.fEZ(5.05, [20]*u.deg, 2.9*u.AU) # Taken from the Nemati spreadsheet
+            # for star in tqdm(star_names):
+                # contrasts = []
+            contrasts = []
+
+            # Create the cache location for the contrast curves
+            # int_time = 100*u.hr
+            print(f'Calculating contrast curves for {scenario_name}')
+            t_bar = trange(len(viable_inds), leave=True)
+            for i, star_name in enumerate(dup_star_names):
+                ind = dup_sInds[i]
+                star_scenario_path = Path(f'{contrast_curve_cache_base}/{star_name.replace(" ","_")}_{scenario_name}.p')
+                scenario_path_list.append(star_scenario_path)
+                # if i == 10:
+                    # breakpoint()
+                if ind not in viable_inds:
+                    continue
+                t_bar.update(1)
+                if star_scenario_path.exists():
+                    continue
+                contr_df = pd.DataFrame()
+                contrasts = []
+                for working_angle in working_angles_as:
+                    # print(f'Working angle: {working_angle}')
+                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ ind ], fZ0, fEZ, working_angle, mode)
+                    # breakpoint()
+                    contr = 10**(dMag/(-2.5))
+                    # print(f'\tWA {working_angle.value:0.3f} contrast: {contr[0]:5.5e}')
+                    contrasts.append(contr[0])
+                contr_df['r_lamD'] = working_angles_lam_D
+                contr_df['r_as'] = working_angles_as.value
+                contr_df['r_mas'] = working_angles_as.value*1000
+                contr_df['contrast'] = contrasts
+                contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
+                contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
+                contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angles_as[0])]*len(working_angles_as)
+                contr_df.to_pickle(star_scenario_path)
+            data[scenario_name] = scenario_path_list
     return data
 
-def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450):
+def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,maxangsep=450, plotting=False):
     """ For all known planets in data (output from getIPACdata), calculate obscurational
     and photometric completeness for those cases where obscurational completeness is
     non-zero.
     """
-    bandzip = list(bandzip)
-    (l,band,bw,ws,wstep) = bandzip[0]
-    photinterps2 = photdict['photinterps']
-    feinterp = photdict['feinterp']
-    distinterp = photdict['distinterp']
-
-    # Go through the target list and change the Vmag to match IPAC's data
-    std_form_re = re.compile('\\s\w$')
-    stupid_koi_re = re.compile('\\.\d\d$')
-
-    # Getting the list of the contrast and star names curves
-    datestr = Time.now().datetime.strftime("%Y_%m")
-    contrast_curve_cache = Path(f'cache/cont_curvs_{datestr}/')
+    # Get the observing modes
+    with open(exosims_json, 'rb') as ff:
+        specs = json.loads(ff.read())
+    # TL = EXOSIMS.TargetList.KnownRVPlanetsTargetList.KnownRVPlanetsTargetList(**specs)
+    TL = EXOSIMS.Prototypes.TargetList.TargetList(**specs)
+    OS = TL.OpticalSystem
+    modes = OS.observingModes
+    img_int_times = [25*u.hr, 100*u.hr, 10000*u.hr]
+    spe_int_times = [100*u.hr, 400*u.hr, 10000*u.hr]
 
 
-    # wfirstcontr = np.genfromtxt(contrfile)
-    # contr = wfirstcontr[:,1]
-    # angsep = wfirstcontr[:,0] #l/D
-    # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
-    # breakpoint()
-    # wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
-    # contr = wfirstcontr[:,3]
-    # angsep = wfirstcontr[:,0]
-    # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
-    wfirstc_list = []
-    for _, planet in data.iterrows():
-        with open(planet['contr_curve_path'], 'rb') as f:
-            contr_df = pickle.load(f)
-        planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate')
-        wfirstc_list = planet_wfirstc
-    data["contr_curve"] = wfirstc_list
+    # TODO remove mode override
+    # modes = [modes[0]]
+    # img_int_times = [25*u.hr]
 
-    inds = np.where((data['pl_maxangsep'].values > minangsep) &
-                    (data['pl_minangsep'].values < maxangsep))[0]
 
-    WAbins0 = np.arange(minangsep,maxangsep+1,1)
-    WAbins = np.hstack((0, WAbins0, np.inf))
-    dMagbins0 = np.arange(0,26.1,0.1)
-    dMagbins = np.hstack((dMagbins0,np.inf))
-
-    WAc,dMagc = np.meshgrid(WAbins0[:-1]+np.diff(WAbins0)/2.0,dMagbins0[:-1]+np.diff(dMagbins0)/2.0)
-    WAc = WAc.T
-    dMagc = dMagc.T
-
-    WAinds = np.arange(WAbins0.size-1)
-    dMaginds = np.arange(dMagbins0.size-1)
-    WAinds,dMaginds = np.meshgrid(WAinds,dMaginds)
-    WAinds = WAinds.T
-    dMaginds = dMaginds.T
-
-    # dMaglimsc = wfirstc(WAc[:,0])
-
-    #define vectorized f_sed sampler
-    vget_fsed = np.vectorize(get_fsed)
-
-    names = []
-    WAcs = []
-    dMagcs = []
-    iinds = []
-    jinds = []
-    hs = []
-    cs = []
-    goodinds = []
-    for i,j in enumerate(inds):
-        row = data.iloc[j]
-        wfirstc = row.contr_curve
-        # dMaglimsc = wfirstc(WAc[:, 0])
-        print("%d/%d  %s"%(i+1,len(inds),row['pl_name']))
-
-        #sma distribution
-        amu = row['pl_orbsmax']
-        astd = (row['pl_orbsmaxerr1'] - row['pl_orbsmaxerr2'])/2.
-        if np.isnan(astd): astd = 0.01*amu
-        gena = lambda n: np.clip(np.random.randn(n)*astd + amu,0,np.inf)
-
-        #eccentricity distribution
-        emu = row['pl_orbeccen']
-        if np.isnan(emu):
-            gene = lambda n: 0.175/np.sqrt(np.pi/2.)*np.sqrt(-2.*np.log(1 - np.random.uniform(size=n)))
+    # Do completeness calculations for each scenario
+    for mode in modes:
+        minangsep = mode['IWA'].to(u.mas).value
+        maxangsep = mode['OWA'].to(u.mas).value
+        mode_name = mode['instName']
+        # Create new F0dict based on these stars
+        if 'Spec' in mode_name:
+            int_times = spe_int_times
+        elif 'Imager' in mode_name:
+            int_times = img_int_times
         else:
-            estd = (row['pl_orbeccenerr1'] - row['pl_orbeccenerr2'])/2.
-            if np.isnan(estd) or (estd == 0):
-                estd = 0.01*emu
-            gene = lambda n: np.clip(np.random.randn(n)*estd + emu,0,0.99)
+            raise ValueError(f"Invalid mode name: {mode_name}")
+        for int_time in int_times:
+            scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
+            print(f'Calculating completeness for {scenario_name}')
 
-        #inclination distribution
-        Imu = row['pl_orbincl']*np.pi/180.0
-        if np.isnan(Imu) or ((row['pl_orbincl'] == 90) and (row['pl_orbinclerr1'] == 0) and (row['pl_orbinclerr2'] == 0)): #Generates full sinusoidal distribution if 90 incl 0 errors
-            if row['pl_bmassprov'] == 'Msini':
-                Icrit = np.arcsin( ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value/((0.0800*u.M_sun).to(u.M_earth)).value )
-                Irange = [Icrit, np.pi - Icrit]
-                C = 0.5*(np.cos(Irange[0])-np.cos(Irange[1]))
-                genI = lambda n: np.arccos(np.cos(Irange[0]) - 2.*C*np.random.uniform(size=n))
+            (l,band,bw,ws,wstep) = bandzip[0]
+            photinterps2 = photdict['photinterps']
+            feinterp = photdict['feinterp']
+            distinterp = photdict['distinterp']
 
-            else:
-                genI = lambda n: np.arccos(1 - 2.*np.random.uniform(size=n))
-        else:
-            Istd = (row['pl_orbinclerr1'] - row['pl_orbinclerr2'])/2.*np.pi/180.0
-            if np.isnan(Istd) or (Istd == 0):
-                Istd = Imu*0.01
-            genI = lambda n: np.random.randn(n)*Istd + Imu
+            # Getting the list of the contrast and star names curves
+            datestr = Time.now().datetime.strftime("%Y_%m")
 
-        #arg. of periastron distribution
-        wmu = row['pl_orblper']*np.pi/180.0
-        if np.isnan(wmu):
-            genw = lambda n: np.random.uniform(size=n,low=0.0,high=2*np.pi)
-        else:
-            wstd = (row['pl_orblpererr1'] - row['pl_orblpererr2'])/2.*np.pi/180.0
-            if np.isnan(wstd) or (wstd == 0):
-                wstd = wmu*0.01
-            genw = lambda n: np.random.randn(n)*wstd + wmu
+            # wfirstcontr = np.genfromtxt(contrfile)
+            # contr = wfirstcontr[:,1]
+            # angsep = wfirstcontr[:,0] #l/D
+            # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
+            # wfirstcontr = np.genfromtxt(contrfile, delimiter=',', skip_header=1)
+            # contr = wfirstcontr[:,3]
+            # angsep = wfirstcontr[:,0]
+            # angsep = (angsep * (575.0*u.nm)/(2.37*u.m)*u.rad).decompose().to(u.mas).value #mas
+            wfirstc_list = []
+            # inds = np.where((data['pl_maxangsep'].values > minangsep) &
+                            # (data['pl_minangsep'].values < maxangsep))[0]
+            inds = np.where((data['pl_maxangsep'].values > minangsep) &
+                            (data['pl_minangsep'].values < maxangsep) &
+                            (~data['sy_vmag'].isnull().values))[0]
+            breakpoint()
+            for ind, planet in data.iterrows():
+                if ind not in inds:
+                    wfirstc_list.append(np.nan)
+                    continue
+                with open(planet[scenario_name], 'rb') as f:
+                    contr_df = pickle.load(f)
+                planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False)
+                # planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate')
+                wfirstc_list.append(planet_wfirstc)
+                # wfirstc_list = planet_wfirstc
+            data[f"contr_curve_{scenario_name}"] = wfirstc_list
 
-        #just a single metallicity
-        fe = row['st_met']
-        if np.isnan(fe): fe = 0.0
+            WAbins0 = np.arange(minangsep,maxangsep+1,1)
+            WAbins = np.hstack((0, WAbins0, np.inf))
+            dMagbins0 = np.arange(0,26.1,0.1)
+            dMagbins = np.hstack((dMagbins0,np.inf))
 
-        #initialize loops vars
-        n = int(1e6) # Number of planets
-        c = 0. # Completeness of the current loop
-        h = np.zeros((len(WAbins)-3, len(dMagbins)-2))
-        k = 0.0 # A counter
-        cprev = 0.0 # Previous completeness value
-        pdiff = 1.0 # Percent difference
+            WAc,dMagc = np.meshgrid(WAbins0[:-1]+np.diff(WAbins0)/2.0,dMagbins0[:-1]+np.diff(dMagbins0)/2.0)
+            WAc = WAc.T
+            dMagc = dMagc.T
 
-        while (pdiff > 0.0001) | (k <3):
-            print(f"Iteration:{k} \t Percent difference between previous completeness value:{pdiff:5.5e} \t Calculated completeness:{c:5.5e}")
+            WAinds = np.arange(WAbins0.size-1)
+            dMaginds = np.arange(dMagbins0.size-1)
+            WAinds,dMaginds = np.meshgrid(WAinds,dMaginds)
+            WAinds = WAinds.T
+            dMaginds = dMaginds.T
 
-            #sample orbital parameters
-            a = gena(n)
-            e = gene(n)
-            I = genI(n)
-            w = genw(n)
+            # dMaglimsc = wfirstc(WAc[:,0])
 
-            #sample cloud vals
-            cl = vget_fsed(np.random.rand(n))
+            #define vectorized f_sed sampler
+            vget_fsed = np.vectorize(get_fsed)
 
-            forecaster_mod = ForecasterMod()
-            # Rewriting the calculation to not rely on potentially calculated values of mass
-            if not np.isnan(row.pl_radj):
-                # If we have the radius we can just use it
-                Rmu = row.pl_radj
-                Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
-                if np.isnan(Rstd): Rstd = Rmu*0.1
-                R = np.random.randn(n)*Rstd + Rmu
-            else:
-                # If we don't have radius then we need to calculate it based on the mass
-                if row.pl_bmassprov == 'Msini':
-                    # Sometimes given in Msini which we use the generated inclination values to get the Mp value from
-                    Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
-                    Mp = Mp/np.sin(I)
+            names = []
+            WAcs = []
+            dMagcs = []
+            iinds = []
+            jinds = []
+            hs = []
+            cs = []
+            goodinds = []
+            for i,j in enumerate(inds):
+                row = data.iloc[j]
+                wfirstc = row[f'contr_curve_{scenario_name}']
+                # dMaglimsc = wfirstc(WAc[:, 0])
+                print("%d/%d  %s"%(i+1,len(inds),row['pl_name']))
+
+                #sma distribution
+                amu = row['pl_orbsmax']
+                astd = (row['pl_orbsmaxerr1'] - row['pl_orbsmaxerr2'])/2.
+                if np.isnan(astd): astd = 0.01*amu
+                gena = lambda n: np.clip(np.random.randn(n)*astd + amu,0,np.inf)
+
+                #eccentricity distribution
+                emu = row['pl_orbeccen']
+                if np.isnan(emu):
+                    gene = lambda n: 0.175/np.sqrt(np.pi/2.)*np.sqrt(-2.*np.log(1 - np.random.uniform(size=n)))
                 else:
-                    # Standard calculation
-                    Mstd = (((row['pl_bmassjerr1'] - row['pl_bmassjerr2'])*u.M_jupiter).to(u.M_earth)).value
-                    if np.isnan(Mstd):
-                        Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
-                    Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+                    estd = (row['pl_orbeccenerr1'] - row['pl_orbeccenerr2'])/2.
+                    if np.isnan(estd) or (estd == 0):
+                        estd = 0.01*emu
+                    gene = lambda n: np.clip(np.random.randn(n)*estd + emu,0,0.99)
 
-                # Now use the Mp value to get the planet radius
-                R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
-                # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
-                R[R > 1.0] = 1.0
+                #inclination distribution
+                Imu = row['pl_orbincl']*np.pi/180.0
+                if np.isnan(Imu) or ((row['pl_orbincl'] == 90) and (row['pl_orbinclerr1'] == 0) and (row['pl_orbinclerr2'] == 0)): #Generates full sinusoidal distribution if 90 incl 0 errors
+                    if row['pl_bmassprov'] == 'Msini':
+                        Icrit = np.arcsin( ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value/((0.0800*u.M_sun).to(u.M_earth)).value )
+                        Irange = [Icrit, np.pi - Icrit]
+                        C = 0.5*(np.cos(Irange[0])-np.cos(Irange[1]))
+                        genI = lambda n: np.arccos(np.cos(Irange[0]) - 2.*C*np.random.uniform(size=n))
 
-            M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
-            E = eccanom(M0, e)
-            nu = 2*np.arctan(np.sqrt((1+e)/(1-e))*np.tan(E/2))
+                    else:
+                        genI = lambda n: np.arccos(1 - 2.*np.random.uniform(size=n))
+                else:
+                    Istd = (row['pl_orbinclerr1'] - row['pl_orbinclerr2'])/2.*np.pi/180.0
+                    if np.isnan(Istd) or (Istd == 0):
+                        Istd = Imu*0.01
+                    genI = lambda n: np.random.randn(n)*Istd + Imu
 
-            d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
-            s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
-            beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
-            rnorm = d
+                #arg. of periastron distribution
+                wmu = row['pl_orblper']*np.pi/180.0
+                if np.isnan(wmu):
+                    genw = lambda n: np.random.uniform(size=n,low=0.0,high=2*np.pi)
+                else:
+                    wstd = (row['pl_orblpererr1'] - row['pl_orblpererr2'])/2.*np.pi/180.0
+                    if np.isnan(wstd) or (wstd == 0):
+                        wstd = wmu*0.01
+                    genw = lambda n: np.random.randn(n)*wstd + wmu
 
-            lum = row['st_lum']
+                #just a single metallicity
+                fe = row['st_met']
+                if np.isnan(fe): fe = 0.0
 
-            if np.isnan(lum):
-                lum_fix = 1
-            else:
-                lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+                #initialize loops vars
+                n = int(1e6) # Number of planets
+                c = 0. # Completeness of the current loop
+                h = np.zeros((len(WAbins)-3, len(dMagbins)-2))
+                k = 0.0 # A counter
+                cprev = 0.0 # Previous completeness value
+                pdiff = 1.0 # Percent difference
 
-            pphi = np.zeros(n)
-            for clevel in np.unique(cl):
-                tmpinds = cl == clevel
-                betatmp = beta[tmpinds]
-                binds = np.argsort(betatmp)
-                pphi[tmpinds] = (photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm) / lum_fix))][clevel](betatmp.to(u.deg).value[binds],ws).sum(1)*wstep/bw)[np.argsort(binds)].flatten()
+                while (pdiff > 0.0001) | (k <3):
+                    print(f"Iteration:{k} \t Percent difference between previous completeness value:{pdiff:5.5e} \t Calculated completeness:{c:5.5e}")
 
-            pphi[np.isinf(pphi)] = np.nan
-            pphi[pphi <= 0.0] = 1e-16
+                    #sample orbital parameters
+                    a = gena(n)
+                    e = gene(n)
+                    I = genI(n)
+                    w = genw(n)
 
-            dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
-            WA = np.arctan((s*u.AU)/(row['sy_dist']*u.pc)).to('mas').value # working angle
+                    #sample cloud vals
+                    cl = vget_fsed(np.random.rand(n))
 
-            h += np.histogram2d(WA,dMag,bins=(WAbins,dMagbins))[0][1:-1,0:-1]
-            k += 1.0
+                    forecaster_mod = ForecasterMod()
+                    # Rewriting the calculation to not rely on potentially calculated values of mass
+                    if not np.isnan(row.pl_radj):
+                        # If we have the radius we can just use it
+                        Rmu = row.pl_radj
+                        Rstd = (row['pl_radjerr1'] - row['pl_radjerr2'])/2.
+                        if np.isnan(Rstd): Rstd = Rmu*0.1
+                        R = np.random.randn(n)*Rstd + Rmu
+                    else:
+                        # If we don't have radius then we need to calculate it based on the mass
+                        if row.pl_bmassprov == 'Msini':
+                            # Sometimes given in Msini which we use the generated inclination values to get the Mp value from
+                            Mp = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+                            Mp = Mp/np.sin(I)
+                        else:
+                            # Standard calculation
+                            Mstd = (((row['pl_bmassjerr1'] - row['pl_bmassjerr2'])*u.M_jupiter).to(u.M_earth)).value
+                            if np.isnan(Mstd):
+                                Mstd = ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
+                            Mp = np.random.randn(n)*Mstd + ((row['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
 
-            dMaglimtmp = -2.5*np.log10(wfirstc(WA))
-            currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= dMaglimtmp))[0]))/n
+                        # Now use the Mp value to get the planet radius
+                        R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
+                        # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
+                        R[R > 1.0] = 1.0
 
-            #currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= 22.5))[0]))/n
-            cprev = c
-            if k == 1.0:
-                c = currc
-            else:
-                c = ((k-1)*c + currc)/k
-            if c == 0:
-                pdiff = 1.0
-            else:
-                pdiff = np.abs(c - cprev)/c
+                    M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
+                    E = eccanom(M0, e)
+                    nu = 2*np.arctan(np.sqrt((1+e)/(1-e))*np.tan(E/2))
 
-            if (c == 0.0) & (k > 2):
-                break
+                    d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
+                    s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
+                    beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
+                    rnorm = d
 
-            if (c < 1e-5) & (k > 25):
-                break
+                    lum = row['st_lum']
 
-        if c != 0.0:
-            h = h/float(n*k)
-            names.append(np.array([row['pl_name']]*h.size))
-            WAcs.append(WAc.flatten())
-            dMagcs.append(dMagc.flatten())
-            hs.append(h.flatten())
-            iinds.append(WAinds.flatten())
-            jinds.append(dMaginds.flatten())
-            cs.append(c)
-            goodinds.append(j)
+                    if np.isnan(lum):
+                        lum_fix = 1
+                    else:
+                        lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
 
-        print("\n\n\n\n")
+                    pphi = np.zeros(n)
+                    for clevel in np.unique(cl):
+                        tmpinds = cl == clevel
+                        betatmp = beta[tmpinds]
+                        binds = np.argsort(betatmp)
+                        pphi[tmpinds] = (photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm) / lum_fix))][clevel](betatmp.to(u.deg).value[binds],ws).sum(1)*wstep/bw)[np.argsort(binds)].flatten()
 
-    cs = np.array(cs)
-    goodinds = np.array(goodinds)
+                    pphi[np.isinf(pphi)] = np.nan
+                    pphi[pphi <= 0.0] = 1e-16
 
-    out2 = pd.DataFrame({'Name': np.hstack(names),
-                             'alpha': np.hstack(WAcs),
-                             'dMag': np.hstack(dMagcs),
-                             'H':    np.hstack(hs),
-                             'iind': np.hstack(iinds),
-                             'jind': np.hstack(jinds)
-                             })
-    out2 = out2[out2['H'].values != 0.]
-    out2['H'] = np.log10(out2['H'].values)
+                    dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
+                    WA = np.arctan((s*u.AU)/(row['sy_dist']*u.pc)).to('mas').value # working angle
 
-    minCWA = []
-    maxCWA = []
-    minCdMag = []
-    maxCdMag = []
+                    h += np.histogram2d(WA,dMag,bins=(WAbins,dMagbins))[0][1:-1,0:-1]
+                    k += 1.0
 
-    for j in range(len(goodinds)):
-        minCWA.append(np.floor(np.min(WAcs[j][hs[j] != 0])))
-        maxCWA.append(np.ceil(np.max(WAcs[j][hs[j] != 0])))
-        minCdMag.append(np.floor(np.min(dMagcs[j][hs[j] != 0])))
-        maxCdMag.append(np.ceil(np.max(dMagcs[j][hs[j] != 0])))
+                    dMaglimtmp = -2.5*np.log10(wfirstc(WA))
+                    currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= dMaglimtmp))[0]))/n
+                    if k == 1 and plotting:
+                        # plt.style.use('dark_background')
+                        fig_path = Path('figures', f'{mode_name.replace(" ", "_")}_{str(int_time).replace(" ", "_")}')
+                        fig_path.mkdir(parents=True, exist_ok=True)
+                        save_path = Path(fig_path, f'{row["pl_name"].replace(" ", "_")}.png')
+                        fig, ax = plt.subplots()
+                        ax.set_title(f'Mode: {mode_name}. Int time: {int_time}. Planet: {row["pl_name"]}')
+                        ax.set_xlabel(r'$\alpha$ (mas)')
+                        ax.set_ylabel(r'$\Delta$mag')
+                        ax.set_xlim([0, maxangsep+100])
+                        ax.set_ylim([10, 35])
+                        ax.annotate(f"C={currc:.4f}", xy=(250, 33), ha='center', va='center', zorder=6, size=20)
 
-    outdict = {'cs':cs,
-               'goodinds':goodinds,
-               'minCWA':minCWA,
-               'maxCWA':maxCWA,
-               'minCdMag':minCdMag,
-               'maxCdMag':maxCdMag}
+                        IWA_ang = minangsep
+                        OWA_ang = maxangsep
+                        wa_range = np.linspace(minangsep, maxangsep)
+                        dmaglims = -2.5*np.log10(wfirstc(wa_range))
+                        # detectability_line = mpl.lines.Line2D([IWA_ang, OWA_ang], [dMaglimtmp[0], dMaglimtmp[0]], color='red')
+                        # ax.add_line(detectability_line)
 
-    tmp = np.full(len(data),np.nan)
-    tmp[goodinds] = cs
-    data['completeness'] = tmp
-    # data = data.assign(completeness=tmp)
+                        my_cmap = plt.get_cmap('viridis')
+                        WA_edges = np.linspace(0, 1600, 251)
+                        dMag_edges = np.linspace(10, 35, 251)
+                        H, WA_edges, dMag_edges = np.histogram2d(WA, dMag, range=[[WA_edges[0], WA_edges[-1]], [dMag_edges[0], dMag_edges[-1]]], bins=(500, 500))
+                        extent = [WA_edges[0], WA_edges[-1], dMag_edges[0], dMag_edges[-1]]
+                        levels = np.logspace(-6, -1, num=30)
+                        H_scaled = H.T/100000
+                        ax.contourf(H_scaled, levels=levels, cmap=my_cmap, origin='lower', extent=extent, norm=mpl.colors.LogNorm())
+                        ax.plot(wa_range, dmaglims, c='r')
+                        FR_norm = mpl.colors.LogNorm()
+                        sm = plt.cm.ScalarMappable(cmap=my_cmap, norm=FR_norm)
+                        sm._A=[]
+                        sm.set_array(np.logspace(-6, -1))
+                        fig.subplots_adjust(left=0.15, right=0.85)
+                        cbar_ax = fig.add_axes([0.865, 0.125, 0.02, 0.75])
+                        cbar = fig.colorbar(sm, cax=cbar_ax, label=r'Normalized Density')
+                        ax.plot(wa_range, dmaglims, c='r')
+                        fig.savefig(save_path)
+                        plt.close()
 
-    tmp = np.full(len(data),np.nan)
-    tmp[goodinds] = minCWA
-    data['compMinWA'] = tmp
-    # data = data.assign(compMinWA=tmp)
+                    #currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= 22.5))[0]))/n
+                    cprev = c
+                    if k == 1.0:
+                        c = currc
+                    else:
+                        c = ((k-1)*c + currc)/k
+                    if c == 0:
+                        pdiff = 1.0
+                    else:
+                        pdiff = np.abs(c - cprev)/c
 
-    tmp = np.full(len(data),np.nan)
-    tmp[goodinds] = maxCWA
-    data['compMaxWA'] = tmp
-    # data = data.assign(compMaxWA=tmp)
+                    if (c == 0.0) & (k > 2):
+                        break
 
-    tmp = np.full(len(data),np.nan)
-    tmp[goodinds] = minCdMag
-    data['compMindMag'] = tmp
-    # data = data.assign(compMindMag=tmp)
+                    if (c < 1e-5) & (k > 25):
+                        break
 
-    tmp = np.full(len(data),np.nan)
-    tmp[goodinds] = maxCdMag
-    data['compMaxdMag'] = tmp
-    # data = data.assign(compMaxdMag=tmp)
+                if c != 0.0:
+                    h = h/float(n*k)
+                    names.append(np.array([row['pl_name']]*h.size))
+                    WAcs.append(WAc.flatten())
+                    dMagcs.append(dMagc.flatten())
+                    hs.append(h.flatten())
+                    iinds.append(WAinds.flatten())
+                    jinds.append(dMaginds.flatten())
+                    cs.append(c)
+                    goodinds.append(j)
+
+                print("\n\n\n\n")
+
+            cs = np.array(cs)
+            goodinds = np.array(goodinds)
+
+            out2 = pd.DataFrame({'Name': np.hstack(names),
+                                     'alpha': np.hstack(WAcs),
+                                     'dMag': np.hstack(dMagcs),
+                                     'H':    np.hstack(hs),
+                                     'iind': np.hstack(iinds),
+                                     'jind': np.hstack(jinds)
+                                     })
+            out2 = out2[out2['H'].values != 0.]
+            out2['H'] = np.log10(out2['H'].values)
+
+            minCWA = []
+            maxCWA = []
+            minCdMag = []
+            maxCdMag = []
+
+            for j in range(len(goodinds)):
+                minCWA.append(np.floor(np.min(WAcs[j][hs[j] != 0])))
+                maxCWA.append(np.ceil(np.max(WAcs[j][hs[j] != 0])))
+                minCdMag.append(np.floor(np.min(dMagcs[j][hs[j] != 0])))
+                maxCdMag.append(np.ceil(np.max(dMagcs[j][hs[j] != 0])))
+
+            outdict = {'cs':cs,
+                       'goodinds':goodinds,
+                       'minCWA':minCWA,
+                       'maxCWA':maxCWA,
+                       'minCdMag':minCdMag,
+                       'maxCdMag':maxCdMag}
+
+            tmp = np.full(len(data),np.nan)
+            tmp[goodinds] = cs
+            data[f'completeness_{scenario_name}'] = tmp
+            # data = data.assign(completeness=tmp)
+
+            tmp = np.full(len(data),np.nan)
+            tmp[goodinds] = minCWA
+            data['compMinWA_{scenario_name}'] = tmp
+            # data = data.assign(compMinWA=tmp)
+
+            tmp = np.full(len(data),np.nan)
+            tmp[goodinds] = maxCWA
+            data['compMaxWA_{scenario_name}'] = tmp
+            # data = data.assign(compMaxWA=tmp)
+
+            tmp = np.full(len(data),np.nan)
+            tmp[goodinds] = minCdMag
+            data['compMindMag_{scenario_name}'] = tmp
+            # data = data.assign(compMindMag=tmp)
+
+            tmp = np.full(len(data),np.nan)
+            tmp[goodinds] = maxCdMag
+            data['compMaxdMag_{scenario_name}'] = tmp
+            # data = data.assign(compMaxdMag=tmp)
 
     return out2,outdict,data
 

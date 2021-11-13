@@ -295,7 +295,7 @@ def genOrbitData_2(data, bandzip, photdict, t0=None):
 
     return orbdata, orbitfits
 
-def     Gen(data, orbitfits):
+def generateTables(data, orbitfits):
     print('Splitting IPAC data into Star and Planet data')
     # Isolate the stellar columns from the planet columns
     st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
