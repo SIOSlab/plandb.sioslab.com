@@ -1081,7 +1081,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, minangsep=150,maxangsep=450)
     and photometric completeness for those cases where obscurational completeness is
     non-zero.
     """
-
+    bandzip = list(bandzip)
     (l,band,bw,ws,wstep) = bandzip[0]
     photinterps2 = photdict['photinterps']
     feinterp = photdict['feinterp']
