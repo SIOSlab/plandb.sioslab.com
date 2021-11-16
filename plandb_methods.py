@@ -70,7 +70,7 @@ def getIPACdata():
     t_bar = trange(len(merged_data), leave=False)
     last_pl = None
     for i, row in merged_data.iterrows():
-        t_bar.update(1)
+        t_bar.update()
         pl = row.pl_name
 
         if pl != last_pl:
@@ -100,7 +100,7 @@ def getIPACdata():
     for j,name in enumerate(merged_data['pl_name'].values):
         # print("%s: %d/%d"%(name,j+1,len(data)))
         t_bar.set_description(name.ljust(max_justification))
-        t_bar.update(1)
+        t_bar.update()
 
         planet_rows = merged_data.loc[merged_data["pl_name"] == name]
 
@@ -182,7 +182,7 @@ def getIPACdata():
     #update rows as needed
     print("Updating planets with best attributes.")
     max_justification = pscp_data.pl_name.str.len().max()
-    t_bar = trange(len(pscp_data), leave=True)
+    t_bar = trange(len(pscp_data), leave=False)
     merged_data = merged_data.assign(pl_def_override=np.zeros(len(merged_data)))
     # return ps_data, pscp_data, merged_data
     # for j,name in enumerate(merged_data['pl_name'].values):
@@ -619,7 +619,7 @@ def calcQuadratureVals(data, bandzip, photdict):
     #iterate over all data rows
     t_bar = trange(len(Rps), leave=False)
     for j, (Rp, fe,a, I, e, w, lm) in enumerate(zip(Rps, fes,smas, inc, eccen, arg_per, lum)):
-        t_bar.update(1)
+        t_bar.update()
         # print("%d/%d"%(j+1,len(Rps)))
         for c in photdict['clouds']:
             for l,band,bw,ws,wstep in bandzip:
@@ -718,7 +718,7 @@ def genOrbitData_old(data, bandzip, photdict, t0=None):
     orbdata = None
     t_bar = trange(len(plannames), leave=False)
     for j in range(len(plannames)):
-        t_bar.update(1)
+        t_bar.update()
         row = data.iloc[j]
 
         #orbital parameters
@@ -843,7 +843,7 @@ def genAltOrbitData_old(data, bandzip, photdict, t0=None):
         row = data.iloc[j]
         # print("%d/%d  %s"%(j+1,len(plannames),plannames[j]))
         t_bar.set_description(plannames[j].ljust(20))
-        t_bar.update(1)
+        t_bar.update()
 
         #if there is an inclination error, then we're going to skip the row altogether
         if not(np.isnan(row['pl_orbinclerr1'])) and not(np.isnan(row['pl_orbinclerr1'])):
@@ -1196,6 +1196,7 @@ def calcContrastCurves(data, exosims_json):
     star_names = []
     star_Vmags = []
     star_spectypes = []
+    star_dists = []
 
     # These are used to keep track of where each planet's star's contrast curves
     # are going to be saved
@@ -1226,6 +1227,7 @@ def calcContrastCurves(data, exosims_json):
         star_names.append(star_name)
         star_Vmags.append(row.sy_vmag)
         star_spectypes.append(row.st_spectype)
+        star_dists.append(row.sy_dist*u.pc)
 
     dup_sInds = []
     # This finds all the sInds values for the planets, this is needed
@@ -1248,6 +1250,11 @@ def calcContrastCurves(data, exosims_json):
     OS = TL.OpticalSystem
     TL.Name = star_names
     TL.Vmag = star_Vmags
+    TL.Spec = star_spectypes
+    TL.dist = star_dists
+    # TL.MV = np.zeros(len(star_names))
+    # breakpoint()
+    # TL.fillPhotometryVals()
     modes = OS.observingModes
 
     img_int_times = [25*u.hr, 100*u.hr, 10000*u.hr]
@@ -1266,6 +1273,7 @@ def calcContrastCurves(data, exosims_json):
         # Only care about planets that can be within our geometric constraints
         inds = np.where((data['pl_maxangsep'].values > minangsep.to(u.mas).value) &
                         (data['pl_minangsep'].values < maxangsep.to(u.mas).value) &
+                        (data.default_fit == 1) &
                         (~data['sy_vmag'].isnull().values))[0]
         lam_D = mode['lam'].to(u.m)/(OS.pupilDiam*u.mas.to(u.rad))
         # working_angles_lam_D = [3.1, 3.6, 4.2, 5.0, 6.0, 7.0, 7.9]
@@ -1307,8 +1315,8 @@ def calcContrastCurves(data, exosims_json):
             # Create the cache location for the contrast curves
             # int_time = 100*u.hr
             print(f'Calculating contrast curves for {scenario_name}')
-            t_bar = trange(len(viable_inds), leave=True)
-            for i, star_name in enumerate(dup_star_names):
+            # t_bar = trange(len(viable_inds), leave=False)
+            for i, star_name in enumerate(tqdm(dup_star_names)):
                 ind = dup_sInds[i]
                 star_scenario_path = Path(f'{contrast_curve_cache_base}/{star_name.replace(" ","_")}_{scenario_name}.p')
                 scenario_path_list.append(star_scenario_path)
@@ -1316,13 +1324,24 @@ def calcContrastCurves(data, exosims_json):
                     # breakpoint()
                 if ind not in viable_inds:
                     continue
-                t_bar.update(1)
+                # t_bar.update()
                 if star_scenario_path.exists():
                     continue
+                # if star_Vmags[i] > 15:
+                    # continue
                 contr_df = pd.DataFrame()
                 contrasts = []
+                # test_dMags = np.linspace(0, 21, 1000)
+                # test_intTimes = []
+                # for test_dMag in test_dMags:
+                    # test_intTimes.append(OS.calc_intTime(TL, [ind], fZ0, fEZ, test_dMag, working_angles_as[0], mode))
+                # plt.scatter(test_dMags, test_intTimes)
+                # plt.xlabel('dMag')
+                # plt.ylabel('Integration time (days)')
+                # # plt.yscale('log')
+                # plt.savefig('dmagvit.png', dpi=200)
+                # breakpoint()
                 for working_angle in working_angles_as:
-                    # print(f'Working angle: {working_angle}')
                     dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ ind ], fZ0, fEZ, working_angle, mode)
                     # breakpoint()
                     contr = 10**(dMag/(-2.5))
@@ -1339,7 +1358,7 @@ def calcContrastCurves(data, exosims_json):
             data[scenario_name] = scenario_path_list
     return data
 
-def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,maxangsep=450, plotting=False):
+def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,maxangsep=450, plotting=True):
     """ For all known planets in data (output from getIPACdata), calculate obscurational
     and photometric completeness for those cases where obscurational completeness is
     non-zero.
@@ -1397,8 +1416,8 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
                             # (data['pl_minangsep'].values < maxangsep))[0]
             inds = np.where((data['pl_maxangsep'].values > minangsep) &
                             (data['pl_minangsep'].values < maxangsep) &
-                            (~data['sy_vmag'].isnull().values))[0]
-            breakpoint()
+                            (~data['sy_vmag'].isnull().values) &
+                            (data.default_fit == 1))[0]
             for ind, planet in data.iterrows():
                 if ind not in inds:
                     wfirstc_list.append(np.nan)
@@ -1723,7 +1742,7 @@ def genAliases(data):
     print('Getting star aliases')
     for j,star in enumerate(starnames):
         t_bar.set_description(star.ljust(max_justification))
-        t_bar.update(1)
+        t_bar.update()
 
         #get aliases from IPAC
         # r = requests.get(f"{baseurl}select+*+from+object_aliases+where+resolved_name='{star}'")
