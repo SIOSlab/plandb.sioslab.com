@@ -1135,6 +1135,59 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None):
 
     return orbdata, orbitfits
 
+# Separates data into pl_data and st_data
+def generateTables(data, orbitfits):
+    print('Splitting IPAC data into Star and Planet data')
+    # Isolate the stellar columns from the planet columns
+    st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
+    st_cols.extend(["dec", "decstr", "hd_name", "hip_name", "ra", "rastr"])
+
+    pl_cols = ["hostname", "pl_name", "pl_letter", "disc_year", "disc_refname", "discoverymethod", "disc_locale", "ima_flag",
+               "disc_instrument", "disc_telescope", "pl_pubdate", "disc_facility",
+               "sy_mnum", "rv_flag"]
+    orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
+    orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname')
+    orbitfits_exclude = [col for col in orbitfits_cols if col.startswith(orbitfits_exclude_prefix)]
+    orbitfits_cols = np.setdiff1d(orbitfits_cols, orbitfits_exclude)
+
+    st_cols.append("hostname")
+    st_data = data[st_cols]
+    st_data = st_data.drop_duplicates(subset='hostname', keep='first')
+    st_data.reset_index(drop=True)
+
+    pl_data = data[pl_cols]
+    orbitfits = orbitfits[orbitfits_cols]
+    pl_data = pl_data.rename(columns={'hostname':'st_name'})
+    st_data = st_data.rename(columns={'hostname':'st_name'})
+    orbitfits = orbitfits.rename(columns={'hostname':'st_name'})
+
+    num_rows = len(st_data.index)
+    stars = pl_data['st_name']
+    stars.drop_duplicates(keep='first', inplace=True)
+
+    num_stars = len(stars.index)
+    # If these aren't equal, then two sources of data for a star don't agree.
+    assert num_rows == num_stars, "Stellar data for different planets not consistent"
+
+    idx_list = []
+    for idx, row in pl_data.iterrows():
+        st_idx = st_data[st_data['st_name'] == row['st_name']].index.values
+        # If there's no star associated with a planet, should have null index
+        if len(st_idx) == 0:
+            idx_list.append(None)
+        else:
+            idx_list.append(st_idx[0])
+
+    pl_data = pl_data.assign(st_id=idx_list)
+
+    colmap_st = {k: k[3:] if (k.startswith('st_') and (k != 'st_id' and k != 'st_name')) else k for k in st_data.keys()}
+    st_data = st_data.rename(columns=colmap_st)
+
+    colmap_fits = {k: k[3:] if (k.startswith('pl_') and (k != 'pl_id' and k != 'pl_name')) else k for k in orbitfits.keys()}
+    orbitfits = orbitfits.rename(columns=colmap_fits)
+    return pl_data, st_data, orbitfits
+
+
 # Generates fsed based on a random number: 0 <= num < 1
 def get_fsed(num):
     """ Generate random value of f_sed based on distribution provided by Mark Marley:
@@ -1342,10 +1395,8 @@ def calcContrastCurves(data, exosims_json):
                 # plt.savefig('dmagvit.png', dpi=200)
                 # breakpoint()
                 for working_angle in working_angles_as:
-                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ ind ], fZ0, fEZ, working_angle, mode)
-                    # breakpoint()
+                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angle, mode)
                     contr = 10**(dMag/(-2.5))
-                    # print(f'\tWA {working_angle.value:0.3f} contrast: {contr[0]:5.5e}')
                     contrasts.append(contr[0])
                 contr_df['r_lamD'] = working_angles_lam_D
                 contr_df['r_as'] = working_angles_as.value
@@ -1597,7 +1648,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
                         fig_path.mkdir(parents=True, exist_ok=True)
                         save_path = Path(fig_path, f'{row["pl_name"].replace(" ", "_")}.png')
                         fig, ax = plt.subplots()
-                        ax.set_title(f'Mode: {mode_name}. Int time: {int_time}. Planet: {row["pl_name"]}')
+                        ax.set_title(f'Mode: {mode_name.replace("EB", "Conservative").replace("DRM", "Optimistic").replace("_", " ")}. Int time: {int_time}. Planet: {row["pl_name"]}')
                         ax.set_xlabel(r'$\alpha$ (mas)')
                         ax.set_ylabel(r'$\Delta$mag')
                         ax.set_xlim([0, maxangsep+100])
@@ -1695,27 +1746,22 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = cs
             data[f'completeness_{scenario_name}'] = tmp
-            # data = data.assign(completeness=tmp)
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = minCWA
             data['compMinWA_{scenario_name}'] = tmp
-            # data = data.assign(compMinWA=tmp)
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = maxCWA
             data['compMaxWA_{scenario_name}'] = tmp
-            # data = data.assign(compMaxWA=tmp)
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = minCdMag
             data['compMindMag_{scenario_name}'] = tmp
-            # data = data.assign(compMindMag=tmp)
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = maxCdMag
             data['compMaxdMag_{scenario_name}'] = tmp
-            # data = data.assign(compMaxdMag=tmp)
 
     return out2,outdict,data
 

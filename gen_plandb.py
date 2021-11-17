@@ -142,6 +142,27 @@ if cache:
 else:
     comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict, exosims_json=exosims_json)
 
+# Split data into stars, planets, and orbitfits
+plandata_path = Path(f'cache/plandata_{datestr}.p')
+stdata_path = Path(f'cache/stdata_{datestr}.p')
+table_orbitfits_path = Path(f'cache/table_orbitfits_{datestr}.p')
+if cache:
+    # plandata.to_pickle('plandata_'+datestr+'.pkl')
+    # stdata.to_pickle('stdata_' + datestr + '.pkl')
+    # orbitfits.to_pickle('orbitfits_'+datestr+'.pkl')
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if plandata_path.exists():
+        plandata = pd.read_pickle(plandata_path)
+        stdata = pd.read_pickle(stdata_path)
+        table_data = pd.read_pickle(table_orbitfits_path)
+    else:
+        plandata, stdata, orbitfits = generateTables(data, comps_data)
+        plandata.to_pickle(plandata_path)
+        stdata.to_pickle(stdata_path)
+        orbitfits.to_pickle(table_orbitfits_path)
+else:
+    plandata, stdata, orbitfits = generateTables(data, comps_data)
+
 #aliases
 # aliases_path = Path(f'cache/aliases_{datestr}.p')
 aliases_path = Path(f'cache/aliases_2021-09-22.p') # Saved version
