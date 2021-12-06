@@ -833,7 +833,7 @@ def genAltOrbitData_old(data, bandzip, photdict, t0=None):
     distinterp = photdict['distinterp']
 
     Isglob = np.array([90,60,30])
-    (l,band,bw,ws,wstep) = bandzip[0]
+    (l,band,bw,ws,wstep) = bandzip#[0]
     c = 3.0
 
     altorbdata = None
@@ -1641,7 +1641,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
             scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
             print(f'Calculating completeness for {scenario_name}')
 
-            (l,band,bw,ws,wstep) = bandzip[0]
+            (l,band,bw,ws,wstep) = bandzip#[0]
             photinterps2 = photdict['photinterps']
             feinterp = photdict['feinterp']
             distinterp = photdict['distinterp']
@@ -2105,7 +2105,7 @@ def writeSQL_old(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliase
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
 
-def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None):
+def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
     """write outputs to sql database via engine"""
 
     if stdata is not None:
@@ -2184,8 +2184,8 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
         result = engine.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
         result = engine.execute("ALTER TABLE PDFs ADD INDEX (pl_id)")
         result = engine.execute("ALTER TABLE PDFs ADD INDEX (pdf_id)")
-        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
-        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
 
         addSQLcomments(engine,'PDFs')
 
@@ -2197,26 +2197,35 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (alias_id)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (st_id)")
-        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+
+    if scenarios is not None:
+        print("Writing scenarios")
+        scenarios = scenarios.rename_axis("scenario_id")
+        scenarios.to_sql("Scenarios", engine, chunksize=100, if_exists='replace', dtype={
+            'scenario_id': sqlalchemy.types.INT,}, index = True)
 
     if contrastCurves is not None:
         print("Writing ContrastCurves")
         contrastCurves = contrastCurves.rename_axis("curve_id")
         contrastCurves.to_sql("ContrastCurves", engine, chunksize=100, if_exists='replace', dtype={
             'st_id': sqlalchemy.types.INT,
-            'curve_id' : sqlalchemy.types.INT}, index = True)
-        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
-
-    if scenarios is not None:
+            'curve_id' : sqlalchemy.types.INT,
+            'scenario_id' : sqlalchemy.type.INT}, index = True)
+        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_id) REFERENCES Scenarios(scenario_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+  
+    if completeness is not None:
         print("Writing scenarios")
-        scenarios = scenarios.rename_axis("scenario_id")
-        scenarios.to_sql("Scenarios", engine, chunksize=100, if_exists='replace', dtype={
+        completeness = completeness.rename_axis("completeness_id")
+        scenarios.to_sql("Completeness", engine, chunksize=100, if_exists='replace', dtype={
             'scenario_id': sqlalchemy.types.INT,
             'pl_id' : sqlalchemy.types.INT,
-            'curve_id' : sqlalchemy.types.INT}, index = True)
-        result = engine.execute("ALTER TABLE Scenarios ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE Scenarios ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
-        result = engine.execute("ALTER TABLE Scenarios ADD FOREIGN KEY (curve_id) REFERENCES ContrastCurves(curve_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+            'completeness_id' : sqlalchemy.types.INT}, index = True)
+        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (scenario_id) REFERENCES Scenarios(scenario_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+  
+        
 
 def addSQLcomments(engine,tablename):
         """Add comments to table schema based on entries in spreadsheet"""
@@ -2251,15 +2260,24 @@ def addSQLcomments(engine,tablename):
           r = engine.execute(comm)
 
 def fullDBGen():
-    data = pd.read_csv("/data/plandb/plandb.sioslab.com/csv_data.csv")
+    f = open("password.txt", "r")
+
+    passwd = f.read()
+    f.close()
+    data = pd.read_pickle('/data/plandb/plandb.sioslab.com/cache/data_cache_2021-11-29.p')
+    data.insert(1, "default_fit", 1)
     print("generating bands")
     bandzip = genBands()
-    print("calculating contrast curves")
-    data = calcContrastCurves(data, "exosims_input.json")
     print("loading photometry data")
     photdict = loadPhotometryData("/data/plandb/plandb.sioslab.com/allphotdata_2015.npz")
+    
+    print("calculating contrast curves")
+    data = calcContrastCurves(data, "exosims_input.json")
     print("calculating planet completeness")
     completeness, _, data = calcPlanetCompleteness(data, bandzip, photdict, "exosims_input.json")
+    
+    print("calculating contrast curves")
+    data = calcContrastCurves(data, "exosims_input.json")
     print("generating aliases")
     aliases = genAliases(data)
     print("generating orbit data")
@@ -2276,4 +2294,12 @@ def fullDBGen():
 
 
 if __name__ == "__main__":
-    data = pd.read_pickle('/data/plandb/plandb.sioslab.com/cache/data_cache_2021-11-29.p')
+    stars = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/stdata_2021-11-29.p")
+    planets = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/plandata_2021-11-29.p")
+    orbitfits = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/orbfits_2021-11-29.p")
+    orbits = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/orbdata_2021-11-29.p")
+    pdfs = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache")
+    
+    scenarios = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache")
+    contrastCurves = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/contr_data_2021-11-29.p")
+    completeness = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache")
