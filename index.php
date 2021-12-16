@@ -16,7 +16,21 @@ if (!empty($_GET["querytext"])){
 elseif (!empty($_POST["querytext"])){
     $sql = $_POST["querytext"]; }
 else {
-    $sql = "select pl_name, pl_angsep, completeness,pl_minangsep,pl_maxangsep,pl_radj,pl_bmassj,pl_orbsmax from KnownPlanets where completeness > 0 order by completeness DESC";}
+    $sql = "SELECT PL.pl_name AS pl_name, 
+    OF.pl_angsep AS pl_angsep,
+    C.completeness AS completeness,
+    S.minangsep AS pl_minangsep,
+    S.maxangsep AS pl_maxangsep,
+    OF.pl_radj AS pl_radj,
+    OF.pl_bmassj AS pl_bmassj,
+    OF.pl_orbsmax AS pl_orbsmax
+    FROM Planets PL, OrbitFits OF, Completeness C, Scenarios S
+    WHERE C.completeness > 0 
+    AND PL.pl_id= OF.pl_id
+    AND PL.pl_id= C.pl_id
+    AND C.scenario_name= S.scenario_name 
+    AND S.scenario_name='EB_NF_Imager_100hr'
+    ORDER BY C.completeness DESC";}
     
 echo "$sql";
 ?>
