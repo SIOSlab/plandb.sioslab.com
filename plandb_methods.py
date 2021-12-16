@@ -1924,7 +1924,7 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
         result = engine.execute('ALTER TABLE Stars ADD INDEX (st_id)')
 
         # add comments
-        addSQLcomments(engine, 'Stars')
+        # addSQLcomments(engine, 'Stars')
 
     if data is not None:
         print("Writing Planets")
@@ -1942,7 +1942,7 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
         result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
         #add comments
-        addSQLcomments(engine,'Planets')
+        # addSQLcomments(engine,'Planets')
 
     if orbitfits is not None:
         print("Writing OrbitFits")
@@ -1957,7 +1957,7 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
         result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
         result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        addSQLcomments(engine,'OrbitFits')
+        # addSQLcomments(engine,'OrbitFits')
 
     if orbdata is not None:
         print("Writing Orbits")
@@ -1975,24 +1975,23 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
         result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
         result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        addSQLcomments(engine,'Orbits')
+        # addSQLcomments(engine,'Orbits')
 
     if pdfs is not None:
         print("Writing PDFs")
         pdfs = pdfs.reset_index(drop=True)
-        namemxchar = np.array([len(n) for n in pdfs['pl_name'].values]).max()
+        namemxchar = np.array([len(n) for n in pdfs['Name'].values]).max()
         pdfs = pdfs.rename_axis('pdf_id')
         pdfs.to_sql('PDFs',engine,chunksize=100,if_exists='replace',
-                     dtype={'Name':sqlalchemy.types.String(namemxchar),
-                            'pl_id': sqlalchemy.types.INT,
-                            'orbitfit_id': sqlalchemy.types.INT})
-        result = engine.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
+                     dtype={'pl_name':sqlalchemy.types.String(namemxchar),
+                            'pl_id': sqlalchemy.types.INT})
+        # result = engine.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
         result = engine.execute("ALTER TABLE PDFs ADD INDEX (pl_id)")
         result = engine.execute("ALTER TABLE PDFs ADD INDEX (pdf_id)")
-        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        # result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
         result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
 
-        addSQLcomments(engine,'PDFs')
+        # addSQLcomments(engine,'PDFs')
 
     if aliases is not None:
         print("Writing Alias")
@@ -2006,29 +2005,40 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
 
     if scenarios is not None:
         print("Writing scenarios")
-        scenarios = scenarios.rename_axis("scenario_id")
+        
+        namemxchar = np.array([len(n) for n in scenarios['scenario_name'].values]).max()
         scenarios.to_sql("Scenarios", engine, chunksize=100, if_exists='replace', dtype={
-            'scenario_id': sqlalchemy.types.INT,}, index = True)
+            'scenario_name': sqlalchemy.types.String(namemxchar),}, index = False)
+        
+        result = engine.execute("ALTER TABLE Scenarios ADD INDEX (scenario_name)")
 
     if contrastCurves is not None:
         print("Writing ContrastCurves")
         contrastCurves = contrastCurves.rename_axis("curve_id")
+        namemxchar = np.array([len(n) for n in contrastCurves['scenario_name'].values]).max()
         contrastCurves.to_sql("ContrastCurves", engine, chunksize=100, if_exists='replace', dtype={
             'st_id': sqlalchemy.types.INT,
             'curve_id' : sqlalchemy.types.INT,
-            'scenario_id' : sqlalchemy.type.INT}, index = True)
+            'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
+        # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (scenario_name)")
+        
+        # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (st_id)")
+
         result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
-        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_id) REFERENCES Scenarios(scenario_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
   
     if completeness is not None:
         print("Writing scenarios")
         completeness = completeness.rename_axis("completeness_id")
-        scenarios.to_sql("Completeness", engine, chunksize=100, if_exists='replace', dtype={
-            'scenario_id': sqlalchemy.types.INT,
+        namemxchar = np.array([len(n) for n in completeness['scenario_name'].values]).max()
+        completeness.to_sql("Completeness", engine, chunksize=100, if_exists='replace', dtype={
+            # 'scenario_id': sqlalchemy.types.INT,
             'pl_id' : sqlalchemy.types.INT,
-            'completeness_id' : sqlalchemy.types.INT}, index = True)
+            'completeness_id' : sqlalchemy.types.INT,
+            'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
+        
         result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
-        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (scenario_id) REFERENCES Scenarios(scenario_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
   
         
 
