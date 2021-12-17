@@ -21,7 +21,7 @@ else {
     C.completeness AS completeness,
     S.minangsep AS pl_minangsep,
     S.maxangsep AS pl_maxangsep,
-    OF.pl_radj AS pl_radj,
+    OF.pl_radj_forecastermod AS pl_radj_forecastermod,
     OF.pl_bmassj AS pl_bmassj,
     OF.pl_orbsmax AS pl_orbsmax,
     S.scenario_name AS scenario_name,
@@ -32,6 +32,7 @@ else {
     AND PL.pl_id= C.pl_id
     AND C.scenario_name= S.scenario_name 
     AND OF.default_fit = 1
+    -- AND C.scenario_name = 'DRM_NF_Imager_10000hr'
     ORDER BY C.completeness DESC";}
     
 echo "$sql";

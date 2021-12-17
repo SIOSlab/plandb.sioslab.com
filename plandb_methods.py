@@ -2028,7 +2028,7 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
         result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
   
     if completeness is not None:
-        print("Writing scenarios")
+        print("Writing completeness")
         completeness = completeness.rename_axis("completeness_id")
         namemxchar = np.array([len(n) for n in completeness['scenario_name'].values]).max()
         completeness.to_sql("Completeness", engine, chunksize=100, if_exists='replace', dtype={
