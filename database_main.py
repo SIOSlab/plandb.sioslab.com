@@ -64,68 +64,70 @@ if __name__ == "__main__":
     # planets = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/plandata_2021-11-29.p")
     # print('st_id' in list(planets))
     # print((planets))
-    # orbitfits = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/orbfits_2021-11-29.p")
-    # orbits = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/orbdata_2021-11-29.p")
-    # pdfs = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/comps_2021-11-29.p")
-    # print((pdfs))
-    # # df.loc[df['column_name'] == some_value]
-    # print(list(planets.index[(planets['pl_name'] == "47 UMa d")])[0])
-    # def addId(r):
-    #     r['pl_id']= list(planets.index[(planets['pl_name'] == r['Name'])])[0]
-    #     return r
-    # newpdfs = pdfs.apply(addId, axis = 1)
-    # pdfs = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/indexed_pdfs_2021-12-10.p")
-    # print(pdfs)
-    comp_data = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/comps_data_2021-11-29.p")
-    col_names = comp_data.columns.values.tolist()
-    print(str(list(comp_data)).replace(", ", "\n"))
-    scenario_names = []
-    for x in col_names:
-        if x[:8] == 'complete':
-            scenario_names.append(x[13:])
+    orbitfits = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/orbfits_2021-11-29.p")
+    print(orbitfits['pl_radj'])
 
-    # print(scenario_names)
-    # a = 0
-    # b = 1/a
-    #drop contr_curve col
-    completeness = pd.DataFrame([], columns = ['pl_id', 'completeness',  'scenario_name', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag'])
-    for i, row in tqdm(comp_data.iterrows()):
-        # print(type(row))
-        newRows = []
+    # # orbits = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/orbdata_2021-11-29.p")
+    # # pdfs = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/comps_2021-11-29.p")
+    # # print((pdfs))
+    # # # df.loc[df['column_name'] == some_value]
+    # # print(list(planets.index[(planets['pl_name'] == "47 UMa d")])[0])
+    # # def addId(r):
+    # #     r['pl_id']= list(planets.index[(planets['pl_name'] == r['Name'])])[0]
+    # #     return r
+    # # newpdfs = pdfs.apply(addId, axis = 1)
+    # # pdfs = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/indexed_pdfs_2021-12-10.p")
+    # # print(pdfs)
+    # comp_data = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/comps_data_2021-11-29.p")
+    # col_names = comp_data.columns.values.tolist()
+    # print(str(list(comp_data)).replace(", ", "\n"))
+    # scenario_names = []
+    # for x in col_names:
+    #     if x[:8] == 'complete':
+    #         scenario_names.append(x[13:])
+
+    # # print(scenario_names)
+    # # a = 0
+    # # b = 1/a
+    # #drop contr_curve col
+    # completeness = pd.DataFrame([], columns = ['pl_id', 'completeness',  'scenario_name', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag'])
+    # for i, row in tqdm(comp_data.iterrows()):
+    #     # print(type(row))
+    #     newRows = []
         
-        # if pd.notna(row[('compMinWA_{scenario_name}')]):
-        #     print(row['compMinWA_{scenario_name}'])
-        #     print(row['compMaxWA_{scenario_name}'])
-        #     print(row['compMindMag_{scenario_name}'])
-        #     print(row['compMaxdMag_{scenario_name}'])
-        #     print(row['compMaxdMag_{scenario_name}'])
-        #     for scenario_name in scenario_names:
-        #         print(row['completeness_' + scenario_name])
-        for scenario_name in scenario_names:
-            newRows = []
-            if pd.notna(row[('completeness_' + scenario_name)]):
-                newRows.append([row['pl_id'], row['completeness_' + scenario_name], scenario_name, 
-                    # row['compMinWA_' + scenario_name], 
-                    # row['compMaxWA_' + scenario_name],
-                    # row['compMindMag_' + scenario_name],
-                    # row['compMaxdMag_' + scenario_name]])
+    #     # if pd.notna(row[('compMinWA_{scenario_name}')]):
+    #     #     print(row['compMinWA_{scenario_name}'])
+    #     #     print(row['compMaxWA_{scenario_name}'])
+    #     #     print(row['compMindMag_{scenario_name}'])
+    #     #     print(row['compMaxdMag_{scenario_name}'])
+    #     #     print(row['compMaxdMag_{scenario_name}'])
+    #     #     for scenario_name in scenario_names:
+    #     #         print(row['completeness_' + scenario_name])
+    #     for scenario_name in scenario_names:
+    #         newRows = []
+    #         if pd.notna(row[('completeness_' + scenario_name)]):
+    #             newRows.append([row['pl_id'], row['completeness_' + scenario_name], scenario_name, 
+    #                 # row['compMinWA_' + scenario_name], 
+    #                 # row['compMaxWA_' + scenario_name],
+    #                 # row['compMindMag_' + scenario_name],
+    #                 # row['compMaxdMag_' + scenario_name]])
                     
-                    row['compMinWA_{scenario_name}'], 
-                    row['compMaxWA_{scenario_name}'],
-                    row['compMindMag_{scenario_name}'],
-                    row['compMaxdMag_{scenario_name}']])
+    #                 row['compMinWA_{scenario_name}'], 
+    #                 row['compMaxWA_{scenario_name}'],
+    #                 row['compMindMag_{scenario_name}'],
+    #                 row['compMaxdMag_{scenario_name}']])
                     
-                singleRow = pd.DataFrame(newRows, columns =  ['pl_id', 'completeness',  'scenario_name', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag'])
-                completeness = completeness.append(singleRow, ignore_index=True)   
-    print(completeness)
-    # scenarios = pd.read_csv("scenarios.csv")    
-    # print(scenarios)
-    # contrastCurves = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/cont_curvs_2021_11_compiled.p")
-    # print(contrastCurves)
+    #             singleRow = pd.DataFrame(newRows, columns =  ['pl_id', 'completeness',  'scenario_name', 'compMinWA', 'compMaxWA', 'compMindMag', 'compMaxdMag'])
+    #             completeness = completeness.append(singleRow, ignore_index=True)   
+    # print(completeness)
+    # # scenarios = pd.read_csv("scenarios.csv")    
+    # # print(scenarios)
+    # # contrastCurves = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/cont_curvs_2021_11_compiled.p")
+    # # print(contrastCurves)
 
 
-    passwd = input("db password: ")  
-    username = 'plandb_admin'
+    # passwd = input("db password: ")  
+    # username = 'plandb_admin'
 
-    engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@localhost/plandb_scratch',echo=False)
-    writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=completeness)
+    # engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@localhost/plandb_scratch',echo=False)
+    # writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=completeness)

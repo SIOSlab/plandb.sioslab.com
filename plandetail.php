@@ -16,12 +16,20 @@ if (empty($_GET["scenario"])){
     $scenario = $_GET["scenario"];
 }
 
+if (empty($_GET["of_id"])){
+    echo "No orbitfit_id name provided.";
+    include "templates/footer.php"; 
+    exit;
+} else{
+    $orbitfit_id = $_GET["of_id"];
+}
+
 $sql = "SELECT 
 OF.hostname AS pl_hostname,
 -- pl_reflink,
 OF.pl_orbper AS pl_orbper,
 OF.discoverymethod AS pl_discmethod,
-OF.orbsmax AS pl_orbsmax,
+OF.pl_orbsmax AS pl_orbsmax,
 OF.pl_orbeccen AS pl_orbeccen,
 OF.pl_orbincl AS pl_orbincl,
 OF.pl_bmassj AS pl_bmassj,
@@ -36,7 +44,7 @@ OF.pl_eqt AS pl_eqt,
 OF.pl_insol AS pl_insol,
 OF.pl_angsep AS pl_angsep,
 S.minangsep AS pl_minangsep,
-S.maxandsep AS pl_maxangsep, #Should this be OF.pl_maxangsep instead
+S.maxangsep AS pl_maxangsep, #Should this be OF.pl_maxangsep instead
 ST.rastr AS ra_str, #These are copied over to orbitfits should they be dropped
 ST.decstr AS dec_str,
 OF.sy_dist AS st_dist,
@@ -65,13 +73,14 @@ C.compMindMag AS compMindMag,
 C.compMaxdMag AS compMaxdMag,
 OF.elat AS st_elat,
 OF.elon AS st_elon 
-FROM Stars ST, Planets PL, Orbitfits OF, Completeness C, Scenarios S
+FROM Stars ST, Planets PL, OrbitFits OF, Completeness C, Scenarios S
 WHERE ST.st_id = PL.pl_id
 AND PL.pl_id= OF.pl_id
 AND PL.pl_id= C.pl_id
 AND C.scenario_name= S.scenario_name 
 AND PL.pl_name='".$name."'
-AND S.scenario_name='".$scenario."'";
+AND S.scenario_name='".$scenario."'
+AND OF.orbitfit_id='".$orbitfit_id."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -105,6 +114,15 @@ if ($result->num_rows > 1) {
 }
 
 $sql2 = "select * from PlanetOrbits where Name = '".$name."'";
+// $sql2 =  "SELECT *
+// FROM Stars ST, Planets PL, OrbitFits OF, Completeness C, Scenarios S
+// WHERE ST.st_id = PL.pl_id
+// AND PL.pl_id= OF.pl_id
+// AND PL.pl_id= C.pl_id
+// AND C.scenario_name= S.scenario_name 
+// AND PL.pl_name='".$name."'
+// AND S.scenario_name='".$scenario."'
+// AND OF.orbitfit_id='".$orbitfit_id."'";
 $resultp = $conn->query($sql2);
 
 $row = $result->fetch_assoc();

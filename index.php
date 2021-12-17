@@ -23,13 +23,15 @@ else {
     S.maxangsep AS pl_maxangsep,
     OF.pl_radj AS pl_radj,
     OF.pl_bmassj AS pl_bmassj,
-    OF.pl_orbsmax AS pl_orbsmax
+    OF.pl_orbsmax AS pl_orbsmax,
+    S.scenario_name AS scenario_name,
+    OF.orbitfit_id AS orbitfit_id
     FROM Planets PL, OrbitFits OF, Completeness C, Scenarios S
     WHERE C.completeness > 0 
     AND PL.pl_id= OF.pl_id
     AND PL.pl_id= C.pl_id
     AND C.scenario_name= S.scenario_name 
-    AND S.scenario_name='EB_NF_Imager_100hr'
+    AND OF.default_fit = 1
     ORDER BY C.completeness DESC";}
     
 echo "$sql";
@@ -72,7 +74,10 @@ if ($result){
            foreach(array_keys($row) as $paramName) {
                echo "<td>";
                if ($paramName == 'pl_name'){
-                    echo "<a href='plandetail.php?name=".urlencode($row[$paramName])."'>".$row[$paramName]."</a>";                
+                    echo "<a href='plandetail.php?name=".urlencode($row[$paramName]).
+                    "&scenario=".urlencode($row['scenario_name']).
+                    "&of_id=".urlencode($row['orbitfit_id']).
+                    "'>".$row[$paramName]."</a>";                
                } else{
                    if (is_numeric($row[$paramName])){
                        echo number_format((float)$row[$paramName], 2, '.', '');

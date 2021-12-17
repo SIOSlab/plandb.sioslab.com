@@ -6,8 +6,16 @@ include "templates/headerclose.php";
 <h2> Known Planet Detail Query </h2>
 
 <?php 
-$sqlsel = "SELECT pl_name as Name, pl_angsep, st_optmag,completeness FROM KnownPlanets WHERE "; 
-$sqlord = "ORDER by completeness DESC";
+$sqlsel = "SELECT PL.pl_name AS Name, 
+OF.pl_angsep AS pl_angsep,
+C.completeness AS completeness,
+OF.sy_vmag AS st_optmag
+FROM Planets PL, OrbitFits OF, Completeness C, Scenarios S
+WHERE PL.pl_id= OF.pl_id
+AND PL.pl_id= C.pl_id
+AND C.scenario_name= S.scenario_name
+AND ";
+$sqlord = "ORDER BY C.completeness DESC";
 ?>
 
 <p>See <a href="index.php?querytext=show full columns in KnownPlanets">"show columns in KnownPlanets"</a> for all available columns to query on.
@@ -18,7 +26,7 @@ This interface filters planets of interest and links to detail pages for the res
     <textarea name="querytext" rows="4" cols="100">
 <?php 
 if (empty($_POST["querytext"]))
-    $sql = "completeness > 0";
+    $sql = "C.completeness > 0";
 else
     $sql = $_POST["querytext"]; 
 echo $sql;
