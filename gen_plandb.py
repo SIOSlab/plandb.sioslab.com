@@ -12,7 +12,8 @@ from pathlib import Path
 cache = True
 from sqlalchemy.types import String
 
-datestr = Time.now().datetime.strftime("%Y-%m-%d")
+datestr = Time.now().datetime.strftime("%Y-%m")
+# datestr = Time.now().datetime.strftime("%Y-%m-%d")
 
 #initial data dump
 data_path = Path(f'cache/data_cache_{datestr}.p')
@@ -55,7 +56,6 @@ if cache:
             pickle.dump(bandzip, f)
 else:
     bandzip = list(genBands())
-
 #get orbital data
 print("Getting orbit data")
 orbdata_path = Path(f'cache/orbdata_{datestr}.p')

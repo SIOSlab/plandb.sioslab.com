@@ -1314,11 +1314,6 @@ def calcContrastCurves(data, exosims_json):
     spe_int_times = [100*u.hr, 400*u.hr, 10000*u.hr]
 
 
-    #TODO remove override
-    # modes = [modes[0]]
-    # img_int_times = [25*u.hr]
-
-
     for mode in modes:
         mode_name = mode['instName']
         minangsep = mode['IWA']
@@ -1395,6 +1390,7 @@ def calcContrastCurves(data, exosims_json):
                 # plt.savefig('dmagvit.png', dpi=200)
                 # breakpoint()
                 for working_angle in working_angles_as:
+                    # dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angles_as, mode)
                     dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angle, mode)
                     contr = 10**(dMag/(-2.5))
                     contrasts.append(contr[0])
@@ -1735,6 +1731,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
                 maxCWA.append(np.ceil(np.max(WAcs[j][hs[j] != 0])))
                 minCdMag.append(np.floor(np.min(dMagcs[j][hs[j] != 0])))
                 maxCdMag.append(np.ceil(np.max(dMagcs[j][hs[j] != 0])))
+                breakpoint()
 
             outdict = {'cs':cs,
                        'goodinds':goodinds,
@@ -1749,19 +1746,19 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = minCWA
-            data['compMinWA_{scenario_name}'] = tmp
+            data[f'compMinWA_{scenario_name}'] = tmp
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = maxCWA
-            data['compMaxWA_{scenario_name}'] = tmp
+            data[f'compMaxWA_{scenario_name}'] = tmp
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = minCdMag
-            data['compMindMag_{scenario_name}'] = tmp
+            data[f'compMindMag_{scenario_name}'] = tmp
 
             tmp = np.full(len(data),np.nan)
             tmp[goodinds] = maxCdMag
-            data['compMaxdMag_{scenario_name}'] = tmp
+            data[f'compMaxdMag_{scenario_name}'] = tmp
 
     return out2,outdict,data
 
