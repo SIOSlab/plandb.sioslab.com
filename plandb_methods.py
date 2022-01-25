@@ -1,5 +1,4 @@
 from __future__ import division, print_function
-
 import math
 import os
 import re
@@ -834,7 +833,7 @@ def genAltOrbitData_old(data, bandzip, photdict, t0=None):
     distinterp = photdict['distinterp']
 
     Isglob = np.array([90,60,30])
-    (l,band,bw,ws,wstep) = bandzip[0]
+    (l,band,bw,ws,wstep) = bandzip#[0]
     c = 3.0
 
     altorbdata = None
@@ -1134,6 +1133,7 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None):
     orbitfits = orbitfits.reset_index(drop=True)
 
     return orbdata, orbitfits
+
 
 # Separates data into pl_data and st_data
 def generateTables(data, orbitfits):
@@ -1442,7 +1442,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
             scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
             print(f'Calculating completeness for {scenario_name}')
 
-            (l,band,bw,ws,wstep) = bandzip[0]
+            (l,band,bw,ws,wstep) = bandzip#[0]
             photinterps2 = photdict['photinterps']
             feinterp = photdict['feinterp']
             distinterp = photdict['distinterp']
@@ -1855,7 +1855,7 @@ def fillMissingAliases(engine,data):
     return genAliases(missing)
 
 
-def writeSQL(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=None):
+def writeSQL_old(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=None):
     """write outputs to sql database via engine"""
 
     if data is not None:
@@ -1907,6 +1907,137 @@ def writeSQL(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=No
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
 
+def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
+    """write outputs to sql database via engine"""
+
+    if stdata is not None:
+        print("Writing Stars")
+        namemxchar = np.array([len(n) for n in stdata['st_name'].values]).max()
+        stdata = stdata.rename_axis('st_id')
+        stdata.to_sql('Stars', engine, chunksize=100, if_exists='replace',
+                    dtype={'st_id': sqlalchemy.types.INT,
+                           'st_name': sqlalchemy.types.String(namemxchar)})
+        # set indexes
+        result = engine.execute('ALTER TABLE Stars ADD INDEX (st_id)')
+
+        # add comments
+        # addSQLcomments(engine, 'Stars')
+
+    if data is not None:
+        print("Writing Planets")
+        namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
+        data = data.rename_axis('pl_id')
+        data.to_sql('Planets',engine,chunksize=100,if_exists='replace',
+                    dtype={'pl_id':sqlalchemy.types.INT,
+                            'pl_name':sqlalchemy.types.String(namemxchar),
+                            'st_name':sqlalchemy.types.String(namemxchar-2),
+                            'pl_letter':sqlalchemy.types.CHAR(1),
+                            'st_id': sqlalchemy.types.INT})
+        #set indexes
+        result = engine.execute("ALTER TABLE Planets ADD INDEX (pl_id)")
+        result = engine.execute("ALTER TABLE Planets ADD INDEX (st_id)")
+        result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        #add comments
+        # addSQLcomments(engine,'Planets')
+
+    if orbitfits is not None:
+        print("Writing OrbitFits")
+        orbitfits = orbitfits.rename_axis('orbitfit_id')
+        namemxchar = np.array([len(n) for n in orbitfits['pl_name'].values]).max()
+        orbitfits.to_sql('OrbitFits',engine,chunksize=100,if_exists='replace',
+                          dtype={'pl_id': sqlalchemy.types.INT,
+                                 'orbitfit_id': sqlalchemy.types.INT,
+                                 'pl_name': sqlalchemy.types.String(namemxchar)},
+                          index=True)
+        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (orbitfit_id)")
+        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
+        result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        # addSQLcomments(engine,'OrbitFits')
+
+    if orbdata is not None:
+        print("Writing Orbits")
+        namemxchar = np.array([len(n) for n in orbdata['pl_name'].values]).max()
+        orbdata = orbdata.rename_axis('orbit_id')
+        orbdata.to_sql('Orbits',engine,chunksize=100,if_exists='replace',
+                       dtype={'pl_name':sqlalchemy.types.String(namemxchar),
+                              'pl_id': sqlalchemy.types.INT,
+                              'orbit_id': sqlalchemy.types.BIGINT,
+                              'orbitfit_id': sqlalchemy.types.INT},
+                       index=True)
+        result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbit_id)")
+        result = engine.execute("ALTER TABLE Orbits ADD INDEX (pl_id)")
+        result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbitfit_id)")
+        result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+
+        # addSQLcomments(engine,'Orbits')
+
+    if pdfs is not None:
+        print("Writing PDFs")
+        pdfs = pdfs.reset_index(drop=True)
+        namemxchar = np.array([len(n) for n in pdfs['Name'].values]).max()
+        pdfs = pdfs.rename_axis('pdf_id')
+        pdfs.to_sql('PDFs',engine,chunksize=100,if_exists='replace',
+                     dtype={'pl_name':sqlalchemy.types.String(namemxchar),
+                            'pl_id': sqlalchemy.types.INT})
+        # result = engine.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
+        result = engine.execute("ALTER TABLE PDFs ADD INDEX (pl_id)")
+        result = engine.execute("ALTER TABLE PDFs ADD INDEX (pdf_id)")
+        # result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+
+        # addSQLcomments(engine,'PDFs')
+
+    if aliases is not None:
+        print("Writing Alias")
+        aliases = aliases.rename_axis('alias_id')
+        aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
+        aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (alias_id)")
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
+        result = engine.execute("ALTER TABLE Aliases ADD INDEX (st_id)")
+        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+
+    if scenarios is not None:
+        print("Writing scenarios")
+        
+        namemxchar = np.array([len(n) for n in scenarios['scenario_name'].values]).max()
+        scenarios.to_sql("Scenarios", engine, chunksize=100, if_exists='replace', dtype={
+            'scenario_name': sqlalchemy.types.String(namemxchar),}, index = False)
+        
+        result = engine.execute("ALTER TABLE Scenarios ADD INDEX (scenario_name)")
+
+    if contrastCurves is not None:
+        print("Writing ContrastCurves")
+        contrastCurves = contrastCurves.rename_axis("curve_id")
+        namemxchar = np.array([len(n) for n in contrastCurves['scenario_name'].values]).max()
+        contrastCurves.to_sql("ContrastCurves", engine, chunksize=100, if_exists='replace', dtype={
+            'st_id': sqlalchemy.types.INT,
+            'curve_id' : sqlalchemy.types.INT,
+            'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
+        # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (scenario_name)")
+        
+        # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (st_id)")
+
+        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
+  
+    if completeness is not None:
+        print("Writing completeness")
+        completeness = completeness.rename_axis("completeness_id")
+        namemxchar = np.array([len(n) for n in completeness['scenario_name'].values]).max()
+        completeness.to_sql("Completeness", engine, chunksize=100, if_exists='replace', dtype={
+            # 'scenario_id': sqlalchemy.types.INT,
+            'pl_id' : sqlalchemy.types.INT,
+            'completeness_id' : sqlalchemy.types.INT,
+            'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
+        
+        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
+  
+        
 
 def addSQLcomments(engine,tablename):
         """Add comments to table schema based on entries in spreadsheet"""
@@ -1939,4 +2070,3 @@ def addSQLcomments(engine,tablename):
           comm =  """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";"""%(tablename,key,d,cnames[cols == key][0].strip('"'),cdefs[cols == key][0])
           print(comm)
           r = engine.execute(comm)
-

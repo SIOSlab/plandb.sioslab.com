@@ -1,6 +1,15 @@
 <?php include "templates/header.php"; ?>
 
 <?php 
+
+function debug_to_console($data) {
+    $output = $data;
+    if (is_array($output))
+        $output = implode(',', $output);
+
+    echo "<script>console.log('Debug Objects: " . $output . "' );</script>";
+}
+
 if (empty($_GET["name"])){
     echo "No planet name provided.";
     include "templates/footer.php"; 
@@ -8,8 +17,79 @@ if (empty($_GET["name"])){
 } else{
     $name = $_GET["name"];
 }
+if (empty($_GET["scenario"])){
+    echo "No scenario name provided.";
+    include "templates/footer.php"; 
+    exit;
+} else{
+    $scenario = $_GET["scenario"];
+}
 
-$sql = "SELECT pl_hostname,pl_reflink,pl_orbper,pl_discmethod,pl_orbsmax,pl_orbeccen,pl_orbincl,pl_bmassj,pl_bmassprov,pl_radj,pl_radreflink,pl_radj_fortney,pl_radj_forecastermod,pl_orbtper,pl_orblper,pl_eqt,pl_insol,pl_angsep,pl_minangsep,pl_maxangsep,ra_str,dec_str,st_dist,st_plx,gaia_plx,gaia_dist,st_optmag,st_optband,gaia_gmag,st_teff,st_mass,st_pmra,st_pmdec,gaia_pmra,gaia_pmdec,st_radv,st_spstr,st_lum,st_metfe,st_age,st_bmvj,completeness,compMinWA,compMaxWA,compMindMag,compMaxdMag,st_elat,st_elon FROM KnownPlanets WHERE pl_name='".$name."'";
+if (empty($_GET["of_id"])){
+    echo "No orbitfit_id name provided.";
+    include "templates/footer.php"; 
+    exit;
+} else{
+    $orbitfit_id = $_GET["of_id"];
+}
+
+$sql = "SELECT 
+OF.hostname AS pl_hostname,
+-- pl_reflink,
+OF.pl_orbper AS pl_orbper,
+OF.discoverymethod AS pl_discmethod,
+OF.pl_orbsmax AS pl_orbsmax,
+OF.pl_orbeccen AS pl_orbeccen,
+OF.pl_orbincl AS pl_orbincl,
+OF.pl_bmassj AS pl_bmassj,
+OF.pl_bmassprov AS pl_bmassprov,
+OF.pl_radj AS pl_radj,
+-- pl_radreflink,
+OF.pl_radj_fortney AS pl_radj_fortney,
+OF.pl_radj_forecastermod AS pl_radj_forecastermod,
+OF.pl_orbtper AS pl_orbtper,
+OF.pl_orblper AS pl_orblper,
+OF.pl_eqt AS pl_eqt,
+OF.pl_insol AS pl_insol,
+OF.pl_angsep AS pl_angsep,
+S.minangsep AS pl_minangsep,
+S.maxangsep AS pl_maxangsep, #Should this be OF.pl_maxangsep instead
+ST.rastr AS ra_str, #These are copied over to orbitfits should they be dropped
+ST.decstr AS dec_str,
+OF.sy_dist AS st_dist,
+OF.sy_plx AS st_plx,
+-- gaia_plx,
+-- gaia_dist,
+OF.sy_vmag AS st_optmag,
+-- st_optband,
+OF.sy_gaiamag AS gaia_gmag,
+ST.teff AS st_teff,
+ST.mass AS st_mass,
+OF.sy_pmra AS st_pmra,
+OF.sy_pmdec AS st_pmdec,
+-- gaia_pmra,
+-- gaia_pmdec,
+ST.radv AS st_radv,
+ST.spectype AS st_spstr,
+ST.lum AS st_lum,
+ST.met AS st_metfe,
+ST.age AS st_age,
+-- st_bmvj
+C.completeness AS completeness,
+C.compMinWA AS compMinWA,
+C.compMaxWA AS compMaxWA,
+C.compMindMag AS compMindMag,
+C.compMaxdMag AS compMaxdMag,
+OF.elat AS st_elat,
+OF.elon AS st_elon 
+FROM Stars ST, Planets PL, OrbitFits OF, Completeness C, Scenarios S
+WHERE ST.st_id = PL.pl_id
+AND PL.pl_id= OF.pl_id
+AND PL.pl_id= C.pl_id
+AND C.scenario_name= S.scenario_name 
+AND PL.pl_name='".$name."'
+AND S.scenario_name='".$scenario."'
+AND OF.orbitfit_id='".$orbitfit_id."'";
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -17,7 +97,7 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 } 
-$result = $conn->query($sqlsel.$sql);
+$result = $conn->query($sql);
 if (!$result){
     include "templates/headerclose.php"; 
     echo "Query Error:\n".$conn->error;
@@ -42,21 +122,39 @@ if ($result->num_rows > 1) {
     exit;
 }
 
-$sql2 = "select * from PlanetOrbits where Name = '".$name."'";
+// $sql2 = "select * from PlanetOrbits where Name = '".$name."'";
+$sql2 =  "SELECT O.*
+FROM OrbitFits OF, Orbits O
+WHERE O.orbitfit_id = OF.orbitfit_id
+AND OF.orbitfit_id='".$orbitfit_id."'";
 $resultp = $conn->query($sql2);
 
 $row = $result->fetch_assoc();
-if ($row[completeness]){
-    $sql3 = "SELECT * FROM Completeness WHERE Name='".$name."'";
+if ($row['completeness']){
+    // $sql3 = "SELECT * FROM Completeness WHERE Name='".$name."'";
+    $sql3 = "SELECT P.*
+    FROM Planets PL, PDFs P
+    WHERE P.pl_id = PL.pl_id
+    AND PL.pl_name='".$name."'";
+    
     $resultc = $conn->query($sql3);
+    
 
 }
 
-$sql4 = "select * from AltPlanetOrbits where Name = '".$name."'";
+$sql4 =  "SELECT O.*, OF.pl_orbincl
+FROM Stars ST, Planets PL, OrbitFits OF, Completeness C, Scenarios S, Orbits O
+WHERE ST.st_id = PL.pl_id
+AND PL.pl_id= OF.pl_id
+AND O.orbitfit_id = OF.orbitfit_id
+AND PL.pl_id= C.pl_id
+AND C.scenario_name= S.scenario_name 
+AND PL.pl_name='".$name."'
+AND S.scenario_name='".$scenario."'";
 $resultap = $conn->query($sql4);
 
 
-$sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row[pl_hostname]."')";
+$sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row['pl_hostname']."')";
 $resultaliases = $conn->query($sqlaliases);
 
 if (($resultp && ($resultp->num_rows > 0)) || $row[completeness]) {
@@ -85,40 +183,40 @@ $wd = '50';
 echo " <div style='float: left; width: 90%; margin-bottom: 2em;'>\n";
 echo "<TABLE class='results'>\n";
 echo "<TR><TH colspan='2'> Planet Properties</TH></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Discovered via</TH><TD>".$row[pl_discmethod]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Discovered via</TH><TD>".$row['pl_discmethod']."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Period (days)</TH><TD>".
-    number_format((float)$row[pl_orbper], 2, '.', '');
-if ($row[pl_reflink])
-    echo " (".$row[pl_reflink].")";
+    number_format((float)$row['pl_orbper'], 2, '.', '');
+// if ($row[pl_reflink])
+//     echo " (".$row[pl_reflink].")";
 echo "</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Semi-major Axis (AU)</TH><TD>".
-    number_format((float)$row[pl_orbsmax], 2, '.', '');
-if ($row[pl_reflink])
-    echo " (".$row[pl_reflink].")";
+    number_format((float)$row['pl_orbsmax'], 2, '.', '');
+// if ($row[pl_reflink])
+//     echo " (".$row[pl_reflink].")";
 echo"</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Eccentricity</TH><TD>".$row[pl_orbeccen];
-if ($row[pl_reflink])
-    echo " (".$row[pl_reflink].")";
+echo "<TR><TH style='width:".$wd."%'>Eccentricity</TH><TD>".$row['pl_orbeccen'];
+// if ($row[pl_reflink])
+//     echo " (".$row[pl_reflink].")";
 echo "</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Inclination (deg)</TH><TD>".$row[pl_orbincl]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>".$row[pl_bmassprov]." (Jupiter Masses)</TH><TD>".$row[pl_bmassj];
-if ($row[pl_reflink])
-    echo " (".$row[pl_reflink].")";
+echo "<TR><TH style='width:".$wd."%'>Inclination (deg)</TH><TD>".$row['pl_orbincl']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>".$row['pl_bmassprov']." (Jupiter Masses)</TH><TD>".$row['pl_bmassj'];
+// if ($row[pl_reflink])
+//     echo " (".$row[pl_reflink].")";
 echo "</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Radius (Jupiter Radii)</TH><TD>".$row[pl_radj];
-if ($row[pl_radreflink])
-    echo " (".$row[pl_radreflink].")";
-echo "</TD></TR>\n";
-if ($row[pl_radreflink] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>' or $row[pl_radreflink] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') {
-    echo "<TR><TH style='width:".$wd."%'>Radius Based on Modified Forecaster (Jupiter Radii)</TH><TD>".$row[pl_radj_forecastermod]." (<a href='docs/html/index.html#forecastermodref' target=_blank>See here</a>)</TD></TR>\n";
-    echo "<TR><TH style='width:".$wd."%'>Radius Based on Fortney et al., 2007 (Jupiter Radii)</TH><TD>".$row[pl_radj_fortney]." (<a href='docs/html/index.html#fortneyref' target=_blank>See here</a>)</TD></TR>\n";
-}
-echo "<TR><TH style='width:".$wd."%'>Periapsis Passage Time (JD)</TH><TD>".$row[pl_orbtper]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Longitude of Periapsis (deg)</TH><TD>".$row[pl_orblper]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Equilibrium Temperature (K)</TH><TD>".$row[pl_eqt]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Insolation Flux (Earth fluxes)</TH><TD>".$row[pl_insor]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Radius (Jupiter Radii)</TH><TD>".$row['pl_radj'];
+// if ($row[pl_radreflink])
+//     echo " (".$row[pl_radreflink].")";
+// echo "</TD></TR>\n";
+// if ($row[pl_radreflink] == '<a refstr="CALCULATED VALUE" href="/docs/composite_calc.html" target=_blank>Calculated Value</a>' or $row[pl_radreflink] == '<a refstr=CALCULATED_VALUE href=/docs/composite_calc.html target=_blank>Calculated Value</a>') {
+//     echo "<TR><TH style='width:".$wd."%'>Radius Based on Modified Forecaster (Jupiter Radii)</TH><TD>".$row[pl_radj_forecastermod]." (<a href='docs/html/index.html#forecastermodref' target=_blank>See here</a>)</TD></TR>\n";
+//     echo "<TR><TH style='width:".$wd."%'>Radius Based on Fortney et al., 2007 (Jupiter Radii)</TH><TD>".$row[pl_radj_fortney]." (<a href='docs/html/index.html#fortneyref' target=_blank>See here</a>)</TD></TR>\n";
+// }
+echo "<TR><TH style='width:".$wd."%'>Periapsis Passage Time (JD)</TH><TD>".$row['pl_orbtper']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Longitude of Periapsis (deg)</TH><TD>".$row['pl_orblper']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Equilibrium Temperature (K)</TH><TD>".$row['pl_eqt']."</TD></TR>\n";
+// echo "<TR><TH style='width:".$wd."%'>Insolation Flux (Earth fluxes)</TH><TD>".$row['pl_insor']."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Angular Separation @ sma (mas)</TH><TD>".
-    number_format((float)$row[pl_angsep], 2, '.', '')."</TD></TR>\n";
+    number_format((float)$row['pl_angsep'], 2, '.', '')."</TD></TR>\n";
 //echo "<TR><TH style='width:".$wd."%'>Minimum Angular Separation (mas)</TH><TD>".$row[pl_minangsep]."</TD></TR>\n";
 //echo "<TR><TH style='width:".$wd."%'>Maximum Angular Separation (mas)</TH><TD>".$row[pl_maxangsep]."</TD></TR>\n";
 echo "</TABLE>\n";
@@ -126,21 +224,22 @@ echo "</TABLE>\n";
 
 echo "<TABLE class='results'>\n";
 echo "<TR><TH colspan='2'> Star Properties</TH></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>RA, DEC</TH><TD>".$row[ra_str].", ".$row[dec_str]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Ecliptic Lat, Lon</TH><TD>".$row[st_elat].", ".$row[st_elon]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Distance (GAIA Distance) (pc)</TH><TD>".$row[st_dist]." (".$row[gaia_dist].")</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Parallax (GAIA Parallax) (mas)</TH><TD>".$row[st_plx]." (".$row[gaia_plx].")</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Proper Motion RA/DEC (GAIA PM) (mas/yr)</TH><TD>".$row[st_pmra].", ".$row[st_pmdec]." (".$row[gaia_pmra].", ".$row[gaia_pmdec].")</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Radial Velocity (km/s)</TH><TD>".$row[st_radv]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>".$row[st_optband]. " band Magnitude</TH><TD>".$row[st_optmag]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>GAIA G band Magnitude</TH><TD>".$row[gaia_gmag]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Effective Temperature (K)</TH><TD>".$row[st_teff]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Mass (Solar Masses)</TH><TD>".$row[st_mass]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Spectral Type</TH><TD>".$row[st_spstr]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Luminosity  log(Solar Luminosities)</TH><TD>".$row[st_lum]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Metallicity (dex)</TH><TD>".$row[st_metfe]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Age (Gyr)</TH><TD>".$row[st_age]."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>B-V (Johnson) (mag)</TH><TD>".$row[st_bmvj]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>RA, DEC</TH><TD>".$row['ra_str'].", ".$row['dec_str']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Ecliptic Lat, Lon</TH><TD>".$row['st_elat'].", ".$row['st_elon']."</TD></TR>\n";
+// echo "<TR><TH style='width:".$wd."%'>Distance (GAIA Distance) (pc)</TH><TD>".$row[st_dist]." (".$row[gaia_dist].")</TD></TR>\n";
+// echo "<TR><TH style='width:".$wd."%'>Parallax (GAIA Parallax) (mas)</TH><TD>".$row[st_plx]." (".$row[gaia_plx].")</TD></TR>\n";
+// echo "<TR><TH style='width:".$wd."%'>Proper Motion RA/DEC (GAIA PM) (mas/yr)</TH><TD>".$row[st_pmra].", ".$row[st_pmdec]." (".$row[gaia_pmra].", ".$row[gaia_pmdec].")</TD></TR>\n"; Replaced by line below
+echo "<TR><TH style='width:".$wd."%'>Proper Motion RA/DEC (GAIA PM) (mas/yr)</TH><TD>".$row['st_pmra'].", ".$row['st_pmdec']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Radial Velocity (km/s)</TH><TD>".$row['st_radv']."</TD></TR>\n";
+// echo "<TR><TH style='width:".$wd."%'>".$row[st_optband]. " band Magnitude</TH><TD>".$row[st_optmag]."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>GAIA G band Magnitude</TH><TD>".$row['gaia_gmag']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Effective Temperature (K)</TH><TD>".$row['st_teff']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Mass (Solar Masses)</TH><TD>".$row['st_mass']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Spectral Type</TH><TD>".$row['st_spstr']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Luminosity  log(Solar Luminosities)</TH><TD>".$row['st_lum']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Metallicity (dex)</TH><TD>".$row['st_metfe']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Age (Gyr)</TH><TD>".$row['st_age']."</TD></TR>\n";
+// echo "<TR><TH style='width:".$wd."%'>B-V (Johnson) (mag)</TH><TD>".$row[st_bmvj]."</TD></TR>\n";
 
 if ($resultaliases){
     if ($resultaliases->num_rows > 0) {
@@ -180,11 +279,11 @@ if ($resultp){
         $i = 0;
         while($rowp = $resultp->fetch_assoc()) {
             if ($i == 0){ 
-                $havet = !(is_null($rowp[t]));
+                $havet = !(is_null($rowp['t']));
             }
-            echo "x[".$i."]="; if ($havet){echo $rowp[t].";";} else{echo $rowp[M].";";}
-            echo "r[".$i."]=".$rowp[r].";";
-            echo "WA[".$i."]=".$rowp[WA].";\n";
+            echo "x[".$i."]="; if ($havet){echo $rowp['t'].";";} else{echo $rowp['M'].";";}
+            echo "r[".$i."]=".$rowp['r'].";";
+            echo "WA[".$i."]=".$rowp['WA'].";\n";
 
             foreach ($clouds as &$c) {
                 foreach ($bands as &$b){
@@ -525,17 +624,24 @@ if ($resultap){
         $maxi = $resultap->num_rows;
         $i = 0;
         while($rowp = $resultap->fetch_assoc()) {
-            if ($i == 0){ $Icrit = round($rowp[Icrit] * 180.0/pi(), 2); }
+            // if ($i == 0){ $Icrit = round($rowp['Icrit'] * 180.0/pi(), 2); }
+            if ($i == 0){ $Icrit = 0; }
             echo "msizes[".$i."]=".(-19/$maxi*$i + 20).";";
-            echo "txtvals[".$i."]='t=".sprintf("%2.3g",$rowp[t])."';";
-            echo "WA90[".$i."]=".$rowp[WA_I90].";";
-            echo "WA60[".$i."]=".$rowp[WA_I60].";";
-            echo "WA30[".$i."]=".$rowp[WA_I30].";";
-            echo "WAcrit[".$i."]=".$rowp[WA_Icrit].";";
-            echo "dMag90[".$i."]="; if ($rowp[dMag_300C_575NM_I90]){ echo $rowp[dMag_300C_575NM_I90]; } else{ echo "NaN";} echo";";
-            echo "dMag60[".$i."]="; if ($rowp[dMag_300C_575NM_I60]){ echo $rowp[dMag_300C_575NM_I60]; } else{ echo "NaN";} echo";";
-            echo "dMag30[".$i."]="; if ($rowp[dMag_300C_575NM_I30]){ echo $rowp[dMag_300C_575NM_I30]; } else{ echo "NaN";} echo";";
-            echo "dMagcrit[".$i."]="; if ($rowp[dMag_300C_575NM_Icrit]){ echo $rowp[dMag_300C_575NM_Icrit]; } else{ echo "NaN";} echo";\n";
+            echo "txtvals[".$i."]='t=".sprintf("%2.3g",$rowp['t'])."';";
+            $incl = $rowp['pl_orbincl'];
+            if ($incl < 15) {
+                echo "WAcrit[".$i."]=".$rowp['WA'].";";
+                echo "dMagcrit[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+            } elseif ($incl < 45){
+                echo "WA30[".$i."]=".$rowp['WA'].";";
+                echo "dMag30[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+            } elseif ($incl < 75){
+                echo "WA60[".$i."]=".$rowp['WA'].";";
+                echo "dMag60[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+            } else {
+                echo "WA90[".$i."]=".$rowp['WA'].";";
+                echo "dMag90[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+            }
             $i++;
         }
 
@@ -650,10 +756,10 @@ if ($resultc){
     echo "for(var i = 1; i < ysize; i++) {y[i] = y[i-1]+0.1;}\n";
     echo "for (var i = 0; i < ysize; i++) { z[i] = new Array(xsize).fill(0); }\n";
 
-
     while($rowc = $resultc->fetch_assoc()) {
-        echo "z[".$rowc[jind]."][".$rowc[iind]."]=".$rowc[H].";";
+        echo "z[".$rowc['jind']."][".$rowc['iind']."]=".$rowc['H'].";";
     }
+    
     echo "\n\n";
 
     echo "var box1 = {
@@ -686,12 +792,12 @@ if ($resultc){
                 {
                     buttons: [
                         {
-                            args: ['yaxis', {title: '\u0394 mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]}],
+                            args: ['yaxis', {title: '\u0394 mag',range: [".$row['compMindMag'].",".$row['compMaxdMag']."]}],
                             label: '\u0394 mag Axis Normal',
                             method: 'relayout'
                         },
                         {
-                            args: ['yaxis', {title: '\u0394 mag',range: [".$row[compMaxdMag].",".$row[compMindMag]."]}],
+                            args: ['yaxis', {title: '\u0394 mag',range: [".$row['compMaxdMag'].",".$row['compMindMag']."]}],
                             label:'\u0394 mag Axis Reversed',
                             method:'relayout'
                         }
@@ -708,9 +814,9 @@ if ($resultc){
 
     var layout = {
         updatemenus: updatemenus,
-        title: 'Completeness at 575 nm for \u03B1 \u2208 [0.15, 0.45] arcsec = ".$row[completeness]."',
-        xaxis: {title: 'Separation (mas)',range: [".$row[compMinWA].",".$row[compMaxWA]."]},
-        yaxis: {title: '\u0394 mag',range: [".$row[compMindMag].",".$row[compMaxdMag]."]},
+        title: 'Completeness at 575 nm for \u03B1 \u2208 [0.15, 0.45] arcsec = ".$row['completeness']."',
+        xaxis: {title: 'Separation (mas)',range: [".$row['compMinWA'].",".$row['compMaxWA']."]},
+        yaxis: {title: '\u0394 mag',range: [".$row['compMindMag'].",".$row['compMaxdMag']."]},
     };\n";
     $resultc->close();
 
@@ -719,6 +825,7 @@ if ($resultc){
     echo "</script>\n";
     echo "<p>For full documentation see <a href=docs/html/index.html#completeness-table target=_blank>here</a>.</p>";
 }
+
 ?>
 
 <?php 
