@@ -839,7 +839,6 @@ table.beta {
   background-color: #f2f2f2;
 }
 </style>
-//<table class="striped">
 <table class="beta">
     <tr class="beta">
         <td>Observing scenario</td>
@@ -858,10 +857,9 @@ while ($row = $resultc->fetch_assoc()){
 ?>
 </table>
 <?php  
-echo "<p>Test</p>";
 if ($resultc){
     echo '<div id="compDiv" style="width:1200px; height:640px; margin:auto;"></div>';
-    //echo "\n\n";
+    echo "\n\n";
     echo "<script>\n";
 
     echo "var scenario0 = {
