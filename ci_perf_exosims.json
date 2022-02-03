@@ -33,7 +33,7 @@
   "fillPhotometry":true,
   "explainFiltering":true,
   "scienceInstruments": [
-    { "name": "EB_NF_Imager",
+    { "name": "Conservative_NF_Imager",
       "ppFact_NF_Imager": 1,
       "QE": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/QE_e2v_Spec.csv",
       "FoV": 9.5,
@@ -55,7 +55,7 @@
 	  "THPUT": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/THPT_EB_NFB1_200730.csv",
 	  "DET": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/DET_CBE_210127.csv"
     },
-    { "name": "DRM_NF_Imager",
+    { "name": "Optimistic_NF_Imager",
       "QE": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/QE_e2v_Spec.csv",
       "FoV": 9.5,
       "pixelNumber": 1024,
@@ -76,7 +76,7 @@
 	  "THPUT": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/THPT_EB_NFB1_200730.csv",
 	  "DET": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/DET_CBE_210127.csv"
     },
-    { "name": "EB_Amici_Spec",
+    { "name": "Conservative_Amici_Spec",
       "QE": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/QE_e2v_Spec.csv",
       "FoV": 1,
       "pixelNumber": 1024,
@@ -101,7 +101,7 @@
 	  "THPUT": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/THPT_EB_SPB3_200730.csv",
 	  "DET": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/DET_CBE_210127.csv"
     },
-	{ "name": "DRM_Amici_Spec",
+	{ "name": "Optimistic_Amici_Spec",
       "QE": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/QE_e2v_Spec.csv",
       "FoV": 1,
       "pixelNumber": 1024,
@@ -126,7 +126,7 @@
 	  "THPUT": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/THPT_EB_SPB3_200730.csv",
 	  "DET": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/DET_CBE_210127.csv"
     },
-    { "name": "EB_WF_Imager",
+    { "name": "Conservative_WF_Imager",
 	  "QE": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/QE_e2v_Spec.csv",
       "FoV": 1,
       "pixelNumber": 1024,
@@ -148,7 +148,7 @@
 	  "THPUT": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/THPT_EB_WFB4_200730.csv",
 	  "DET": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/DET_CBE_210127.csv"
     },
-    { "name": "DRM_WF_Imager",
+    { "name": "Optimistic_WF_Imager",
 	  "QE": "$HOME/Documents/github/CGI_Perf/EBcsvData/csv_fix/Photometry/QE_e2v_Spec.csv",
       "FoV": 1,
       "pixelNumber": 1024,
@@ -300,7 +300,7 @@
     }
   ],
   "observingModes": [
-    { "instName": "EB_NF_Imager",
+    { "instName": "Conservative_NF_Imager",
       "systName": "EB_HLC-565",
 	  "ContrastScenario": "2019_PDR_Update",
       "SNR": 5,
@@ -312,7 +312,7 @@
 	  "luminescingOpticalDistance": 0.1,
 	  "s_baffling": 0.001
     },
-    { "instName": "DRM_NF_Imager",
+    { "instName": "Optimistic_NF_Imager",
       "systName": "DRM_HLC-565",
       "detectionMode": true,
 	  "ContrastScenario": "2019_PDR_Update",
@@ -325,7 +325,7 @@
 	  "luminescingOpticalDistance": 0.1,
 	  "s_baffling": 0.001
     },
-    {"instName": "EB_Amici_Spec",
+    {"instName": "Conservative_Amici_Spec",
       "systName": "EB_SPEC_B3",
 	  "ContrastScenario": "2019_PDR_Update",
       "lam": 730,
@@ -339,7 +339,7 @@
 	  "luminescingOpticalDistance": 0.1,
 	  "s_baffling": 0.001
     },
-	{ "instName": "DRM_Amici_Spec",
+	{ "instName": "Optimistic_Amici_Spec",
       "systName": "DRM_SPEC_B3",
 	  "ContrastScenario": "2019_PDR_Update",
       "lam": 730,
@@ -353,7 +353,7 @@
 	  "luminescingOpticalDistance": 0.1,
 	  "s_baffling": 0.001
     },
-    { "instName": "EB_WF_Imager",
+    { "instName": "Conservative_WF_Imager",
       "systName": "EB_IMG_B4",
       "ContrastScenario": "2019_PDR_Update",
       "lam": 825,
@@ -366,7 +366,7 @@
 	  "luminescingOpticalDistance": 0.1,
 	  "s_baffling": 0.001
     },
-    { "instName": "DRM_WF_Imager",
+    { "instName": "Optimistic_WF_Imager",
       "systName": "DRM_IMG_B4",
       "ContrastScenario": "2019_PDR_Update",
       "lam": 825,

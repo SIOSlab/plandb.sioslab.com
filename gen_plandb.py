@@ -28,7 +28,6 @@ if cache:
             pickle.dump(data, f)
 else:
     data = getIPACdata()
-
 #photometric data
 photdict_path = Path(f'cache/photdict_{datestr}.p')
 if cache:
@@ -98,7 +97,7 @@ else:
 # if cache:
     # Path('cache/').mkdir(parents=True, exist_ok=True)
     # if altorbdata_path.exists():
-        # with open(altorbdata_path, 'rb') as f:
+        # with open(altorbdata_path, 'rb') as f
             # altorbdata = pickle.load(f)
     # else:
         # altorbdata = genAltOrbitData(quadrature_data, bandzip, photdict)
@@ -134,13 +133,13 @@ if cache:
             compdict = pickle.load(f)
         comps_data = pd.read_pickle(comps_data_path)
     else:
-        comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict, exosims_json=exosims_json)
+        comps, compdict, comps_data = calcPlanetCompleteness2(contr_data, bandzip, photdict, exosims_json=exosims_json)
         comps.to_pickle(comps_path)
         with open(compdict_path, 'wb') as f:
             pickle.dump(compdict, f)
         comps_data.to_pickle(comps_data_path)
 else:
-    comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict, exosims_json=exosims_json)
+    comps, compdict, comps_data = calcPlanetCompleteness2(contr_data, bandzip, photdict, exosims_json=exosims_json)
 
 # Split data into stars, planets, and orbitfits
 plandata_path = Path(f'cache/plandata_{datestr}.p')
@@ -162,7 +161,6 @@ if cache:
         orbitfits.to_pickle(table_orbitfits_path)
 else:
     plandata, stdata, orbitfits = generateTables(data, comps_data)
-
 #aliases
 # aliases_path = Path(f'cache/aliases_{datestr}.p')
 aliases_path = Path(f'cache/aliases_2021-09-22.p') # Saved version
@@ -177,8 +175,6 @@ if cache:
             pickle.dump(aliases_path, f)
 else:
     aliases = genAliases(comps_data)
-
-
 #testdb
 # engine = create_engine('mysql+pymysql://cas584@127.0.0.1/plandb_newscratch', echo=False, encoding='utf8', pool_pre_ping=True)
 # engine = create_engine(f'mysql+pymysql://corey:password@localhost/test', echo=False)

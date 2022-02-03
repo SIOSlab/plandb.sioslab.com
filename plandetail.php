@@ -17,79 +17,83 @@ if (empty($_GET["name"])){
 } else{
     $name = $_GET["name"];
 }
-if (empty($_GET["scenario"])){
-    echo "No scenario name provided.";
-    include "templates/footer.php"; 
-    exit;
-} else{
-    $scenario = $_GET["scenario"];
-}
+//if (empty($_GET["scenario"])){
+    //echo "No scenario name provided.";
+    //include "templates/footer.php"; 
+    //exit;
+//} else{
+    //$scenario = $_GET["scenario"];
+//}
 
-if (empty($_GET["of_id"])){
-    echo "No orbitfit_id name provided.";
-    include "templates/footer.php"; 
-    exit;
-} else{
-    $orbitfit_id = $_GET["of_id"];
-}
+//if (empty($_GET["of_id"])){
+    //echo "No orbitfit_id name provided.";
+    //include "templates/footer.php"; 
+    //exit;
+//} else{
+    //$orbitfit_id = $_GET["of_id"];
+//}
 
 $sql = "SELECT 
-OF.hostname AS pl_hostname,
+OFT.hostname AS pl_hostname,
 -- pl_reflink,
-OF.pl_orbper AS pl_orbper,
-OF.discoverymethod AS pl_discmethod,
-OF.pl_orbsmax AS pl_orbsmax,
-OF.pl_orbeccen AS pl_orbeccen,
-OF.pl_orbincl AS pl_orbincl,
-OF.pl_bmassj AS pl_bmassj,
-OF.pl_bmassprov AS pl_bmassprov,
-OF.pl_radj AS pl_radj,
+OFT.pl_orbper AS pl_orbper,
+OFT.discoverymethod AS pl_discmethod,
+OFT.pl_orbsmax AS pl_orbsmax,
+OFT.pl_orbeccen AS pl_orbeccen,
+OFT.pl_orbincl AS pl_orbincl,
+OFT.pl_bmassj AS pl_bmassj,
+OFT.pl_bmassprov AS pl_bmassprov,
+OFT.pl_radj AS pl_radj,
 -- pl_radreflink,
-OF.pl_radj_fortney AS pl_radj_fortney,
-OF.pl_radj_forecastermod AS pl_radj_forecastermod,
-OF.pl_orbtper AS pl_orbtper,
-OF.pl_orblper AS pl_orblper,
-OF.pl_eqt AS pl_eqt,
-OF.pl_insol AS pl_insol,
-OF.pl_angsep AS pl_angsep,
-S.minangsep AS pl_minangsep,
-S.maxangsep AS pl_maxangsep, #Should this be OF.pl_maxangsep instead
+OFT.pl_radj_fortney AS pl_radj_fortney,
+OFT.pl_radj_forecastermod AS pl_radj_forecastermod,
+OFT.pl_orbtper AS pl_orbtper,
+OFT.pl_orblper AS pl_orblper,
+OFT.pl_eqt AS pl_eqt,
+OFT.pl_insol AS pl_insol,
+OFT.pl_angsep AS pl_angsep,
+-- S.minangsep AS pl_minangsep,
+-- S.maxangsep AS pl_maxangsep, #Should this be OFT.pl_maxangsep instead
 ST.rastr AS ra_str, #These are copied over to orbitfits should they be dropped
 ST.decstr AS dec_str,
-OF.sy_dist AS st_dist,
-OF.sy_plx AS st_plx,
+OFT.sy_dist AS st_dist,
+OFT.sy_plx AS st_plx,
 -- gaia_plx,
 -- gaia_dist,
-OF.sy_vmag AS st_optmag,
+OFT.sy_vmag AS st_optmag,
 -- st_optband,
-OF.sy_gaiamag AS gaia_gmag,
+OFT.sy_gaiamag AS gaia_gmag,
 ST.teff AS st_teff,
 ST.mass AS st_mass,
-OF.sy_pmra AS st_pmra,
-OF.sy_pmdec AS st_pmdec,
+OFT.sy_pmra AS st_pmra,
+OFT.sy_pmdec AS st_pmdec,
 -- gaia_pmra,
 -- gaia_pmdec,
-ST.radv AS st_radv,
+PL.pl_rvamp AS pl_rvamp,
+ST.st_radv AS st_radv,
 ST.spectype AS st_spstr,
 ST.lum AS st_lum,
 ST.met AS st_metfe,
 ST.age AS st_age,
 -- st_bmvj
-C.completeness AS completeness,
-C.compMinWA AS compMinWA,
-C.compMaxWA AS compMaxWA,
-C.compMindMag AS compMindMag,
-C.compMaxdMag AS compMaxdMag,
-OF.elat AS st_elat,
-OF.elon AS st_elon 
-FROM Stars ST, Planets PL, OrbitFits OF, Completeness C, Scenarios S
-WHERE ST.st_id = PL.pl_id
-AND PL.pl_id= OF.pl_id
-AND PL.pl_id= C.pl_id
-AND C.scenario_name= S.scenario_name 
-AND PL.pl_name='".$name."'
-AND S.scenario_name='".$scenario."'
-AND OF.orbitfit_id='".$orbitfit_id."'";
+-- C.completeness AS completeness,
+-- C.compMinWA AS compMinWA,
+-- C.compMaxWA AS compMaxWA,
+-- C.compMindMag AS compMindMag,
+-- C.compMaxdMag AS compMaxdMag,
+OFT.elat AS st_elat,
+OFT.elon AS st_elon 
+FROM Stars ST, Planets PL, OrbitFits OFT
+-- Completeness C, Scenarios S
+WHERE ST.st_id = PL.st_id
+AND PL.pl_id= OFT.pl_id
+AND OFT.default_fit = 1
+-- AND PL.pl_id= C.pl_id
+-- AND C.scenario_name= S.scenario_name 
+AND PL.pl_name='".$name."'";
+//AND S.scenario_name='".$scenario."'
+//AND OFT.orbitfit_id='".$orbitfit_id."'";
+
 
 include("config.php"); 
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -98,6 +102,16 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 } 
 $result = $conn->query($sql);
+
+//$scenario_count_sql = "SELECT * FROM Scenarios";
+//$scenario_table = mysqli_query($conn, $scenario_count_sql);
+//$num_scenarios = mysqli_num_rows($scenario_table);
+//$count2 = mysqli_num_rows($scenarios);
+//$num_result = mysqli_num_rows($result);
+
+//echo "Scenarios: $num_scenarios<br>Result: $num_result";
+//while($row = mysqli_fetch_array($scenario_count))
+    //{ print_r($row); }
 if (!$result){
     include "templates/headerclose.php"; 
     echo "Query Error:\n".$conn->error;
@@ -122,40 +136,55 @@ if ($result->num_rows > 1) {
     exit;
 }
 
-// $sql2 = "select * from PlanetOrbits where Name = '".$name."'";
+ //$sql2 = "select * from PlanetOrbits where Name = '".$name."'";
 $sql2 =  "SELECT O.*
-FROM OrbitFits OF, Orbits O
-WHERE O.orbitfit_id = OF.orbitfit_id
-AND OF.orbitfit_id='".$orbitfit_id."'";
+FROM OrbitFits OFT, Orbits O
+WHERE O.orbitfit_id = OFT.orbitfit_id
+AND OFT.pl_name = '".$name."'
+AND OFT.default_fit = TRUE";
+//AND OFT.orbitfit_id='".$orbitfit_id."'";
 $resultp = $conn->query($sql2);
 
 $row = $result->fetch_assoc();
-if ($row['completeness']){
+//print_r($row);
+//if ($row['completeness']){
     // $sql3 = "SELECT * FROM Completeness WHERE Name='".$name."'";
-    $sql3 = "SELECT P.*
-    FROM Planets PL, PDFs P
-    WHERE P.pl_id = PL.pl_id
-    AND PL.pl_name='".$name."'";
+    //$sql3 = "SELECT P.*
+    //FROM Planets PL, PDFs P
+    //WHERE P.pl_id = PL.pl_id
+    //AND PL.pl_name='".$name."'
+    //AND PL.scenario_name='Optimistic_NF_Imager_10000hr'";
+//}
     
-    $resultc = $conn->query($sql3);
-    
+$sql3 = "SELECT C.*, PL.st_id
+    FROM Completeness C, Planets PL
+    WHERE C.pl_id = PL.pl_id
+    AND PL.pl_name = '".$name."'";
+$resultc = $conn->query($sql3);
 
-}
+//$sqlpdfs = "SELECT PDFs.jind, PDFs.iind, PDFs.H FROM PDFs WHERE PDFs.name = '".$name."'";
+$sqlpdfs = "SELECT * FROM PDFs WHERE PDFs.name = '".$name."'";
+$resultpdf = $conn->query($sqlpdfs);
+//print_r($resultpdf);
+$sqlcontr = "SELECT CC.* FROM ContrastCurves CC, Planets PL WHERE CC.st_id=PL.st_id AND PL.pl_name='".$name."'";
+$resultcontr = $conn->query($sqlcontr);
 
-$sql4 =  "SELECT O.*, OF.pl_orbincl
-FROM Stars ST, Planets PL, OrbitFits OF, Completeness C, Scenarios S, Orbits O
+$sql4 =  "SELECT O.*, OFT.pl_orbincl
+FROM Stars ST, Planets PL, OrbitFits OFT, Completeness C, Scenarios S, Orbits O
 WHERE ST.st_id = PL.pl_id
-AND PL.pl_id= OF.pl_id
-AND O.orbitfit_id = OF.orbitfit_id
+AND PL.pl_id= OFT.pl_id
+AND O.orbitfit_id = OFT.orbitfit_id
 AND PL.pl_id= C.pl_id
 AND C.scenario_name= S.scenario_name 
 AND PL.pl_name='".$name."'
-AND S.scenario_name='".$scenario."'";
+AND S.scenario_name='Optimistic_NF_Imager_10000hr'";
+//AND OFT.pl_orbincl = 90";
+// Note that the scenario statement is not necessary, but reduces the number of points which makes the plot look better
 $resultap = $conn->query($sql4);
 
 
-$sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row['pl_hostname']."')";
-$resultaliases = $conn->query($sqlaliases);
+//$sqlaliases = "select Alias from Aliases where SID = (select SID from Aliases where Alias = '".$row['pl_hostname']."')";
+//$resultaliases = $conn->query($sqlaliases);
 
 if (($resultp && ($resultp->num_rows > 0)) || $row[completeness]) {
     echo '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>';
@@ -203,7 +232,8 @@ echo "<TR><TH style='width:".$wd."%'>".$row['pl_bmassprov']." (Jupiter Masses)</
 // if ($row[pl_reflink])
 //     echo " (".$row[pl_reflink].")";
 echo "</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Radius (Jupiter Radii)</TH><TD>".$row['pl_radj'];
+echo "<TR><TH style='width:".$wd."%'>Confirmed Radius (Jupiter Radii)</TH><TD>".$row['pl_radj'];
+echo "<TR><TH style='width:".$wd."%'>Estimated Radius (Modified Forecaster)  (Jupiter Radii)</TH><TD>".number_format($row['pl_radj_forecastermod'], 4);
 // if ($row[pl_radreflink])
 //     echo " (".$row[pl_radreflink].")";
 // echo "</TD></TR>\n";
@@ -229,7 +259,7 @@ echo "<TR><TH style='width:".$wd."%'>Ecliptic Lat, Lon</TH><TD>".$row['st_elat']
 // echo "<TR><TH style='width:".$wd."%'>Distance (GAIA Distance) (pc)</TH><TD>".$row[st_dist]." (".$row[gaia_dist].")</TD></TR>\n";
 // echo "<TR><TH style='width:".$wd."%'>Parallax (GAIA Parallax) (mas)</TH><TD>".$row[st_plx]." (".$row[gaia_plx].")</TD></TR>\n";
 // echo "<TR><TH style='width:".$wd."%'>Proper Motion RA/DEC (GAIA PM) (mas/yr)</TH><TD>".$row[st_pmra].", ".$row[st_pmdec]." (".$row[gaia_pmra].", ".$row[gaia_pmdec].")</TD></TR>\n"; Replaced by line below
-echo "<TR><TH style='width:".$wd."%'>Proper Motion RA/DEC (GAIA PM) (mas/yr)</TH><TD>".$row['st_pmra'].", ".$row['st_pmdec']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Proper Motion RA/DEC (mas/yr)</TH><TD>".$row['st_pmra'].", ".$row['st_pmdec']."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Radial Velocity (km/s)</TH><TD>".$row['st_radv']."</TD></TR>\n";
 // echo "<TR><TH style='width:".$wd."%'>".$row[st_optband]. " band Magnitude</TH><TD>".$row[st_optmag]."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>GAIA G band Magnitude</TH><TD>".$row['gaia_gmag']."</TD></TR>\n";
@@ -741,93 +771,279 @@ if ($resultap){
 
 
 </DIV>
+<?php
+$scenarios = array("Conservative_NF_Imager_25hr", "Conservative_NF_Imager_100hr", "Conservative_NF_Imager_10000hr", "Optimistic_NF_Imager_25hr", "Optimistic_NF_Imager_100hr",
+"Optimistic_NF_Imager_10000hr", "Conservative_Amici_Spec_100hr" , "Conservative_Amici_Spec_400hr", "Conservative_Amici_Spec_10000hr", "Optimistic_Amici_Spec_100hr",
+"Optimistic_Amici_Spec_400hr", "Optimistic_Amici_Spec_10000hr", "Conservative_WF_Imager_25hr", "Conservative_WF_Imager_100hr", "Conservative_WF_Imager_10000hr",
+"Optimistic_WF_Imager_25hr", "Optimistic_WF_Imager_100hr", "Optimistic_WF_Imager_10000hr");
+$all_scenario_rmas = array();
+$all_scenario_dMags = array();
+foreach($scenarios as $scenario) {
+    $sqlcontr = "SELECT CC.r_mas, CC.dMag FROM ContrastCurves CC, Planets PL WHERE CC.st_id=PL.st_id AND PL.pl_name='".$name."' AND CC.scenario_name ='".$scenario."'";
+    $resultcontr = $conn->query($sqlcontr);
+    $rowcount = mysqli_num_rows($resultcontr);
+    //printf("Total rows for scenario '".$scenario."': %d\n\n", $rowcount);
+    $scenario_rmas = array_column($resultcontr->fetch_all(MYSQLI_ASSOC), 'r_mas'); 
+    $resultcontr = $conn->query($sqlcontr);
+    $scenario_dMags = array_column($resultcontr->fetch_all(MYSQLI_ASSOC), 'dMag'); 
+    //print_r($scenario_dMags);
+    //while($row = $resultcontr->fetch_assoc()){
+        //$scenario_rmas[] = $row[0];
+        //$scenario_dMags[] = $row[1];
+    //}
+    //echo $rowcount;
+    if (count($scenario_rmas) == 0){
+        $scenario_angles_sql = "SELECT minangsep, maxangsep FROM Scenarios WHERE scenario_name='".$scenario."'";
+        $scenario_angles = $conn->query($scenario_angles_sql);
+        $scenario_minangsep = array_column($scenario_angles->fetch_all(MYSQLI_ASSOC), 'minangsep');
+        //echo $scenario;
+        //print_r($scenario_minangsep);
+        //print_r("\n\n");
+        $scenario_angles = $conn->query($scenario_angles_sql);
+        $scenario_maxangsep = array_column($scenario_angles->fetch_all(MYSQLI_ASSOC), 'maxangsep');
+        //print_r($scenario_maxangsep);
+        $minangsep_f = (float) str_replace(" arcsec", "", $scenario_minangsep[0]);
+        $maxangsep_f = (float) str_replace(" arcsec", "", $scenario_maxangsep[0]);
+        //print_r($minangsep_f);
+        $scenario_rmas = array(1000*$minangsep_f, 1000*$maxangsep_f);
+        $scenario_dMags = array(13, 13);
+    }
+    $implode_rmas = implode(", ", $scenario_rmas);
+    $str_list_rmas = "[".$implode_rmas."]";
+    $implode_dMags = implode(", ", $scenario_dMags);
+    $str_list_dMags = "[".$implode_dMags."]";
+    array_push($all_scenario_rmas, $str_list_rmas);
+    array_push($all_scenario_dMags, $str_list_dMags);
+}
+//print_r($all_scenario_rmas[0]);
+//echo $all_scenario_rmas[0];
+//echo $all_scenario_dMags[0];
+?>
 
+<style>
+table.beta {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: 50%;
+  border: 1px solid #ddd;
+  margin-left:auto;
+  margin-right:auto;
+}
 
+.beta th, .beta td {
+  text-align: left;
+  padding: 4px;
+}
+
+.beta tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+</style>
+//<table class="striped">
+<table class="beta">
+    <tr class="beta">
+        <td>Observing scenario</td>
+        <td>Completeness</td>
+    </tr>
+<?php
+$i = 0;
+while ($row = $resultc->fetch_assoc()){
+    $class = ($i) ? "":"alt";
+    echo "<tr class=\"".$class."\">";
+    echo "<td class=beta>".str_replace("_", " ", $row['scenario_name'])."</td>";
+    echo "<td class=beta>".$row['completeness']."</td>";
+    echo "</tr>";
+    $i = ($i==0) ? 1:0;
+}
+?>
+</table>
 <?php  
+echo "<p>Test</p>";
 if ($resultc){
-
-    echo '<div id="compDiv" style="width:800px; height:640px; margin:auto;"></div>';
-    echo "\n\n";
+    echo '<div id="compDiv" style="width:1200px; height:640px; margin:auto;"></div>';
+    //echo "\n\n";
     echo "<script>\n";
-    echo "var xsize = 300, ysize = 260, x = new Array(xsize), y = new Array(ysize), z = new Array(ysize), i, j;\n";
-    echo "x[0] = 150.5;\n";
-    echo "for(var i = 1; i < xsize; i++) {x[i] = x[i-1]+1;}\n";
-    echo "y[0] = 0.05;\n";
-    echo "for(var i = 1; i < ysize; i++) {y[i] = y[i-1]+0.1;}\n";
-    echo "for (var i = 0; i < ysize; i++) { z[i] = new Array(xsize).fill(0); }\n";
 
-    while($rowc = $resultc->fetch_assoc()) {
-        echo "z[".$rowc['jind']."][".$rowc['iind']."]=".$rowc['H'].";";
+    echo "var scenario0 = {
+        x: ".$all_scenario_rmas[0].",
+        y: ".$all_scenario_dMags[0].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[0])."',
+        //line: { color: 'blue' }
+    };\n";    
+    echo "var scenario1 = {
+        x: ".$all_scenario_rmas[1].",
+        y: ".$all_scenario_dMags[1].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[1])."',
+    };\n";    
+    echo "var scenario2 = {
+        x: ".$all_scenario_rmas[2].",
+        y: ".$all_scenario_dMags[2].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[2])."',
+    };\n";    
+    echo "var scenario3 = {
+        x: ".$all_scenario_rmas[3].",
+        y: ".$all_scenario_dMags[3].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[3])."',
+    };\n";    
+    echo "var scenario4 = {
+        x: ".$all_scenario_rmas[4].",
+        y: ".$all_scenario_dMags[4].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[4])."',
+    };\n";    
+    echo "var scenario5 = {
+        x: ".$all_scenario_rmas[5].",
+        y: ".$all_scenario_dMags[5].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[5])."',
+    };\n";    
+    echo "var scenario6 = {
+        x: ".$all_scenario_rmas[6].",
+        y: ".$all_scenario_dMags[6].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[6])."',
+    };\n";    
+    echo "var scenario7 = {
+        x: ".$all_scenario_rmas[7].",
+        y: ".$all_scenario_dMags[7].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[7])."',
+    };\n";    
+    echo "var scenario8 = {
+        x: ".$all_scenario_rmas[8].",
+        y: ".$all_scenario_dMags[8].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[8])."',
+    };\n";    
+    echo "var scenario9 = {
+        x: ".$all_scenario_rmas[9].",
+        y: ".$all_scenario_dMags[9].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[9])."',
+    };\n";    
+    echo "var scenario10 = {
+        x: ".$all_scenario_rmas[10].",
+        y: ".$all_scenario_dMags[10].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[10])."',
+    };\n";    
+    echo "var scenario11 = {
+        x: ".$all_scenario_rmas[11].",
+        y: ".$all_scenario_dMags[11].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[11])."',
+    };\n";    
+    echo "var scenario12 = {
+        x: ".$all_scenario_rmas[12].",
+        y: ".$all_scenario_dMags[12].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[12])."',
+    };\n";    
+    echo "var scenario13 = {
+        x: ".$all_scenario_rmas[13].",
+        y: ".$all_scenario_dMags[13].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[13])."',
+    };\n";    
+    echo "var scenario14 = {
+        x: ".$all_scenario_rmas[14].",
+        y: ".$all_scenario_dMags[14].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[14])."',
+    };\n";    
+    echo "var scenario15 = {
+        x: ".$all_scenario_rmas[15].",
+        y: ".$all_scenario_dMags[15].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[15])."',
+    };\n";    
+    echo "var scenario16 = {
+        x: ".$all_scenario_rmas[16].",
+        y: ".$all_scenario_dMags[16].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[16])."',
+    };\n";    
+    echo "var scenario17 = {
+        x: ".$all_scenario_rmas[17].",
+        y: ".$all_scenario_dMags[17].",
+        type: 'scatter',
+        name: '".str_replace("_", " ", $scenarios[17])."',
+    };\n";    
+
+    $alphasql = "SELECT DISTINCT alpha FROM PDFs WHERE name='".$name."'";
+    $alphas = $conn->query($alphasql);
+    $x_alpha = array_column($alphas->fetch_all(MYSQLI_ASSOC), 'alpha'); 
+    $implode_x = implode(", ", $x_alpha);
+    $str_list_x = "[".$implode_x."]";
+    $x_0 = $x_alpha[0];
+    $x_step = $x_alpha[1]-$x_alpha[0];
+
+    $dMagsql = "SELECT DISTINCT dMag FROM PDFs WHERE name='".$name."'";
+    $dMag = $conn->query($dMagsql);
+    $y_dMag = array_column($dMag->fetch_all(MYSQLI_ASSOC), 'dMag'); 
+    $implode_y = implode(", ", $y_dMag);
+    $str_list_y = "[".$implode_y."]";
+    $y_0 = $y_dMag[0];
+    $y_step = $y_dMag[1]-$y_dMag[0];
+
+    echo "var xsize = 200, ysize = 120, x = new Array(xsize), y = new Array(ysize), z = new Array(ysize), i, j;\n";
+    echo "x[0] = 0;\n";
+    echo "for(var i = 1; i < xsize; i++) {x[i] = x[i-1]+".$x_step.";}\n";
+    echo "y[0] = 10;\n";
+    echo "for(var i = 1; i < ysize; i++) {y[i] = y[i-1]+".$y_step.";}\n";
+    echo "for (var i = 0; i < ysize; i++) { z[i] = new Array(xsize).fill(0); }\n";
+    //echo $str_list_x;
+    //echo $str_list_y;
+    while($rowpdf = $resultpdf->fetch_assoc()) {
+        //echo "z[".$rowpdf['jind']."][".$rowpdf['iind']."]=".$rowpdf['H'].";";
+        echo "z[".$rowpdf['jind']."][".$rowpdf['iind']."]=".$rowpdf['H'].";";
     }
     
     echo "\n\n";
-
-    echo "var box1 = {
-        x: [150, 155.1337625 , 180.1553371 , 210.18122662, 250.21574597,
-       300.25889517, 350.30204436, 395.34087864, 450],
-        y: [22.01610885074595, 22.05977185, 22.30204688, 22.57879263, 22.98455007, 23.03667541,
-       23.11031286, 23.11031286, 23.110312860818773],
-        type: 'scatter',
-        name: '\u0394 mag limit',
-        line: { color: 'blue' }
-    };\n";    
-
     echo "var data = {
 		z: z,
 		x: x,
 		y: y,
         type: 'contour',
-        colorscale: 'Hot',
+        colorscale: 'Greys',
         name: 'Normalized Frequency',
         colorbar:{
             title: 'log(Frequency)',
+            x: 0.9,
+            y:0.5,
         }
     };\n";
 
-
-
-
     echo "
-            var updatemenus=[
-                {
-                    buttons: [
-                        {
-                            args: ['yaxis', {title: '\u0394 mag',range: [".$row['compMindMag'].",".$row['compMaxdMag']."]}],
-                            label: '\u0394 mag Axis Normal',
-                            method: 'relayout'
-                        },
-                        {
-                            args: ['yaxis', {title: '\u0394 mag',range: [".$row['compMaxdMag'].",".$row['compMindMag']."]}],
-                            label:'\u0394 mag Axis Reversed',
-                            method:'relayout'
-                        }
-                    ],
-                    direction: 'down',
-                    pad: {'r': 10, 't': 10},
-                    showactive: true,
-                    type: 'dropdown',
-                    x: 0.1,
-                    xanchor: 'left',
-                    y: 1.1,
-                    yanchor: 'top'
-                }];
-
     var layout = {
-        updatemenus: updatemenus,
-        title: 'Completeness at 575 nm for \u03B1 \u2208 [0.15, 0.45] arcsec = ".$row['completeness']."',
-        xaxis: {title: 'Separation (mas)',range: [".$row['compMinWA'].",".$row['compMaxWA']."]},
-        yaxis: {title: '\u0394 mag',range: [".$row['compMindMag'].",".$row['compMaxdMag']."]},
-    };\n";
+    showlegend: true, 
+    legend:{x: 1, y: 0.5}, 
+    //legend:{'orientation': 'h'}, 
+    xaxis: {title: 'Separation (mas)'},
+    yaxis: {title: '\u0394 mag'},
+    colorway: ['#440154', '#481668', '#482878', '#443983', '#3e4989', '#375a8c', '#31688e', '#2b758e', '#26828e', '#21918c', '#1f9e89', '#25ab82', '#35b779', '#4ec36b', '#6ece58', '#90d743', '#b5de2b', '#dae319', '#fde725']};";
     $resultc->close();
 
     
-    echo "Plotly.newPlot('compDiv', [data,box1], layout);" ;
+    echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1,scenario2, scenario3, scenario4, scenario5, scenario6, scenario7, scenario8, scenario9, scenario10, scenario11, scenario12, scenario13, scenario14, scenario15, scenario16, scenario17], layout);" ;
+    //echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1], layout);" ;
     echo "</script>\n";
     echo "<p>For full documentation see <a href=docs/html/index.html#completeness-table target=_blank>here</a>.</p>";
+    //echo ($x_alpha[1] - $x_alpha[0]);
+    //echo "\nUnique alphas: ".count($x_alpha);
+    //echo "\nUnique dMags: ".count($y_dMag);
+    ////echo "\nUnique dMags: ".count(y_dMag);
+    //echo "\nPDF rows: ".mysqli_num_rows($resultpdf);
+    //echo "\nx step: ".$x_step;
+    //echo "\ny step: ".$y_step;
 }
-
 ?>
-
+    </div>
+</div>
 <?php 
 $conn->close();
 include "templates/footer.php"; 

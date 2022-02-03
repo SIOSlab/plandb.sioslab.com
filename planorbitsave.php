@@ -16,7 +16,7 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 } 
 
-$sql = "select * from PlanetOrbits where Name = '".$name."'";
+$sql = "select * from Orbits where pl_name = '".$name."'";
 $result = $conn->query($sql);
 if ($result){
     if ($result->num_rows > 0) {

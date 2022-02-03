@@ -17,22 +17,22 @@ elseif (!empty($_POST["querytext"])){
     $sql = $_POST["querytext"]; }
 else {
     $sql = "SELECT PL.pl_name AS pl_name, 
-    OF.pl_angsep AS pl_angsep,
+    OFT.pl_angsep AS pl_angsep,
     C.completeness AS completeness,
     S.minangsep AS pl_minangsep,
     S.maxangsep AS pl_maxangsep,
-    OF.pl_radj_forecastermod AS pl_radj_forecastermod,
-    OF.pl_bmassj AS pl_bmassj,
-    OF.pl_orbsmax AS pl_orbsmax,
+    OFT.pl_radj_forecastermod AS pl_radj_forecastermod,
+    OFT.pl_bmassj AS pl_bmassj,
+    OFT.pl_orbsmax AS pl_orbsmax,
     S.scenario_name AS scenario_name,
-    OF.orbitfit_id AS orbitfit_id
-    FROM Planets PL, OrbitFits OF, Completeness C, Scenarios S
+    OFT.orbitfit_id AS orbitfit_id
+    FROM Planets PL, OrbitFits OFT, Completeness C, Scenarios S
     WHERE C.completeness > 0 
-    AND PL.pl_id= OF.pl_id
+    AND PL.pl_id= OFT.pl_id
     AND PL.pl_id= C.pl_id
     AND C.scenario_name= S.scenario_name 
-    AND OF.default_fit = 1
-    -- AND C.scenario_name = 'DRM_NF_Imager_10000hr'
+    AND OFT.default_fit = 1
+    AND C.scenario_name = 'Optimistic_NF_Imager_10000hr'
     ORDER BY C.completeness DESC";}
     
 echo "$sql";
@@ -76,8 +76,8 @@ if ($result){
                echo "<td>";
                if ($paramName == 'pl_name'){
                     echo "<a href='plandetail.php?name=".urlencode($row[$paramName]).
-                    "&scenario=".urlencode($row['scenario_name']).
-                    "&of_id=".urlencode($row['orbitfit_id']).
+                    //"&scenario=".urlencode($row['scenario_name']).
+                    //"&of_id=".urlencode($row['orbitfit_id']).
                     "'>".$row[$paramName]."</a>";                
                } else{
                    if (is_numeric($row[$paramName])){

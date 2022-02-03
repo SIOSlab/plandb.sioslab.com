@@ -833,7 +833,7 @@ def genAltOrbitData_old(data, bandzip, photdict, t0=None):
     distinterp = photdict['distinterp']
 
     Isglob = np.array([90,60,30])
-    (l,band,bw,ws,wstep) = bandzip#[0]
+    (l,band,bw,ws,wstep) = bandzip[0]
     c = 3.0
 
     altorbdata = None
@@ -945,6 +945,7 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None):
     plannames = data['pl_name'].values
     minWA = data['pl_minangsep'].values * u.mas
     maxWA = data['pl_maxangsep'].values * u.mas
+    plan_ids = data.index.tolist()
 
     data['st_lum_ms'] = pd.Series(np.zeros(len(plannames)), index=data.index)
 
@@ -1055,7 +1056,8 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None):
 
             # Adjusts planet distance for luminosity
             lum_fix = row['st_lum_correction']
-
+            if plan_ids[j] != j:
+                breakpoint()
             orbitfits_dict = {'pl_id': [j],
                               'pl_orbincl':  [IList[k] * 180 / np.pi],
                               'pl_orbinclerr1': err1[k],
@@ -1144,7 +1146,7 @@ def generateTables(data, orbitfits):
 
     pl_cols = ["hostname", "pl_name", "pl_letter", "disc_year", "disc_refname", "discoverymethod", "disc_locale", "ima_flag",
                "disc_instrument", "disc_telescope", "pl_pubdate", "disc_facility",
-               "sy_mnum", "rv_flag"]
+               "sy_mnum", "rv_flag", "pl_rvamp"]
     orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
     orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname')
     orbitfits_exclude = [col for col in orbitfits_cols if col.startswith(orbitfits_exclude_prefix)]
@@ -1180,7 +1182,7 @@ def generateTables(data, orbitfits):
 
     pl_data = pl_data.assign(st_id=idx_list)
 
-    colmap_st = {k: k[3:] if (k.startswith('st_') and (k != 'st_id' and k != 'st_name')) else k for k in st_data.keys()}
+    colmap_st = {k: k[3:] if (k.startswith('st_') and (k != 'st_id' and k != 'st_name' and k!= 'st_radv')) else k for k in st_data.keys()}
     st_data = st_data.rename(columns=colmap_st)
 
     colmap_fits = {k: k[3:] if (k.startswith('pl_') and (k != 'pl_id' and k != 'pl_name')) else k for k in orbitfits.keys()}
@@ -1261,14 +1263,15 @@ def calcContrastCurves(data, exosims_json):
     # Get the stellar information for each star and keep track of them to add to the dataframe
     for _, row in data.iterrows():
         pl_name = row.pl_name
-        re_search = std_form_re.search(pl_name)
-        koi_search = stupid_koi_re.search(pl_name)
-        if re_search:
-            star_name = pl_name[:-2]
-        elif koi_search:
-            star_name = pl_name[:-3]
-        else:
-            raise ValueError(f"Unexpected planet name format: {pl_name}")
+        star_name = row.hostname
+        # re_search = std_form_re.search(pl_name)
+        # koi_search = stupid_koi_re.search(pl_name)
+        # if re_search:
+            # star_name = pl_name[:-2]
+        # elif koi_search:
+            # star_name = pl_name[:-3]
+        # else:
+            # raise ValueError(f"Unexpected planet name format: {pl_name}")
         star_base_path = Path(f'{contrast_curve_cache_base}/{star_name.replace(" ","_")}.p')
         star_base_path_list.append(star_base_path)
         dup_star_names.append(star_name)
@@ -1379,6 +1382,7 @@ def calcContrastCurves(data, exosims_json):
                     # continue
                 contr_df = pd.DataFrame()
                 contrasts = []
+                dMags = []
                 # test_dMags = np.linspace(0, 21, 1000)
                 # test_intTimes = []
                 # for test_dMag in test_dMags:
@@ -1391,13 +1395,15 @@ def calcContrastCurves(data, exosims_json):
                 # breakpoint()
                 for working_angle in working_angles_as:
                     # dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angles_as, mode)
-                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angle, mode)
+                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angle, mode)[0][0]
+                    dMags.append(dMag)
                     contr = 10**(dMag/(-2.5))
-                    contrasts.append(contr[0])
+                    contrasts.append(contr)
                 contr_df['r_lamD'] = working_angles_lam_D
                 contr_df['r_as'] = working_angles_as.value
                 contr_df['r_mas'] = working_angles_as.value*1000
                 contr_df['contrast'] = contrasts
+                contr_df['dMag'] = dMags
                 contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
                 contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
                 contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angles_as[0])]*len(working_angles_as)
@@ -1442,7 +1448,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
             scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
             print(f'Calculating completeness for {scenario_name}')
 
-            (l,band,bw,ws,wstep) = bandzip#[0]
+            (l,band,bw,ws,wstep) = bandzip[0]
             photinterps2 = photdict['photinterps']
             feinterp = photdict['feinterp']
             distinterp = photdict['distinterp']
@@ -1731,7 +1737,6 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
                 maxCWA.append(np.ceil(np.max(WAcs[j][hs[j] != 0])))
                 minCdMag.append(np.floor(np.min(dMagcs[j][hs[j] != 0])))
                 maxCdMag.append(np.ceil(np.max(dMagcs[j][hs[j] != 0])))
-                breakpoint()
 
             outdict = {'cs':cs,
                        'goodinds':goodinds,
@@ -1762,6 +1767,449 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
 
     return out2,outdict,data
 
+def calcPlanetCompleteness2(data, bandzip, photdict, exosims_json, minangsep=150,maxangsep=450, plotting=False):
+    """ For all known planets in data (output from getIPACdata), calculate obscurational
+    and photometric completeness for those cases where obscurational completeness is
+    non-zero.
+    """
+    # Get the observing modes
+    with open(exosims_json, 'rb') as ff:
+        specs = json.loads(ff.read())
+    # TL = EXOSIMS.TargetList.KnownRVPlanetsTargetList.KnownRVPlanetsTargetList(**specs)
+    TL = EXOSIMS.Prototypes.TargetList.TargetList(**specs)
+    OS = TL.OpticalSystem
+    modes = OS.observingModes
+    img_int_times = [25*u.hr, 100*u.hr, 10000*u.hr]
+    spe_int_times = [100*u.hr, 400*u.hr, 10000*u.hr]
+
+
+    # TODO remove mode override
+    # modes = [modes[0]]
+    # img_int_times = [25*u.hr]
+
+    # Get scenario specific information
+    (l,band,bw,ws,wstep) = bandzip[0]
+    photinterps2 = photdict['photinterps']
+    feinterp = photdict['feinterp']
+    distinterp = photdict['distinterp']
+    datestr = Time.now().datetime.strftime("%Y_%m")
+
+
+    scenario_angles = pd.read_csv('cache/scenario_angles.csv')
+    comp_scenarios = []
+    compMinWA_scenarios = []
+    compMaxWA_scenarios = []
+    compMindMag_scenarios = []
+    compMaxdMag_scenarios = []
+    cols = []
+    for scenario_name in scenario_angles.scenario_name:
+        cols.append(f'completeness_{scenario_name}')
+        cols.append(f'compMinWA_{scenario_name}')
+        cols.append(f'compMaxWA_{scenario_name}')
+        cols.append(f'compMindMag_{scenario_name}')
+        cols.append(f'compMaxdMag_{scenario_name}')
+        comp_scenarios.append(f'completeness_{scenario_name}')
+        compMinWA_scenarios.append(f'compMinWA_{scenario_name}')
+        compMaxWA_scenarios.append(f'compMaxWA_{scenario_name}')
+        compMindMag_scenarios.append(f'compMindMag_{scenario_name}')
+        compMaxdMag_scenarios.append(f'compMaxdMag_{scenario_name}')
+    tmpdf = pd.DataFrame(data=np.full((len(data), len(cols)), np.nan), columns=cols)
+    data = pd.concat([data, tmpdf], axis=1)
+
+    # PDF information
+    names = []
+    WAcs = []
+    dMagcs = []
+    iinds = []
+    jinds = []
+    hs = []
+    goodinds = []
+    #define vectorized f_sed sampler
+    vget_fsed = np.vectorize(get_fsed)
+    # cs = []
+    # inds = np.where((data['pl_maxangsep'].values > minangsep) &
+                    # (data['pl_minangsep'].values < maxangsep) &
+                    # (~data['sy_vmag'].isnull().values) &
+                    # (data.default_fit == 1))[0]
+    # Do completeness calculations for each scenario
+    # TEMP_data = data.iloc[0:100]
+    for ind, planet in tqdm(data.iterrows(), total=data.shape[0]):
+        if planet.default_fit == 0:
+            continue
+        # tqdm.set_description(planet.pl_name)
+        minangseps = []
+        maxangseps = []
+        scenario_names = []
+        WAbins_list = []
+        dMagbins_list = []
+        WAc_list = []
+        dMagc_list = []
+        WAinds_list = []
+        dMaginds_list = []
+
+        for mode in modes:
+            minangsep = mode['IWA'].to(u.mas).value
+            maxangsep = mode['OWA'].to(u.mas).value
+            mode_name = mode['instName']
+            # Getting the list of the contrast and star names curves
+            wfirstc_list = []
+            # WAbins0 = np.arange(minangsep,maxangsep+1,1)
+            # WAbins = np.hstack((0, WAbins0, np.inf))
+            # dMagbins0 = np.arange(0,26.1,0.1)
+            # dMagbins = np.hstack((dMagbins0,np.inf))
+
+            # WAc,dMagc = np.meshgrid(WAbins0[:-1]+np.diff(WAbins0)/2.0,dMagbins0[:-1]+np.diff(dMagbins0)/2.0)
+            # WAc = WAc.T
+            # dMagc = dMagc.T
+
+            # WAinds = np.arange(WAbins0.size-1)
+            # dMaginds = np.arange(dMagbins0.size-1)
+            # WAinds,dMaginds = np.meshgrid(WAinds,dMaginds)
+            # WAinds = WAinds.T
+            # dMaginds = dMaginds.T
+
+            # WAbins_list.append(WAbins)
+            # dMagbins_list.append(dMagbins)
+            # WAc_list.append(WAc)
+            # dMagc_list.append(dMagc)
+            # WAinds_list.append(WAinds)
+            # dMaginds_list.append(dMaginds)
+            # Create new F0dict based on these stars
+            if 'Spec' in mode_name:
+                int_times = spe_int_times
+            elif 'Imager' in mode_name:
+                int_times = img_int_times
+            else:
+                raise ValueError(f"Invalid mode name: {mode_name}")
+            for int_time in int_times:
+                scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
+                scenario_names.append(scenario_name)
+                minangseps.append(minangsep)
+                maxangseps.append(maxangsep)
+        WAbins0 = np.arange(0, 1700,10)
+        WAbins = np.hstack((0, WAbins0, np.inf))
+        dMagbins0 = np.arange(10,30,0.2)
+        dMagbins = np.hstack((dMagbins0,np.inf))
+
+        WAc,dMagc = np.meshgrid(WAbins0[:-1]+np.diff(WAbins0)/2.0,dMagbins0[:-1]+np.diff(dMagbins0)/2.0)
+        WAc = WAc.T
+        dMagc = dMagc.T
+
+        WAinds = np.arange(WAbins0.size-1)
+        dMaginds = np.arange(dMagbins0.size-1)
+        WAinds,dMaginds = np.meshgrid(WAinds,dMaginds)
+        WAinds = WAinds.T
+        dMaginds = dMaginds.T
+
+        planet_wfirstc_list = []
+        for scenario in scenario_names:
+            scenario_cc = planet[scenario]
+            if scenario_cc.exists():
+                with open(scenario_cc, 'rb') as f:
+                    contr_df = pickle.load(f)
+                scenario_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False)
+            else:
+                # scenario_info = scenario_angles.loc[scenario_angles.scenario_name == scenario]
+                # scenario_minangsep = u.Quantity(scenario_info.minangsep).to(u.mas)
+                # scenario_maxangsep = u.Quantity(scenario_info.maxangsep).to(u.mas)
+                scenario_wfirstc = None
+
+            planet_wfirstc_list.append(scenario_wfirstc)
+        if np.all(np.array(planet_wfirstc_list) == None):
+            continue
+        # planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False)
+        # planet_wfirstc = interp1d(contr_df.r_mas, contr_df.contrast, bounds_error = False, fill_value = 'extrapolate')
+        # wfirstc_list.append(planet_wfirstc)
+        # wfirstc_list = planet_wfirstc
+        # data[f"contr_curve_{scenario_name}"] = wfirstc_list
+
+
+
+        # Where the old loop started...
+        # row = data.iloc[j]
+
+        # wfirstc = row[f'contr_curve_{scenario_name}']
+
+        # dMaglimsc = wfirstc(WAc[:, 0])
+        # print("%d/%d  %s"%(i+1,len(inds),row['pl_name']))
+
+        #sma distribution
+        amu = planet['pl_orbsmax']
+        astd = (planet['pl_orbsmaxerr1'] - planet['pl_orbsmaxerr2'])/2.
+        if np.isnan(astd): astd = 0.01*amu
+        gena = lambda n: np.clip(np.random.randn(n)*astd + amu,0,np.inf)
+
+        #eccentricity distribution
+        emu = planet['pl_orbeccen']
+        if np.isnan(emu):
+            gene = lambda n: 0.175/np.sqrt(np.pi/2.)*np.sqrt(-2.*np.log(1 - np.random.uniform(size=n)))
+        else:
+            estd = (planet['pl_orbeccenerr1'] - planet['pl_orbeccenerr2'])/2.
+            if np.isnan(estd) or (estd == 0):
+                estd = 0.01*emu
+            gene = lambda n: np.clip(np.random.randn(n)*estd + emu,0,0.99)
+
+        #inclination distribution
+        Imu = planet['pl_orbincl']*np.pi/180.0
+        if np.isnan(Imu) or ((planet['pl_orbincl'] == 90) and (planet['pl_orbinclerr1'] == 0) and (planet['pl_orbinclerr2'] == 0)): #Generates full sinusoidal distribution if 90 incl 0 errors
+            if planet['pl_bmassprov'] == 'Msini':
+                Icrit = np.arcsin( ((planet['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value/((0.0800*u.M_sun).to(u.M_earth)).value )
+                Irange = [Icrit, np.pi - Icrit]
+                C = 0.5*(np.cos(Irange[0])-np.cos(Irange[1]))
+                genI = lambda n: np.arccos(np.cos(Irange[0]) - 2.*C*np.random.uniform(size=n))
+
+            else:
+                genI = lambda n: np.arccos(1 - 2.*np.random.uniform(size=n))
+        else:
+            Istd = (planet['pl_orbinclerr1'] - planet['pl_orbinclerr2'])/2.*np.pi/180.0
+            if np.isnan(Istd) or (Istd == 0):
+                Istd = Imu*0.01
+            genI = lambda n: np.random.randn(n)*Istd + Imu
+
+        #arg. of periastron distribution
+        wmu = planet['pl_orblper']*np.pi/180.0
+        if np.isnan(wmu):
+            genw = lambda n: np.random.uniform(size=n,low=0.0,high=2*np.pi)
+        else:
+            wstd = (planet['pl_orblpererr1'] - planet['pl_orblpererr2'])/2.*np.pi/180.0
+            if np.isnan(wstd) or (wstd == 0):
+                wstd = wmu*0.01
+            genw = lambda n: np.random.randn(n)*wstd + wmu
+
+        #just a single metallicity
+        fe = planet['st_met']
+        if np.isnan(fe): fe = 0.0
+
+        #initialize loops vars
+        n = int(1e6) # Number of planets
+        c = np.zeros(len(scenario_names)) # Completeness of the current loop
+        h = np.zeros((len(WAbins)-3, len(dMagbins)-2))
+        k = 0.0 # A counter
+        cprev = np.zeros(len(scenario_names)) # Previous completeness value
+        pdiff = np.ones(len(scenario_names)) # Percent difference
+
+        currc_arr = np.zeros(len(scenario_names))
+        while np.any(pdiff > 0.0001) | (k <3):
+            # print(f"Iteration:{k}")
+            # print(c)
+            # print(f"Iteration:{k} \t Percent difference between previous completeness value:{max(pdiff):5.5e} \t Calculated completeness:{c:5.5e}")
+
+            #sample orbital parameters
+            a = gena(n)
+            e = gene(n)
+            I = genI(n)
+            w = genw(n)
+
+            #sample cloud vals
+            cl = vget_fsed(np.random.rand(n))
+
+            forecaster_mod = ForecasterMod()
+            # Rewriting the calculation to not rely on potentially calculated values of mass
+            if not np.isnan(planet.pl_radj):
+                # If we have the radius we can just use it
+                Rmu = planet.pl_radj
+                Rstd = (planet['pl_radjerr1'] - planet['pl_radjerr2'])/2.
+                if np.isnan(Rstd): Rstd = Rmu*0.1
+                R = np.random.randn(n)*Rstd + Rmu
+            else:
+                # If we don't have radius then we need to calculate it based on the mass
+                if planet.pl_bmassprov == 'Msini':
+                    # Sometimes given in Msini which we use the generated inclination values to get the Mp value from
+                    Mp = ((planet['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+                    Mp = Mp/np.sin(I)
+                else:
+                    # Standard calculation
+                    Mstd = (((planet['pl_bmassjerr1'] - planet['pl_bmassjerr2'])*u.M_jupiter).to(u.M_earth)).value
+                    if np.isnan(Mstd):
+                        Mstd = ((planet['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value * 0.1
+                    Mp = np.random.randn(n)*Mstd + ((planet['pl_bmassj']*u.M_jupiter).to(u.M_earth)).value
+
+                # Now use the Mp value to get the planet radius
+                R = forecaster_mod.calc_radius_from_mass(Mp*u.M_earth).to(u.R_jupiter).value
+                # R = (ForecasterMod.calc_radius_from_mass(Mp)*u.R_earth).to(u.R_jupiter).value
+                R[R > 1.0] = 1.0
+
+            M0 = np.random.uniform(size=n,low=0.0,high=2*np.pi)
+            E = eccanom(M0, e)
+            nu = 2*np.arctan(np.sqrt((1+e)/(1-e))*np.tan(E/2))
+
+            d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
+            s = d * np.sqrt(4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
+            beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
+            rnorm = d
+
+            lum = planet['st_lum']
+
+            if np.isnan(lum):
+                lum_fix = 1
+            else:
+                lum_fix = (10 ** lum) ** .5  # Since lum is log base 10 of solar luminosity
+
+            pphi = np.zeros(n)
+            for clevel in np.unique(cl):
+                tmpinds = cl == clevel
+                betatmp = beta[tmpinds]
+                binds = np.argsort(betatmp)
+                pphi[tmpinds] = (photinterps2[float(feinterp(fe))][float(distinterp(np.mean(rnorm) / lum_fix))][clevel](betatmp.to(u.deg).value[binds],ws).sum(1)*wstep/bw)[np.argsort(binds)].flatten()
+
+            pphi[np.isinf(pphi)] = np.nan
+            pphi[pphi <= 0.0] = 1e-16
+
+            dMag = deltaMag(1, R*u.R_jupiter, rnorm*u.AU, pphi)
+            WA = np.arctan((s*u.AU)/(planet['sy_dist']*u.pc)).to('mas').value # working angle
+
+            h += np.histogram2d(WA,dMag,bins=(WAbins,dMagbins))[0][1:-1,0:-1]
+            k += 1.0
+
+            for scenario_n, wfirstc in enumerate(planet_wfirstc_list):
+                if wfirstc == None:
+                    currc = 0
+                    currc_arr[scenario_n] = currc
+                else:
+                    dMaglimtmp = -2.5*np.log10(wfirstc(WA))
+                    currc = float(len(np.where((WA >= minangseps[scenario_n]) & (WA <= maxangseps[scenario_n]) & (dMag <= dMaglimtmp))[0]))/n
+                    currc_arr[scenario_n] = currc
+
+            if k == 1 and plotting:
+                # plt.style.use('dark_background')
+                fig_path = Path('figures', f'{mode_name.replace(" ", "_")}_{str(int_time).replace(" ", "_")}')
+                fig_path.mkdir(parents=True, exist_ok=True)
+                save_path = Path(fig_path, f'{planet["pl_name"].replace(" ", "_")}.png')
+                fig, ax = plt.subplots()
+                ax.set_title(f'Mode: {mode_name.replace("EB", "Conservative").replace("DRM", "Optimistic").replace("_", " ")}. Int time: {int_time}. Planet: {planet["pl_name"]}')
+                ax.set_xlabel(r'$\alpha$ (mas)')
+                ax.set_ylabel(r'$\Delta$mag')
+                ax.set_xlim([0, maxangsep+100])
+                ax.set_ylim([10, 35])
+                ax.annotate(f"C={currc:.4f}", xy=(250, 33), ha='center', va='center', zorder=6, size=20)
+
+                IWA_ang = minangsep
+                OWA_ang = maxangsep
+                wa_range = np.linspace(minangsep, maxangsep)
+                dmaglims = -2.5*np.log10(wfirstc(wa_range))
+                # detectability_line = mpl.lines.Line2D([IWA_ang, OWA_ang], [dMaglimtmp[0], dMaglimtmp[0]], color='red')
+                # ax.add_line(detectability_line)
+
+                my_cmap = plt.get_cmap('viridis')
+                WA_edges = np.linspace(0, 1600, 251)
+                dMag_edges = np.linspace(10, 35, 251)
+                H, WA_edges, dMag_edges = np.histogram2d(WA, dMag, range=[[WA_edges[0], WA_edges[-1]], [dMag_edges[0], dMag_edges[-1]]], bins=(500, 500))
+                extent = [WA_edges[0], WA_edges[-1], dMag_edges[0], dMag_edges[-1]]
+                levels = np.logspace(-6, -1, num=30)
+                H_scaled = H.T/100000
+                ax.contourf(H_scaled, levels=levels, cmap=my_cmap, origin='lower', extent=extent, norm=mpl.colors.LogNorm())
+                ax.plot(wa_range, dmaglims, c='r')
+                FR_norm = mpl.colors.LogNorm()
+                sm = plt.cm.ScalarMappable(cmap=my_cmap, norm=FR_norm)
+                sm._A=[]
+                sm.set_array(np.logspace(-6, -1))
+                fig.subplots_adjust(left=0.15, right=0.85)
+                cbar_ax = fig.add_axes([0.865, 0.125, 0.02, 0.75])
+                cbar = fig.colorbar(sm, cax=cbar_ax, label=r'Normalized Density')
+                ax.plot(wa_range, dmaglims, c='r')
+                fig.savefig(save_path)
+                plt.close()
+
+            #currc = float(len(np.where((WA >= minangsep) & (WA <= maxangsep) & (dMag <= 22.5))[0]))/n
+            cprev = c
+            if k == 1.0:
+                c = currc_arr
+            else:
+                c = ((k-1)*c + currc_arr)/k
+            if np.all(c == 0):
+                pdiff = np.ones(len(c))
+            else:
+                pdiff = np.abs(c - cprev)/c
+                # print(f'{planet.pl_name} {k} pdiff: {pdiff}')
+
+            if np.all(c == 0.0) & (k > 2):
+                break
+
+            if np.all(c < 1e-5) & (k > 15):
+                break
+
+            if k > 30:
+                print(len(h.flatten()))
+                break
+
+
+        # if c != 0.0:
+        h = h/float(n*k)
+        names.append(np.array([planet['pl_name']]*h.size))
+        WAcs.append(WAc.flatten())
+        dMagcs.append(dMagc.flatten())
+        hs.append(h.flatten())
+        iinds.append(WAinds.flatten())
+        jinds.append(dMaginds.flatten())
+        # cs.append(c)
+        # data.at]
+        data.loc[ind, comp_scenarios] = currc_arr
+        if np.any(currc_arr >0):
+            print(planet.pl_name)
+            print(currc_arr)
+        # data.loc[0, compMinWA_scenarios] = currc_arr
+        goodinds.append(ind)
+
+        # print("\n\n\n\n")
+
+        # cs = np.array(cs)
+        # goodinds = np.array(goodinds)
+
+    out2 = pd.DataFrame({'Name': np.hstack(names),
+                         'alpha': np.hstack(WAcs),
+                         'dMag': np.hstack(dMagcs),
+                         'H':    np.hstack(hs),
+                         'iind': np.hstack(iinds),
+                         'jind': np.hstack(jinds)
+                         })
+    out2 = out2[out2['H'].values != 0.]
+    out2['H'] = np.log10(out2['H'].values)
+
+    minCWA = []
+    maxCWA = []
+    minCdMag = []
+    maxCdMag = []
+
+    for j in range(len(goodinds)):
+        if np.all(hs[j] == 0):
+            minCWA.append(np.nan)
+            maxCWA.append(np.nan)
+            minCdMag.append(np.nan)
+            maxCdMag.append(np.nan)
+        else:
+            minCWA.append(np.floor(np.min(WAcs[j][hs[j] != 0])))
+            maxCWA.append(np.ceil(np.max(WAcs[j][hs[j] != 0])))
+            minCdMag.append(np.floor(np.min(dMagcs[j][hs[j] != 0])))
+            maxCdMag.append(np.ceil(np.max(dMagcs[j][hs[j] != 0])))
+    # breakpoint()
+    outdict = {#'cs':cs,
+               # 'goodinds':goodinds,
+               'minCWA':minCWA,
+               'maxCWA':maxCWA,
+               'minCdMag':minCdMag,
+               'maxCdMag':maxCdMag}
+
+        # tmp = np.full(len(data),np.nan)
+        # tmp[goodinds] = cs
+        # data[f'completeness_{scenario_name}'] = tmp
+
+        # tmp = np.full(len(data),np.nan)
+        # tmp[goodinds] = minCWA
+        # data[f'compMinWA_{scenario_name}'] = tmp
+
+        # tmp = np.full(len(data),np.nan)
+        # tmp[goodinds] = maxCWA
+        # data[f'compMaxWA_{scenario_name}'] = tmp
+
+        # tmp = np.full(len(data),np.nan)
+        # tmp[goodinds] = minCdMag
+        # data[f'compMindMag_{scenario_name}'] = tmp
+
+        # tmp = np.full(len(data),np.nan)
+        # tmp[goodinds] = maxCdMag
+        # data[f'compMaxdMag_{scenario_name}'] = tmp
+
+    return out2,outdict,data
 
 def genAliases(data):
     """ Grab all available aliases for list of targets. """
@@ -1907,106 +2355,107 @@ def writeSQL_old(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliase
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
         result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
 
-def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
+def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
     """write outputs to sql database via engine"""
+    # engine.execute("DROP TABLE Stars, Planets, OrbitFits, Orbits, PDFs, Scenarios, ContrastCurves, Completeness")
 
-    if stdata is not None:
-        print("Writing Stars")
-        namemxchar = np.array([len(n) for n in stdata['st_name'].values]).max()
-        stdata = stdata.rename_axis('st_id')
-        stdata.to_sql('Stars', engine, chunksize=100, if_exists='replace',
-                    dtype={'st_id': sqlalchemy.types.INT,
-                           'st_name': sqlalchemy.types.String(namemxchar)})
-        # set indexes
-        result = engine.execute('ALTER TABLE Stars ADD INDEX (st_id)')
+    # if stdata is not None:
+        # print("Writing Stars")
+        # namemxchar = np.array([len(n) for n in stdata['st_name'].values]).max()
+        # stdata = stdata.rename_axis('st_id')
+        # stdata.to_sql('Stars', engine, chunksize=100, if_exists='replace',
+                    # dtype={'st_id': sqlalchemy.types.INT,
+                           # 'st_name': sqlalchemy.types.String(namemxchar)})
+        # # set indexes
+        # result = engine.execute('ALTER TABLE Stars ADD INDEX (st_id)')
 
-        # add comments
-        # addSQLcomments(engine, 'Stars')
+        # # add comments
+        # # addSQLcomments(engine, 'Stars')
 
-    if data is not None:
-        print("Writing Planets")
-        namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
-        data = data.rename_axis('pl_id')
-        data.to_sql('Planets',engine,chunksize=100,if_exists='replace',
-                    dtype={'pl_id':sqlalchemy.types.INT,
-                            'pl_name':sqlalchemy.types.String(namemxchar),
-                            'st_name':sqlalchemy.types.String(namemxchar-2),
-                            'pl_letter':sqlalchemy.types.CHAR(1),
-                            'st_id': sqlalchemy.types.INT})
-        #set indexes
-        result = engine.execute("ALTER TABLE Planets ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE Planets ADD INDEX (st_id)")
-        result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+    # if plandata is not None:
+        # print("Writing Planets")
+        # namemxchar = np.array([len(n) for n in plandata['pl_name'].values]).max()
+        # plandata = plandata.rename_axis('pl_id')
+        # plandata.to_sql('Planets',engine,chunksize=100,if_exists='replace',
+                    # dtype={'pl_id':sqlalchemy.types.INT,
+                            # 'pl_name':sqlalchemy.types.String(namemxchar),
+                            # 'st_name':sqlalchemy.types.String(namemxchar-2),
+                            # 'pl_letter':sqlalchemy.types.CHAR(1),
+                            # 'st_id': sqlalchemy.types.INT})
+        # #set indexes
+        # result = engine.execute("ALTER TABLE Planets ADD INDEX (pl_id)")
+        # result = engine.execute("ALTER TABLE Planets ADD INDEX (st_id)")
+        # result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        #add comments
-        # addSQLcomments(engine,'Planets')
+        # #add comments
+        # # addSQLcomments(engine,'Planets')
 
-    if orbitfits is not None:
-        print("Writing OrbitFits")
-        orbitfits = orbitfits.rename_axis('orbitfit_id')
-        namemxchar = np.array([len(n) for n in orbitfits['pl_name'].values]).max()
-        orbitfits.to_sql('OrbitFits',engine,chunksize=100,if_exists='replace',
-                          dtype={'pl_id': sqlalchemy.types.INT,
-                                 'orbitfit_id': sqlalchemy.types.INT,
-                                 'pl_name': sqlalchemy.types.String(namemxchar)},
-                          index=True)
-        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (orbitfit_id)")
-        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+    # if orbitfits is not None:
+        # print("Writing OrbitFits")
+        # orbitfits = orbitfits.rename_axis('orbitfit_id')
+        # namemxchar = np.array([len(n) for n in orbitfits['pl_name'].values]).max()
+        # orbitfits.to_sql('OrbitFits',engine,chunksize=100,if_exists='replace',
+                          # dtype={'pl_id': sqlalchemy.types.INT,
+                                 # 'orbitfit_id': sqlalchemy.types.INT,
+                                 # 'pl_name': sqlalchemy.types.String(namemxchar)},
+                          # index=True)
+        # result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (orbitfit_id)")
+        # result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
+        # result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        # addSQLcomments(engine,'OrbitFits')
+        # # addSQLcomments(engine,'OrbitFits')
 
-    if orbdata is not None:
-        print("Writing Orbits")
-        namemxchar = np.array([len(n) for n in orbdata['pl_name'].values]).max()
-        orbdata = orbdata.rename_axis('orbit_id')
-        orbdata.to_sql('Orbits',engine,chunksize=100,if_exists='replace',
-                       dtype={'pl_name':sqlalchemy.types.String(namemxchar),
-                              'pl_id': sqlalchemy.types.INT,
-                              'orbit_id': sqlalchemy.types.BIGINT,
-                              'orbitfit_id': sqlalchemy.types.INT},
-                       index=True)
-        result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbit_id)")
-        result = engine.execute("ALTER TABLE Orbits ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbitfit_id)")
-        result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
-        result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+    # if orbdata is not None:
+        # print("Writing Orbits")
+        # namemxchar = np.array([len(n) for n in orbdata['pl_name'].values]).max()
+        # orbdata = orbdata.rename_axis('orbit_id')
+        # orbdata.to_sql('Orbits',engine,chunksize=100,if_exists='replace',
+                       # dtype={'pl_name':sqlalchemy.types.String(namemxchar),
+                              # 'pl_id': sqlalchemy.types.INT,
+                              # 'orbit_id': sqlalchemy.types.BIGINT,
+                              # 'orbitfit_id': sqlalchemy.types.INT},
+                       # index=True)
+        # result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbit_id)")
+        # result = engine.execute("ALTER TABLE Orbits ADD INDEX (pl_id)")
+        # result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbitfit_id)")
+        # result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        # result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        # addSQLcomments(engine,'Orbits')
+        # # addSQLcomments(engine,'Orbits')
 
-    if pdfs is not None:
-        print("Writing PDFs")
-        pdfs = pdfs.reset_index(drop=True)
-        namemxchar = np.array([len(n) for n in pdfs['Name'].values]).max()
-        pdfs = pdfs.rename_axis('pdf_id')
-        pdfs.to_sql('PDFs',engine,chunksize=100,if_exists='replace',
-                     dtype={'pl_name':sqlalchemy.types.String(namemxchar),
-                            'pl_id': sqlalchemy.types.INT})
-        # result = engine.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
-        result = engine.execute("ALTER TABLE PDFs ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE PDFs ADD INDEX (pdf_id)")
-        # result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
-        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+    # if pdfs is not None:
+        # print("Writing PDFs")
+        # pdfs = pdfs.reset_index(drop=True)
+        # namemxchar = np.array([len(n) for n in pdfs['Name'].values]).max()
+        # pdfs = pdfs.rename_axis('pdf_id')
+        # pdfs.to_sql('PDFs',engine,chunksize=100,if_exists='replace',
+                     # dtype={'pl_name':sqlalchemy.types.String(namemxchar),
+                            # 'pl_id': sqlalchemy.types.INT})
+        # # result = engine.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
+        # result = engine.execute("ALTER TABLE PDFs ADD INDEX (pl_id)")
+        # result = engine.execute("ALTER TABLE PDFs ADD INDEX (pdf_id)")
+        # # result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        # result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
 
-        # addSQLcomments(engine,'PDFs')
+        # # addSQLcomments(engine,'PDFs')
 
-    if aliases is not None:
-        print("Writing Alias")
-        aliases = aliases.rename_axis('alias_id')
-        aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
-        aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (alias_id)")
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (st_id)")
-        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+    # if aliases is not None:
+        # print("Writing Alias")
+        # aliases = aliases.rename_axis('alias_id')
+        # aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
+        # aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+        # result = engine.execute("ALTER TABLE Aliases ADD INDEX (alias_id)")
+        # result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
+        # result = engine.execute("ALTER TABLE Aliases ADD INDEX (st_id)")
+        # result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
 
     if scenarios is not None:
-        print("Writing scenarios")
-        
+        print("Writing Scenarios")
+
         namemxchar = np.array([len(n) for n in scenarios['scenario_name'].values]).max()
         scenarios.to_sql("Scenarios", engine, chunksize=100, if_exists='replace', dtype={
             'scenario_name': sqlalchemy.types.String(namemxchar),}, index = False)
-        
+
         result = engine.execute("ALTER TABLE Scenarios ADD INDEX (scenario_name)")
 
     if contrastCurves is not None:
@@ -2018,12 +2467,12 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
             'curve_id' : sqlalchemy.types.INT,
             'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
         # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (scenario_name)")
-        
+
         # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (st_id)")
 
         result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
         result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
-  
+
     if completeness is not None:
         print("Writing completeness")
         completeness = completeness.rename_axis("completeness_id")
@@ -2033,11 +2482,11 @@ def writeSQL(engine, data=None, stdata=None, orbitfits=None, orbdata=None, pdfs=
             'pl_id' : sqlalchemy.types.INT,
             'completeness_id' : sqlalchemy.types.INT,
             'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
-        
+
         result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
         result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
-  
-        
+
+
 
 def addSQLcomments(engine,tablename):
         """Add comments to table schema based on entries in spreadsheet"""
