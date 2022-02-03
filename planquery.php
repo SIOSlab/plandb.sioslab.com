@@ -28,7 +28,7 @@ This interface filters planets of interest and links to detail pages for the res
 <?php 
 if (empty($_POST["querytext"]))
     $sql = "C.completeness > 0
-            AND S.scenario_name = 'Optimistic_NF_Imager_10000hr'";
+AND S.scenario_name = 'Optimistic_NF_Imager_10000hr'";
 else
     $sql = $_POST["querytext"]; 
 echo $sql;
