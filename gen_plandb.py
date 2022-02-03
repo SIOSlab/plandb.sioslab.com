@@ -133,13 +133,13 @@ if cache:
             compdict = pickle.load(f)
         comps_data = pd.read_pickle(comps_data_path)
     else:
-        comps, compdict, comps_data = calcPlanetCompleteness2(contr_data, bandzip, photdict, exosims_json=exosims_json)
+        comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict, exosims_json=exosims_json)
         comps.to_pickle(comps_path)
         with open(compdict_path, 'wb') as f:
             pickle.dump(compdict, f)
         comps_data.to_pickle(comps_data_path)
 else:
-    comps, compdict, comps_data = calcPlanetCompleteness2(contr_data, bandzip, photdict, exosims_json=exosims_json)
+    comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdict, exosims_json=exosims_json)
 
 # Split data into stars, planets, and orbitfits
 plandata_path = Path(f'cache/plandata_{datestr}.p')

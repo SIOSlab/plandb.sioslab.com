@@ -1,0 +1,19 @@
+scenario_name,minangsep,maxangsep
+Conservative_NF_Imager_25hr,0.155 arcsec,0.4014 arcsec
+Conservative_NF_Imager_100hr,0.155 arcsec,0.4014 arcsec
+Conservative_NF_Imager_10000hr,0.155 arcsec,0.4014 arcsec
+Optimistic_NF_Imager_25hr,0.155 arcsec,0.436 arcsec
+Optimistic_NF_Imager_100hr,0.155 arcsec,0.436 arcsec
+Optimistic_NF_Imager_10000hr,0.155 arcsec,0.436 arcsec
+Conservative_Amici_Spec_100hr,0.197 arcsec,0.51 arcsec
+Conservative_Amici_Spec_400hr,0.197 arcsec,0.51 arcsec
+Conservative_Amici_Spec_10000hr,0.197 arcsec,0.51 arcsec
+Optimistic_Amici_Spec_100hr,0.197 arcsec,0.566 arcsec
+Optimistic_Amici_Spec_400hr,0.197 arcsec,0.566 arcsec
+Optimistic_Amici_Spec_10000hr,0.197 arcsec,0.566 arcsec
+Conservative_WF_Imager_25hr,0.46808 arcsec,1.36835 arcsec
+Conservative_WF_Imager_100hr,0.46808 arcsec,1.36835 arcsec
+Conservative_WF_Imager_10000hr,0.46808 arcsec,1.36835 arcsec
+Optimistic_WF_Imager_25hr,0.468 arcsec,1.424 arcsec
+Optimistic_WF_Imager_100hr,0.468 arcsec,1.424 arcsec
+Optimistic_WF_Imager_10000hr,0.468 arcsec,1.424 arcsec

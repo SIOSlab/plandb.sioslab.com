@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # # pdfs = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/indexed_pdfs_2021-12-10.p")
     # # print(pdfs)
 
-    scenarios = pd.read_csv("cache/scenario_angles.csv")
+    scenarios = pd.read_csv("scenario_angles.csv")
     # # print(scenarios)
     # # contrastCurves = pd.read_pickle("/data/plandb/plandb.sioslab.com/cache/cont_curvs_2021_11_compiled.p")
     # # print(contrastCurves)
