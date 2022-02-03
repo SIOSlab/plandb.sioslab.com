@@ -7,13 +7,14 @@ include "templates/headerclose.php";
 
 <?php 
 $sqlsel = "SELECT PL.pl_name AS Name, 
-OF.pl_angsep AS pl_angsep,
+OFT.pl_angsep AS pl_angsep,
 C.completeness AS completeness,
-OF.sy_vmag AS st_optmag
-FROM Planets PL, OrbitFits OF, Completeness C, Scenarios S
-WHERE PL.pl_id= OF.pl_id
-AND PL.pl_id= C.pl_id
-AND C.scenario_name= S.scenario_name
+OFT.sy_vmag AS st_optmag
+FROM Planets PL, OrbitFits OFT, Completeness C, Scenarios S
+WHERE PL.pl_id= OFT.pl_id
+AND PL.pl_id = C.pl_id
+AND C.scenario_name = S.scenario_name
+AND OFT.default_fit = 1
 AND ";
 $sqlord = "ORDER BY C.completeness DESC";
 ?>
@@ -26,7 +27,8 @@ This interface filters planets of interest and links to detail pages for the res
     <textarea name="querytext" rows="4" cols="100">
 <?php 
 if (empty($_POST["querytext"]))
-    $sql = "C.completeness > 0";
+    $sql = "C.completeness > 0
+            AND S.scenario_name = 'Optimistic_NF_Imager_10000hr'";
 else
     $sql = $_POST["querytext"]; 
 echo $sql;
