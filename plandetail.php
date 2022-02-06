@@ -171,7 +171,7 @@ $resultcontr = $conn->query($sqlcontr);
 
 $sql4 =  "SELECT O.*, OFT.pl_orbincl
 FROM Stars ST, Planets PL, OrbitFits OFT, Completeness C, Scenarios S, Orbits O
-WHERE ST.st_id = PL.pl_id
+WHERE ST.st_id = PL.st_id
 AND PL.pl_id= OFT.pl_id
 AND O.orbitfit_id = OFT.orbitfit_id
 AND PL.pl_id= C.pl_id
