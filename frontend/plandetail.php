@@ -1016,8 +1016,32 @@ if ($resultc){
         }
     };\n";
 
+    echo "var updatemenus=[
+        {
+            buttons: [
+                {
+                    args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'black'}, tickfont: {color: 'black'}}],
+                    label: '\u0394 mag Axis Normal',
+                    method: 'relayout'
+                },
+                {
+                    args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'},autorange:'reversed'}],
+                    label:'\u0394 mag Axis Reversed',
+                    method:'relayout'
+                }
+            ],
+            direction: 'down',
+            pad: {'r': 10, 't': 10},
+            showactive: true,
+            type: 'dropdown',
+            x: 0.1,
+            xanchor: 'left',
+            y: 1.1,
+            yanchor: 'top'
+        }];";
     echo "
     var layout = {
+    updatemenus: updatemenus,
     showlegend: true, 
     legend:{x: 1, y: 0.5}, 
     //legend:{'orientation': 'h'}, 
