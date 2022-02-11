@@ -500,7 +500,7 @@ if ($resultp){
                 {
                     buttons: [
                         {
-                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}}],
+                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'black'}, tickfont: {color: 'black'}}],
                             label: '\u0394 mag Axis Normal',
                             method: 'relayout'
                         },
@@ -732,7 +732,7 @@ if ($resultap){
                 {
                     buttons: [
                         {
-                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}}],
+                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'black'}, tickfont: {color: 'black'}}],
                             label: '\u0394 mag Axis Normal',
                             method: 'relayout'
                         },
@@ -867,6 +867,7 @@ if ($resultc){
         y: ".$all_scenario_dMags[0].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[0])."',
+        hoverlabel: {namelength :-1}
         //line: { color: 'blue' }
     };\n";    
     echo "var scenario1 = {
@@ -874,102 +875,119 @@ if ($resultc){
         y: ".$all_scenario_dMags[1].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[1])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario2 = {
         x: ".$all_scenario_rmas[2].",
         y: ".$all_scenario_dMags[2].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[2])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario3 = {
         x: ".$all_scenario_rmas[3].",
         y: ".$all_scenario_dMags[3].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[3])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario4 = {
         x: ".$all_scenario_rmas[4].",
         y: ".$all_scenario_dMags[4].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[4])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario5 = {
         x: ".$all_scenario_rmas[5].",
         y: ".$all_scenario_dMags[5].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[5])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario6 = {
         x: ".$all_scenario_rmas[6].",
         y: ".$all_scenario_dMags[6].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[6])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario7 = {
         x: ".$all_scenario_rmas[7].",
         y: ".$all_scenario_dMags[7].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[7])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario8 = {
         x: ".$all_scenario_rmas[8].",
         y: ".$all_scenario_dMags[8].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[8])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario9 = {
         x: ".$all_scenario_rmas[9].",
         y: ".$all_scenario_dMags[9].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[9])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario10 = {
         x: ".$all_scenario_rmas[10].",
         y: ".$all_scenario_dMags[10].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[10])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario11 = {
         x: ".$all_scenario_rmas[11].",
         y: ".$all_scenario_dMags[11].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[11])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario12 = {
         x: ".$all_scenario_rmas[12].",
         y: ".$all_scenario_dMags[12].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[12])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario13 = {
         x: ".$all_scenario_rmas[13].",
         y: ".$all_scenario_dMags[13].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[13])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario14 = {
         x: ".$all_scenario_rmas[14].",
         y: ".$all_scenario_dMags[14].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[14])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario15 = {
         x: ".$all_scenario_rmas[15].",
         y: ".$all_scenario_dMags[15].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[15])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario16 = {
         x: ".$all_scenario_rmas[16].",
         y: ".$all_scenario_dMags[16].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[16])."',
+        hoverlabel: {namelength :-1}
     };\n";    
     echo "var scenario17 = {
         x: ".$all_scenario_rmas[17].",
         y: ".$all_scenario_dMags[17].",
         type: 'scatter',
         name: '".str_replace("_", " ", $scenarios[17])."',
+        hoverlabel: {namelength :-1}
     };\n";    
 
     $alphasql = "SELECT DISTINCT alpha FROM PDFs WHERE name='".$name."'";
@@ -1009,6 +1027,7 @@ if ($resultc){
         type: 'contour',
         colorscale: 'Greys',
         name: 'Normalized Frequency',
+        hoverlabel: {namelength :-1},
         colorbar:{
             title: 'log(Frequency)',
             x: 0.9,
