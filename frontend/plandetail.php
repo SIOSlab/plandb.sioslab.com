@@ -500,7 +500,7 @@ if ($resultp){
                 {
                     buttons: [
                         {
-                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'black'}, tickfont: {color: 'black'}}],
+                            args: ['yaxis', {title: '\u0394 mag', titlefont: {color: 'red'}, tickfont: {color: 'red'}}],
                             label: '\u0394 mag Axis Normal',
                             method: 'relayout'
                         },
