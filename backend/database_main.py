@@ -7,7 +7,7 @@ from tqdm import tqdm
 from plandb_methods import *
 
 def compileContrastCurves(stars, cont_path):
-    scenarios = pd.read_csv('scenario_angles.csv')['scenario_name']
+    scenarios = pd.read_csv('cache/scenario_angles.csv')['scenario_name']
 
     cols = ['scenario_name', 'st_id', 'r_lamD', 'r_as', 'r_mas', 'contrast', 'dMag', 'lam', 't_int_hr', 'fpp']
     contrastCurves = pd.DataFrame([], columns = cols)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         return r
     newpdfs = pdfs.apply(addId, axis = 1)
 
-    scenarios = pd.read_csv("scenario_angles.csv")
+    scenarios = pd.read_csv("cache/scenario_angles.csv")
     compiled_completeness_path = Path(f"cache/compiled_completeness_{datestr}.p")
     if compiled_completeness_path.exists():
         completeness = pd.read_pickle(compiled_completeness_path)
