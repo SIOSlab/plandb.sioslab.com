@@ -938,7 +938,7 @@ def genAltOrbitData_old(data, bandzip, photdict, t0=None):
 
     return altorbdata
 
-def genOrbitData_ET(data, bandzip, photdict, t0=None):
+def genOrbitData_ET(data, bandzip, photdict, t0=None, add_ephemeris=True):
     if t0 is None:
         t0 = Time('2026-01-01T00:00:00', format='isot', scale='utc')
 
@@ -1056,8 +1056,6 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None):
 
             # Adjusts planet distance for luminosity
             lum_fix = row['st_lum_correction']
-            if plan_ids[j] != j:
-                breakpoint()
             orbitfits_dict = {'pl_id': [j],
                               'pl_orbincl':  [IList[k] * 180 / np.pi],
                               'pl_orbinclerr1': err1[k],
@@ -1130,6 +1128,31 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None):
                 orbitfits = pd.DataFrame(orbitfits_dict).copy()
             else:
                 orbitfits = orbitfits.append(pd.DataFrame(orbitfits_dict))
+
+    if add_ephemeris:
+        new_orbitfits = pd.read_pickle('cache/newfits_orbitfits.p')
+        new_orbdata = pd.read_pickle('cache/newfits_orbitdata.p')
+        # ephemeris_planets = np.unique(new_orbdata.pl_name)
+        # ephemeris_ids = np.unique(new_orbdata.pl_id)
+        pl_names, indices = np.unique(new_orbdata.pl_name, return_index=True)
+        # pl_ids = new_orbdata.loc[indices].pl_id.values
+        new_orbdata['orbitfit_id'] += np.max(orbdata.orbitfit_id)+1
+        old_orbitfits = orbitfits.reset_index(drop=True)
+        relevant_orbitfits = old_orbitfits[old_orbitfits['pl_name'].isin(pl_names)]
+        old_orbitfits_id_dict = relevant_orbitfits.groupby('pl_name').first()['pl_id'].to_dict()
+        new_orbitfits_id_dict = new_orbitfits.groupby('pl_name').first()['pl_id'].to_dict()
+        # Getting a dictionary to map the planet id's to be correct
+        replacement_dict = {new_pl_id: old_pl_id for (old_pl_name, old_pl_id) in old_orbitfits_id_dict.items() for (new_pl_name, new_pl_id) in new_orbitfits_id_dict.items() if new_pl_name==old_pl_name}
+        new_orbitfits.pl_id = new_orbitfits.pl_id.replace(replacement_dict)
+        new_orbdata.pl_id = new_orbdata.pl_id.replace(replacement_dict)
+        # Combine the orbdata dataframes
+        new_orbdata['is_alt'] = np.ones(len(new_orbdata))
+        orbdata['is_alt'] = np.zeros(len(orbdata))
+        orbdata = pd.concat(orbdata, new_orbdata)
+        # Combine the orbitfits dataframes
+        new_orbitfits['is_alt'] = np.ones(len(new_orbdata))
+        orbitfits['is_alt'] = np.zeros(len(orbdata))
+        orbitfits = pd.concat([orbitfits, new_orbitfits])
 
     orbdata = orbdata.sort_values(by=['pl_id', 'orbitfit_id', 't', 'M']).reset_index(drop=True)
     orbitfits = orbitfits.reset_index(drop=True)
