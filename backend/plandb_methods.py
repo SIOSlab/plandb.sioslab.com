@@ -1146,12 +1146,12 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None, add_ephemeris=True):
         new_orbitfits.pl_id = new_orbitfits.pl_id.replace(replacement_dict)
         new_orbdata.pl_id = new_orbdata.pl_id.replace(replacement_dict)
         # Combine the orbdata dataframes
-        new_orbdata['is_alt'] = np.ones(len(new_orbdata))
-        orbdata['is_alt'] = np.zeros(len(orbdata))
+        new_orbdata['from_IPAC'] = np.zeros(len(new_orbdata))
+        orbdata['from_IPAC'] = np.ones(len(orbdata))
         orbdata = pd.concat(orbdata, new_orbdata)
         # Combine the orbitfits dataframes
-        new_orbitfits['is_alt'] = np.ones(len(new_orbdata))
-        orbitfits['is_alt'] = np.zeros(len(orbdata))
+        new_orbitfits['from_IPAC'] = np.zeros(len(new_orbdata))
+        orbitfits['from_IPAC'] = np.ones(len(orbdata))
         orbitfits = pd.concat([orbitfits, new_orbitfits])
 
     orbdata = orbdata.sort_values(by=['pl_id', 'orbitfit_id', 't', 'M']).reset_index(drop=True)
