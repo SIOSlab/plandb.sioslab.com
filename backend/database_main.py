@@ -68,7 +68,7 @@ if __name__ == "__main__":
     stdata_path = Path(f'cache/stdata_{datestr}.p')
     stars = pd.read_pickle(stdata_path)
 
-    orbfits_path = Path(f'cache/orbfits_{datestr}.p')
+    orbfits_path = Path(f'cache/quadrature_data_{datestr}.p')
     orbitfits = pd.read_pickle(orbfits_path)
 
     orbdata_path = Path(f'cache/orbdata_{datestr}.p')
