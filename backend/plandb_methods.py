@@ -1130,8 +1130,8 @@ def genOrbitData_ET(data, bandzip, photdict, t0=None, add_ephemeris=True):
                 orbitfits = orbitfits.append(pd.DataFrame(orbitfits_dict))
 
     if add_ephemeris:
-        new_orbitfits = pd.read_pickle('cache/newfits_orbitfits.p')
-        new_orbdata = pd.read_pickle('cache/newfits_orbitdata.p')
+        new_orbitfits = pd.read_csv('cache/newfits_orbitfits.csv')
+        new_orbdata = pd.read_csv('cache/newfits_orbitdata.csv')
         # ephemeris_planets = np.unique(new_orbdata.pl_name)
         # ephemeris_ids = np.unique(new_orbdata.pl_id)
         pl_names, indices = np.unique(new_orbdata.pl_name, return_index=True)
@@ -1462,7 +1462,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
     datestr = Time.now().datetime.strftime("%Y_%m")
 
 
-    scenario_angles = pd.read_csv('scenario_angles.csv')
+    scenario_angles = pd.read_csv('cache/scenario_angles.csv')
     comp_scenarios = []
     compMinWA_scenarios = []
     compMaxWA_scenarios = []
