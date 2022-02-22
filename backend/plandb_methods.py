@@ -1460,7 +1460,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
     datestr = Time.now().datetime.strftime("%Y_%m")
 
 
-    scenario_angles = pd.read_csv('scenario_angles.csv')
+    scenario_angles = pd.read_csv('cache/scenario_angles.csv')
     comp_scenarios = []
     compMinWA_scenarios = []
     compMaxWA_scenarios = []
