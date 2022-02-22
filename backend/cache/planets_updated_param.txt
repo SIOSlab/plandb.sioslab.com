@@ -1,0 +1,119 @@
+****** HD 219134 ******
+Planet h:
+- Period: 2198 +/- 14/17 days
+- Eccentricity: 0.34
+- Argument of Periastron: -0.2545 radians
+- Time of Periastron: 2458340 +/- 16/18 JD
+- Time of Inferior Conjunction: 2458737 +/- 17/19 JD
+- Msini: 0.329 +/- 0.016 Mear
+- Semi-major axis: 3.056 +/- 0.037/0.0038 AU
+
+****** HD 154345 ******
+Planet b:
+- Period: 3251 +/- 19 days
+- Eccentricity: 0.041 +/- 0.022/0.023
+- Argument of Periastron: -1.15 +/- 0.55/0.59 radians
+- Time of Periastron: 2455022 +/- 2600/230 JD
+- Time of Inferior Conjunction: 2456259 +/- 25/27 JD
+- Msini: 1.138 +/- 0.045 Mjup
+- Semi-major axis: 4.127 +/- 0.064/0.066 AU
+
+****** 14 Her ******
+Planet b:
+- Period: 1766.73 +/- 0.59/0.6 days
+- Eccentricity: 0.3651 +/- 0.0035
+- Argument of Periastron: 0.3941 +/- 0.0095/0.0093 radians
+- Time of Periastron: 2456673.2 +/- 2.2/2.1 JD
+- Time of Inferior Conjunction: 2456836.3 +/- 1.7/1.6 JD
+- Msini: 4.86 +/- 0.13 Mjup
+- Semi-major axis: 2.836 +/- 0.039 AU
+
+****** Ups And ******
+Planet d:
+- Period: 1278.55 +/- 0.44/0.45 days
+- Eccentricity: 0.3084 +/- 0.0096/0.0097
+- Argument of Periastron: -1.835 +/- 0.035/0.032 radians
+- Time of Periastron: 2458946 +/- 93/1200 JD
+- Time of Inferior Conjunction: 2458483.6 +/- 6.7/7.6 JD
+- Msini: 3.998 +/- 0.095/0.094 Mjup
+- Semi-major axis: 2.515 +/- 0.026/0.027 AU
+
+****** 47 Uma ******
+Planet b:
+- Period: 1079.01 +/- 0.75/0.83 days
+- Eccentricity: 0.0237 +/- 0.0077/0.0076
+- Argument of Periastron: 0.13 +/- 0.36/0.37 radians
+- Time of Periastron: 2457411 +/- 63/63 JD
+- Time of Inferior Conjunction: 2457650.9 +/- 3.9/4.0 JD
+- Msini: 2.484 +/- 0.082/0.083 Mjup
+- Semi-major axis: 2.065 +/- 0.032/0.033 AU
+
+****** 47 Uma ******
+Planet c:
+- Period: 2329 +/- 17/22 days
+- Eccentricity: 0.337 +/- 0.066/0.076
+- Argument of Periastron: -2.12 +/- 0.15/0.20 radians
+- Time of Periastron: 2458917 +/- 62/81 JD
+- Time of Inferior Conjunction: 2458114 +/- 44/41 JD
+- Msini: 0.512 +/- 0.038/0.036 Mjup
+- Semi-major axis: 3.45 +/- 0.056 AU
+
+****** 47 Uma ******
+Planet d:
+- Period: 12663 +/- 170/1300 days
+- Eccentricity: 0.39 +/- 0.04/0.04
+- Argument of Periastron: 0.02 +/- 0.18/0.20 radians
+- Time of Periastron: 2463176 +/- 440/1300 JD
+- Time of Inferior Conjunction: 2464840 +/- 89/1300 JD
+- Msini: 1.91 +/- 0.22 Mjup
+- Semi-major axis: 10.62 +/- 0.26/0.67 AU
+
+****** HD 190360 ******
+Planet b:
+- Period: 2882.9 +/- 4.6/4.5 days
+- Eccentricity: 0.323 +/- 0.0089/0.0087
+- Argument of Periastron: 0.23 +/- 0.031/0.03 radians
+- Time of Periastron: 2456415 +/- 12/13 JD
+- Time of Inferior Conjunction: 2456758.0 +/- 8.6/8.4 JD
+- Msini: 1.48 +/- 0.042 Mjup
+- Semi-major axis: 0.1292 +/- 0.0016/0.0017 AU
+
+****** HD 190360 ******
+Planet c:
+- Period: 17.11723 +/- 0.0008/0.00079 days
+- Eccentricity: 0
+- Argument of Periastron: 0
+- Time of Periastron: N/A
+- Time of Inferior Conjunction: 2456910.853 +/- 0.094 JD
+- Msini: 20.55 +/- 0.87/0.84 Mear
+- Semi-major axis: 3.942 +/- 0.05/0.052 AU
+
+****** HD 217107 ******
+Planet c:
+- Period: 5113.1 +/- 9.2/11.0 days
+- Eccentricity: 0.3822 +/- 0.0078/0.0055
+- Argument of Periastron: -2.713 +/- 0.02/0.021 radians
+- Time of Periastron: 2461026 +/- 21/23 JD
+- Time of Inferior Conjunction: 2460020.2 +/- 27/7.8 JD
+- Msini: 4.27 +/- 0.13 Mjup
+- Semi-major axis: 5.927 +/- 0.082/0.084 AU
+
+****** HD 134987 ******
+Planet c:
+- Period: 6006 +/- 120 days
+- Eccentricity: 0.14 +/- 0.043/0.041
+- Argument of Periastron: -0.8 +/- 0.35/0.3 radians
+- Time of Periastron: 2452349 +/- 290/230 JD
+- Time of Inferior Conjunction: 2454548 +/- 89/65 JD
+- Msini: 0.929 +/- 0.056/0.055 Mjup
+- Semi-major axis: 6.65 +/- 0.14/0.13 AU
+
+****** HD 192310 ******
+Planet c:
+- Period: 540.1 +/- 4.3/84 days
+- Eccentricity: 0.32
+- Argument of Periastron: 1.9199 radians
+- Time of Periastron: 2456706.6 +/- 7.9/8.2 JD
+- Time of Inferior Conjunction: 2456921.0 +/- 16/230 JD
+- Msini: 23.8 +/- 2.3/1.8 Mear
+- Semi-major axis: 1.222 +/- 0.019/0.12 AU
