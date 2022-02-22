@@ -71,7 +71,7 @@ if __name__ == "__main__":
     orbfits_path = Path(f'cache/quadrature_data_{datestr}.p')
     orbitfits = pd.read_pickle(orbfits_path)
 
-    orbdata_path = Path(f'cache/orbdata_{datestr}.p')
+    orbdata_path = Path(f'cache/ephemeris_orbdata_{datestr}.p')
     orbits = pd.read_pickle(orbdata_path)
 
     comps_path = Path(f'cache/comps_{datestr}.p')

@@ -68,13 +68,33 @@ if cache:
         with open(orbfits_path, 'rb') as f:
             orbitfits = pickle.load(f)
     else:
-        orbdata, orbitfits = genOrbitData_ET(data, bandzip, photdict)
+        orbdata, orbitfits = genOrbitData(data, bandzip, photdict)
         with open(orbdata_path, 'wb') as f:
             pickle.dump(orbdata, f)
         with open(orbfits_path, 'wb') as f:
             pickle.dump(orbitfits, f)
 else:
-    orbdata, orbitfits = genOrbitData_ET(data, bandzip, photdict)
+    orbdata, orbitfits = genOrbitData(data, bandzip, photdict)
+
+print("Adding ephemeris")
+ephemeris_orbdata_path = Path(f'cache/ephemeris_orbdata_{datestr}.p')
+ephemeris_orbfits_path = Path(f'cache/ephemeris_orbfits_{datestr}.p')
+if cache:
+    Path('cache/').mkdir(parents=True, exist_ok=True)
+    if ephemeris_orbdata_path.exists():
+        with open(ephemeris_orbdata_path, 'rb') as f:
+            ephemeris_orbdata = pickle.load(f)
+    if ephemeris_orbfits_path.exists():
+        with open(ephemeris_orbfits_path, 'rb') as f:
+            ephemeris_orbitfits = pickle.load(f)
+    else:
+        ephemeris_orbitfits, ephemeris_orbdata = addEphemeris(data, orbitfits, orbdata, bandzip, photdict)
+        with open(ephemeris_orbdata_path, 'wb') as f:
+            pickle.dump(ephemeris_orbdata, f)
+        with open(ephemeris_orbfits_path, 'wb') as f:
+            pickle.dump(ephemeris_orbitfits, f)
+else:
+    ephemeris_orbitfits, ephemeris_orbdata = addEphemeris(data, orbitfits, orbdata, bandzip, photdict)
 
 #calculate quadrature columns:
 print('Computing quadrature values')
@@ -85,26 +105,12 @@ if cache:
         with open(quadrature_data_path, 'rb') as f:
             quadrature_data = pickle.load(f)
     else:
-        quadrature_data = calcQuadratureVals(orbitfits, bandzip, photdict)
+        quadrature_data = calcQuadratureVals(ephemeris_orbitfits, bandzip, photdict)
         with open(quadrature_data_path, 'wb') as f:
             pickle.dump(quadrature_data, f)
 else:
-    quadrature_data = calcQuadratureVals(orbitfits, bandzip, photdict)
+    quadrature_data = calcQuadratureVals(ephemeris_orbitfits, bandzip, photdict)
 
-
-# print('Getting alt orbit data')
-# altorbdata_path = Path(f'cache/altorbdata_{datestr}.p')
-# if cache:
-    # Path('cache/').mkdir(parents=True, exist_ok=True)
-    # if altorbdata_path.exists():
-        # with open(altorbdata_path, 'rb') as f
-            # altorbdata = pickle.load(f)
-    # else:
-        # altorbdata = genAltOrbitData(quadrature_data, bandzip, photdict)
-        # with open(altorbdata_path, 'wb') as f:
-            # pickle.dump(altorbdata, f)
-# else:
-    # altorbdata = genAltOrbitData(quadrature_data, bandzip, photdict)
 
 # Calculating contrast curves for stars
 print('Contrast curve calculations')
@@ -163,18 +169,18 @@ else:
     plandata, stdata, orbitfits = generateTables(data, comps_data)
 #aliases
 # aliases_path = Path(f'cache/aliases_{datestr}.p')
-aliases_path = Path(f'cache/aliases_2021-09-22.p') # Saved version
-if cache:
-    Path('cache/').mkdir(parents=True, exist_ok=True)
-    if aliases_path.exists():
-        with open(aliases_path, 'rb') as f:
-            aliases = pickle.load(f)
-    else:
-        aliases = genAliases(comps_data)
-        with open(aliases_path, 'wb') as f:
-            pickle.dump(aliases_path, f)
-else:
-    aliases = genAliases(comps_data)
+# aliases_path = Path(f'cache/aliases_2021-09-22.p') # Saved version
+# if cache:
+    # Path('cache/').mkdir(parents=True, exist_ok=True)
+    # if aliases_path.exists():
+        # with open(aliases_path, 'rb') as f:
+            # aliases = pickle.load(f)
+    # else:
+        # aliases = genAliases(comps_data)
+        # with open(aliases_path, 'wb') as f:
+            # pickle.dump(aliases_path, f)
+# else:
+    # aliases = genAliases(comps_data)
 #testdb
 # engine = create_engine('mysql+pymysql://cas584@127.0.0.1/plandb_newscratch', echo=False, encoding='utf8', pool_pre_ping=True)
 # engine = create_engine(f'mysql+pymysql://corey:password@localhost/test', echo=False)
