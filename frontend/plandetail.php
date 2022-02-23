@@ -642,6 +642,9 @@ if ($resultp){
 }
 
 if ($resultap){
+    $of_ids = array_column($resultap->fetch_all(MYSQLI_ASSOC), 'orbitfit_id'); 
+    $num_of_ids = count(array_unique($of_ids));
+    $resultap = $conn->query($sql4);
     if ($resultap->num_rows > 0){
         echo '<div id="plot3Div" style="width:800px; height:640px; margin:auto;"></div>';
         echo "\n\n";
@@ -650,28 +653,69 @@ if ($resultap){
               WA60 = new Array(xsize), dMag60 = new Array(xsize),
               WA30 = new Array(xsize), dMag30 = new Array(xsize),
               WAcrit = new Array(xsize), dMagcrit = new Array(xsize), msizes = new Array(xsize), txtvals = new Array(xsize); \n";
+        if($num_of_ids == 8){
+            echo "var WA90_alt = new Array(xsize), dMag90_alt = new Array(xsize),
+                  WA60_alt = new Array(xsize), dMag60_alt = new Array(xsize),
+                  WA30_alt = new Array(xsize), dMag30_alt = new Array(xsize),
+                  WAcrit_alt = new Array(xsize), dMagcrit_alt = new Array(xsize); \n";
+        };
 
         $maxi = $resultap->num_rows;
         $i = 0;
+        $first_incl = true;
+        $done_with_first = false;
         while($rowp = $resultap->fetch_assoc()) {
             // if ($i == 0){ $Icrit = round($rowp['Icrit'] * 180.0/pi(), 2); }
-            if ($i == 0){ $Icrit = 0; }
-            echo "msizes[".$i."]=".(-19/$maxi*$i + 20).";";
+            if ($i == 0){ $Icrit = 0; $first_id = $rowp['orbitfit_id'];}
+            if (($rowp['orbitfit_id'] != $first_id) && ($done_with_first==false)){
+                $num_per_incl = $i;
+                $done_with_first = true;
+            };
+            if ($done_with_first == false){
+                echo "msizes[".$i."]=".($i/10+5).";";
+            }
+            else{
+                echo "msizes[".$i."]=".(($i%$num_per_incl)/10+5).";";
+            };
             echo "txtvals[".$i."]='t=".sprintf("%2.3g",$rowp['t'])."';";
             $incl = $rowp['pl_orbincl'];
             if ($incl < 15) {
-                echo "WAcrit[".$i."]=".$rowp['WA'].";";
-                echo "dMagcrit[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                if($rowp['from_IPAC'] == 1){
+                    echo "WAcrit[".$i."]=".$rowp['WA'].";";
+                    echo "dMagcrit[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                }
+                else{
+                    echo "WAcrit_alt[".$i."]=".$rowp['WA'].";";
+                    echo "dMagcrit_alt[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                };
             } elseif ($incl < 45){
-                echo "WA30[".$i."]=".$rowp['WA'].";";
-                echo "dMag30[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                if($rowp['from_IPAC'] == 1){
+                    echo "WA30[".$i."]=".$rowp['WA'].";";
+                    echo "dMag30[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                }
+                else{
+                    echo "WA30_alt[".$i."]=".$rowp['WA'].";";
+                    echo "dMag30_alt[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                };
             } elseif ($incl < 75){
-                echo "WA60[".$i."]=".$rowp['WA'].";";
-                echo "dMag60[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                if($rowp['from_IPAC'] == 1){
+                    echo "WA60[".$i."]=".$rowp['WA'].";";
+                    echo "dMag60[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                }
+                else{
+                    echo "WA60_alt[".$i."]=".$rowp['WA'].";";
+                    echo "dMag60_alt[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                };
             } else {
-                echo "WA90[".$i."]=".$rowp['WA'].";";
-                echo "dMag90[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
-            }
+                if($rowp['from_IPAC'] == 1){
+                    echo "WA90[".$i."]=".$rowp['WA'].";";
+                    echo "dMag90[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                }
+                else{
+                    echo "WA90_alt[".$i."]=".$rowp['WA'].";";
+                    echo "dMag90_alt[".$i."]="; if ($rowp['dMag_300C_575NM']){ echo $rowp['dMag_300C_575NM']; } else{ echo "NaN";} echo";";
+                };
+            };
             $i++;
         }
 
@@ -683,7 +727,6 @@ if ($resultap){
                 mode: 'lines+markers',
                 marker: {size: msizes},
                 name: 'I = 90\u00B0',
-                line: { color: 'red' }
               };\n
               var d2 = {\n
                 x: WA60,
@@ -693,7 +736,6 @@ if ($resultap){
                 mode: 'lines+markers',
                 marker: {size: msizes},
                 name: 'I = 60\u00B0',
-                line: { color: 'blue' }
               };\n
               var d3 = {\n
                 x: WA30,
@@ -703,7 +745,6 @@ if ($resultap){
                 mode: 'lines+markers',
                 marker: {size: msizes},
                 name: 'I = 30\u00B0',
-                line: { color: 'green' }
               };\n
               var d4 = {\n
                 x: WAcrit,
@@ -713,10 +754,52 @@ if ($resultap){
                 mode: 'lines+markers',
                 marker: {size: msizes},
                 name: 'I = ".$Icrit."\u00B0',
-                line: { color: 'orange' }
-              };\n
+                };";
+                if ($num_of_ids == 8){
+                    echo " var d5 = {\n
+                                x: WA90_alt,
+                                y: dMag90_alt,
+                                text: txtvals, 
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                marker: {size: msizes},
+                                name: 'I = 90\u00B0 (Non-IPAC fit)',
+                              };\n
+                              var d6 = {\n
+                                x: WA60_alt,
+                                y: dMag60_alt,
+                                text: txtvals, 
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                marker: {size: msizes},
+                                name: 'I = 60\u00B0 (Non-IPAC fit)',
+                              };\n
+                              var d7 = {\n
+                                x: WA30_alt,
+                                y: dMag30_alt,
+                                text: txtvals, 
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                marker: {size: msizes},
+                                name: 'I = 30\u00B0 (Non-IPAC fit)',
+                              };\n
+                              var d8 = {\n
+                                x: WAcrit_alt,
+                                y: dMagcrit_alt,
+                                text: txtvals, 
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                marker: {size: msizes},
+                                name: 'I = ".$Icrit."\u00B0 (Non-IPAC fit)',
+                                };\n
+                                var data = [d1, d2, d3, d4, d5, d6, d7, d8];\n";
+                }
+                else{
+                echo ";\n
+                 var data = [d1,d2,d3,d4];\n";
+                };
 
-              var dmaglim = {
+              echo "var dmaglim = {
                 x: [150, 155.1337625 , 180.1553371 , 210.18122662, 250.21574597,
                300.25889517, 350.30204436, 395.34087864, 450],
                 y: [22.01610885074595, 22.05977185, 22.30204688, 22.57879263, 22.98455007, 23.03667541,
@@ -726,7 +809,6 @@ if ($resultap){
                 line: {color: 'black'}
                };\n    
 
-             var data = [d1,d2,d3,d4];\n
 
             var updatemenus=[
                 {
@@ -757,8 +839,14 @@ if ($resultap){
                 xaxis: {title: 'Angular Separation (mas)'},
                 yaxis: {title: '\u0394 mag'},
                 showlegend: true,
-                margin: { t: 30, b:50, l:75, r:50}
-             };\n
+                margin: { t: 30, b:50, l:75, r:50},";
+                if ($num_of_ids == 4) {
+                    echo "colorway: ['#440154', '#31688e', '#35b779', '#fde725']";
+                }
+                elseif($num_of_ids == 8){
+                    echo "colorway: ['#440154', '#46327e', '#365c8d', '#277f8e', '#1fa187', '#4ac16d', '#a0da39', '#fde725']";
+                };
+                echo "};\n
 
              Plotly.newPlot('plot3Div', data, layout);\n";
 
