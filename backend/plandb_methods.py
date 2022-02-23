@@ -1130,9 +1130,7 @@ def addEphemeris(data, orbfits, orbdata, bandzip, photdict):
 
     # Getting data to make the dataframes combine better
     pl_names, indices = np.unique(new_orbdata.pl_name, return_index=True)
-    # pl_ids = new_orbdata.loc[indices].pl_id.values
     new_orbdata['orbitfit_id'] += np.max(orbdata.orbitfit_id)+1
-    new_orbfits['orbitfit_id'] += np.max(orbfits.orbitfit_id)+1
     old_orbfits = orbfits.reset_index(drop=True)
     relevant_orbfits = old_orbfits[old_orbfits['pl_name'].isin(pl_names)]
     old_orbfits_id_dict = relevant_orbfits.groupby('pl_name').first()['pl_id'].to_dict()
