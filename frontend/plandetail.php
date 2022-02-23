@@ -763,7 +763,7 @@ if ($resultap){
                                 type: 'scatter',
                                 mode: 'lines+markers',
                                 marker: {size: msizes},
-                                name: 'I = 90\u00B0 (Non-IPAC fit)',
+                                name: 'I = 90\u00B0 (Non-Exoplanet Archive Fit)',
                               };\n
                               var d6 = {\n
                                 x: WA60_alt,
@@ -772,7 +772,7 @@ if ($resultap){
                                 type: 'scatter',
                                 mode: 'lines+markers',
                                 marker: {size: msizes},
-                                name: 'I = 60\u00B0 (Non-IPAC fit)',
+                                name: 'I = 60\u00B0 (Non-Exoplanet Archive Fit)',
                               };\n
                               var d7 = {\n
                                 x: WA30_alt,
@@ -781,7 +781,7 @@ if ($resultap){
                                 type: 'scatter',
                                 mode: 'lines+markers',
                                 marker: {size: msizes},
-                                name: 'I = 30\u00B0 (Non-IPAC fit)',
+                                name: 'I = 30\u00B0 (Non-Exoplanet Archive Fit)',
                               };\n
                               var d8 = {\n
                                 x: WAcrit_alt,
@@ -790,7 +790,7 @@ if ($resultap){
                                 type: 'scatter',
                                 mode: 'lines+markers',
                                 marker: {size: msizes},
-                                name: 'I = ".$Icrit."\u00B0 (Non-IPAC fit)',
+                                name: 'I = ".$Icrit."\u00B0 (Non-Exoplanet Archive Fit)',
                                 };\n
                                 var data = [d1, d2, d3, d4, d5, d6, d7, d8];\n";
                 }
