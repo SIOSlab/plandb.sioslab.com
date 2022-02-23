@@ -851,7 +851,7 @@ if ($resultap){
              Plotly.newPlot('plot3Div', data, layout);\n";
 
         echo "</script>\n";
-        echo "<p>575 nm, f<sub>sed</sub> = 3.0 photometry for different orbit inclinations. If no eccentricity is available, orbit is assumed circular. The curves cover the full planet orbit, or 10 years (whichever is shorter). Time between points is 30 days. Time starts at 1/1/2026.  In cases where the argument of periastron is unknown, the planet is assumed to be at periastron at t = 0. Markers decrease in size with time.</p>";
+        echo "<p>575 nm, f<sub>sed</sub> = 3.0 photometry for different orbit inclinations. If no eccentricity is available, orbit is assumed circular. The curves cover the full planet orbit, or 10 years (whichever is shorter). Time between points is 30 days. Time starts at 1/1/2026.  In cases where the argument of periastron is unknown, the planet is assumed to be at periastron at t = 0. Markers decrease in size with time. To select a single orbit, double click on it in the legend. To deselect an orbit, single click on it in the legend. To reset, double click on an unselected orbit in the legend. </p>";
     }
     $resultap->close();
 }
@@ -1161,6 +1161,7 @@ if ($resultc){
     echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1,scenario2, scenario3, scenario4, scenario5, scenario6, scenario7, scenario8, scenario9, scenario10, scenario11, scenario12, scenario13, scenario14, scenario15, scenario16, scenario17], layout);" ;
     //echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1], layout);" ;
     echo "</script>\n";
+    echo "<p>To select a single contrast curve, double click on it in the legend. To deselect a contrast curve, single click on it in the legend. To reset, double click on an unselected contrast curve in the legend.</p>";
     echo "<p>For full documentation see <a href=docs/html/index.html#completeness-table target=_blank>here</a>.</p>";
     //echo ($x_alpha[1] - $x_alpha[0]);
     //echo "\nUnique alphas: ".count($x_alpha);
