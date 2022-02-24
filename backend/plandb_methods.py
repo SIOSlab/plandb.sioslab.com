@@ -2021,7 +2021,7 @@ def writeSQL_old(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliase
 
 def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
     """write outputs to sql database via engine"""
-    engine.execute("DROP TABLE Stars, Planets, OrbitFits, Orbits, PDFs, Scenarios, ContrastCurves, Completeness")
+    # engine.execute("DROP TABLE Stars, Planets, OrbitFits, Orbits, PDFs, Scenarios, ContrastCurves, Completeness")
 
     if stdata is not None:
         print("Writing Stars")

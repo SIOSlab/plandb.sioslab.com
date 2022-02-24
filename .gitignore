@@ -72,3 +72,10 @@ DoS*.res
 plandbschema 
 
 pdb_env/
+
+*.p
+*.json
+
+old_cache
+EXOSIMS
+figures
