@@ -1168,7 +1168,7 @@ def generateTables(data, orbitfits):
                "disc_instrument", "disc_telescope", "pl_pubdate", "disc_facility",
                "sy_mnum", "rv_flag", "pl_rvamp"]
     orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
-    orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname')
+    orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname', 'disc_', 'sy_', 'st_')
     orbitfits_exclude = [col for col in orbitfits_cols if col.startswith(orbitfits_exclude_prefix)]
     orbitfits_cols = np.setdiff1d(orbitfits_cols, orbitfits_exclude)
 

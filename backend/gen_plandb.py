@@ -161,7 +161,7 @@ if cache:
         stdata = pd.read_pickle(stdata_path)
         table_data = pd.read_pickle(table_orbitfits_path)
     else:
-        plandata, stdata, orbitfits = generateTables(data, comps_data)
+        plandata, stdata, orbitfits = generateTables(data, quadrature_data)
         plandata.to_pickle(plandata_path)
         stdata.to_pickle(stdata_path)
         orbitfits.to_pickle(table_orbitfits_path)
