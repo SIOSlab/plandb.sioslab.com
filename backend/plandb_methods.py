@@ -1161,16 +1161,20 @@ def addEphemeris(data, orbfits, orbdata, bandzip, photdict):
 def generateTables(data, orbitfits):
     print('Splitting IPAC data into Star and Planet data')
     # Isolate the stellar columns from the planet columns
-    st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col)]
+    st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col) or ('sy_' in col)]
     st_cols.extend(["dec", "decstr", "hd_name", "hip_name", "ra", "rastr"])
 
-    pl_cols = ["hostname", "pl_name", "pl_letter", "disc_year", "disc_refname", "discoverymethod", "disc_locale", "ima_flag",
-               "disc_instrument", "disc_telescope", "pl_pubdate", "disc_facility",
-               "sy_mnum", "rv_flag", "pl_rvamp"]
+    pl_cols = [col for col in data.columns if ('pl_' in col)]
+    pl_cols.extend(["hostname", "disc_year", "disc_refname", "discoverymethod", "disc_locale", "ima_flag",
+               "disc_instrument", "disc_telescope", "disc_facility", "rv_flag"])
     orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
-    orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname', 'disc_', 'sy_', 'st_')
-    orbitfits_exclude = [col for col in orbitfits_cols if col.startswith(orbitfits_exclude_prefix)]
-    orbitfits_cols = np.setdiff1d(orbitfits_cols, orbitfits_exclude)
+    orbitfits_cols = np.setdiff1d(orbitfits_cols, pl_cols)
+    orbitfits_cols = orbitfits_cols.tolist()
+    orbitfit_extra_cols = ['hostname', 'pl_name', 'pl_id', 'pl_angsep', 'pl_radj_forecastermod', 'pl_bmassj', 'pl_orbsmax']
+    orbitfits_cols.extend(orbitfit_pl_cols)
+    # orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname', 'disc_', 'sy_', 'st_')
+    # orbitfits_exclude = [col for col in orbitfits_cols if col.startswith(orbitfits_exclude_prefix)]
+    # orbitfits_cols = np.setdiff1d(orbitfits_cols, orbitfits_exclude)
 
     st_cols.append("hostname")
     st_data = data[st_cols]
@@ -1205,8 +1209,9 @@ def generateTables(data, orbitfits):
     colmap_st = {k: k[3:] if (k.startswith('st_') and (k != 'st_id' and k != 'st_name' and k!= 'st_radv')) else k for k in st_data.keys()}
     st_data = st_data.rename(columns=colmap_st)
 
-    colmap_fits = {k: k[3:] if (k.startswith('pl_') and (k != 'pl_id' and k != 'pl_name')) else k for k in orbitfits.keys()}
-    orbitfits = orbitfits.rename(columns=colmap_fits)
+    # colmap_fits = {k: k[3:] if (k.startswith('pl_') and (k != 'pl_id' and k != 'pl_name')) else k for k in orbitfits.keys()}
+    # orbitfits = orbitfits.rename(columns=colmap_fits)
+    # breakpoint()
     return pl_data, st_data, orbitfits
 
 
