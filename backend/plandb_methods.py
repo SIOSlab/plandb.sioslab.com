@@ -1162,16 +1162,16 @@ def generateTables(data, orbitfits):
     print('Splitting IPAC data into Star and Planet data')
     # Isolate the stellar columns from the planet columns
     st_cols = [col for col in data.columns if ('st_' in col) or ('gaia_' in col) or ('sy_' in col)]
-    st_cols.extend(["dec", "decstr", "hd_name", "hip_name", "ra", "rastr"])
+    st_cols.extend(["dec", "decstr", "hd_name", "hip_name", "ra", "rastr", 'elat', 'elon'])
 
     pl_cols = [col for col in data.columns if ('pl_' in col)]
     pl_cols.extend(["hostname", "disc_year", "disc_refname", "discoverymethod", "disc_locale", "ima_flag",
                "disc_instrument", "disc_telescope", "disc_facility", "rv_flag"])
-    orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
-    orbitfits_cols = np.setdiff1d(orbitfits_cols, pl_cols)
-    orbitfits_cols = orbitfits_cols.tolist()
-    orbitfit_extra_cols = ['hostname', 'pl_name', 'pl_id', 'pl_angsep', 'pl_radj_forecastermod', 'pl_bmassj', 'pl_orbsmax']
-    orbitfits_cols.extend(orbitfit_pl_cols)
+    # orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
+    # orbitfits_cols = np.setdiff1d(orbitfits_cols, pl_cols)
+    orbitfits_cols = np.genfromtxt('oft_cols.csv', delimiter=',', dtype=str)
+    # orbitfit_extra_cols = ['hostname', 'pl_name', 'pl_id', 'pl_angsep', 'pl_radj_forecastermod', 'pl_bmassj', 'pl_orbsmax']
+    # orbitfits_cols.extend(orbitfit_extra_cols)
     # orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname', 'disc_', 'sy_', 'st_')
     # orbitfits_exclude = [col for col in orbitfits_cols if col.startswith(orbitfits_exclude_prefix)]
     # orbitfits_cols = np.setdiff1d(orbitfits_cols, orbitfits_exclude)
@@ -2026,7 +2026,7 @@ def writeSQL_old(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliase
 
 def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
     """write outputs to sql database via engine"""
-    # engine.execute("DROP TABLE Stars, Planets, OrbitFits, Orbits, PDFs, Scenarios, ContrastCurves, Completeness")
+    engine.execute("DROP TABLE Completeness, ContrastCurves, Scenarios, PDFs, Orbits, OrbitFits, Planets, Stars")
 
     if stdata is not None:
         print("Writing Stars")

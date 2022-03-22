@@ -34,39 +34,39 @@ if (empty($_GET["name"])){
 //}
 
 $sql = "SELECT 
-OFT.hostname AS pl_hostname,
+ST.st_name AS pl_hostname,
 -- pl_reflink,
 OFT.pl_orbper AS pl_orbper,
-OFT.discoverymethod AS pl_discmethod,
+PL.discoverymethod AS pl_discmethod,
 OFT.pl_orbsmax AS pl_orbsmax,
 OFT.pl_orbeccen AS pl_orbeccen,
 OFT.pl_orbincl AS pl_orbincl,
 OFT.pl_bmassj AS pl_bmassj,
-OFT.pl_bmassprov AS pl_bmassprov,
-OFT.pl_radj AS pl_radj,
+PL.pl_bmassprov AS pl_bmassprov,
+PL.pl_radj AS pl_radj,
 -- pl_radreflink,
-OFT.pl_radj_fortney AS pl_radj_fortney,
-OFT.pl_radj_forecastermod AS pl_radj_forecastermod,
+PL.pl_radj_fortney AS pl_radj_fortney,
+PL.pl_radj_forecastermod AS pl_radj_forecastermod,
 OFT.pl_orbtper AS pl_orbtper,
 OFT.pl_orblper AS pl_orblper,
-OFT.pl_eqt AS pl_eqt,
-OFT.pl_insol AS pl_insol,
+PL.pl_eqt AS pl_eqt,
+PL.pl_insol AS pl_insol,
 OFT.pl_angsep AS pl_angsep,
 -- S.minangsep AS pl_minangsep,
 -- S.maxangsep AS pl_maxangsep, #Should this be OFT.pl_maxangsep instead
 ST.rastr AS ra_str, #These are copied over to orbitfits should they be dropped
 ST.decstr AS dec_str,
-OFT.sy_dist AS st_dist,
-OFT.sy_plx AS st_plx,
+ST.sy_dist AS st_dist,
+ST.sy_plx AS st_plx,
 -- gaia_plx,
 -- gaia_dist,
-OFT.sy_vmag AS st_optmag,
+ST.sy_vmag AS st_optmag,
 -- st_optband,
-OFT.sy_gaiamag AS gaia_gmag,
+ST.sy_gaiamag AS gaia_gmag,
 ST.teff AS st_teff,
 ST.mass AS st_mass,
-OFT.sy_pmra AS st_pmra,
-OFT.sy_pmdec AS st_pmdec,
+ST.sy_pmra AS st_pmra,
+ST.sy_pmdec AS st_pmdec,
 -- gaia_pmra,
 -- gaia_pmdec,
 PL.pl_rvamp AS pl_rvamp,
@@ -81,8 +81,8 @@ ST.age AS st_age,
 -- C.compMaxWA AS compMaxWA,
 -- C.compMindMag AS compMindMag,
 -- C.compMaxdMag AS compMaxdMag,
-OFT.elat AS st_elat,
-OFT.elon AS st_elon 
+ST.elat AS st_elat,
+ST.elon AS st_elon 
 FROM Stars ST, Planets PL, OrbitFits OFT
 -- Completeness C, Scenarios S
 WHERE ST.st_id = PL.st_id
@@ -1161,7 +1161,7 @@ if ($resultc){
     echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1,scenario2, scenario3, scenario4, scenario5, scenario6, scenario7, scenario8, scenario9, scenario10, scenario11, scenario12, scenario13, scenario14, scenario15, scenario16, scenario17], layout);" ;
     //echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1], layout);" ;
     echo "</script>\n";
-    echo "<p>To select a single contrast curve, double click on it in the legend. To deselect a contrast curve, single click on it in the legend. To reset, double click on an unselected contrast curve in the legend.</p>";
+    echo "<p>To select a single contrast curve, double click on it in the legend. To deselect a contrast curve, single click on it in the legend. To reset, double click on an unselected contrast curve in the legend. Contrast curves are not calculated for scenarios where the planet cannot reach the IWA and appear as flat lines.</p>";
     echo "<p>For full documentation see <a href=docs/html/index.html#completeness-table target=_blank>here</a>.</p>";
     //echo ($x_alpha[1] - $x_alpha[0]);
     //echo "\nUnique alphas: ".count($x_alpha);
