@@ -9,10 +9,11 @@ include "templates/headerclose.php";
 $sqlsel = "SELECT PL.pl_name AS Name, 
 OFT.pl_angsep AS pl_angsep,
 C.completeness AS completeness,
-OFT.sy_vmag AS st_optmag
-FROM Planets PL, OrbitFits OFT, Completeness C, Scenarios S
+ST.sy_vmag AS st_optmag
+FROM Planets PL, OrbitFits OFT, Completeness C, Scenarios S, Stars ST
 WHERE PL.pl_id= OFT.pl_id
 AND PL.pl_id = C.pl_id
+AND PL.st_id = ST.st_id
 AND C.scenario_name = S.scenario_name
 AND OFT.default_fit = 1
 AND ";
