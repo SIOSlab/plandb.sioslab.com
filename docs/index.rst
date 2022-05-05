@@ -102,14 +102,14 @@ where :math:`R` is the planet :math:`r` is the orbital radius, as defined :ref:`
 Orbit Geometry
 ====================
 
-We define two reference frames: :math:`\mathcal{I} = (O, \mathbf{\hat e}_1, \mathbf{\hat e}_2, \mathbf{\hat e}_3)`,  with the plane of the sky in the :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane, and :math:`\mathcal{P} = (O, \mathbf{\hat{e}}, \mathbf{\hat{q}}, \mathbf{\hat{h}})`, commonly known as the perifocal frame, where the first unit vector points in the direction of the eccentricity vector (i.e., in the direction of periastron) and the third direction is orthogonal to the orbital plane and points in the direction of the orbital angular momentum.  We assume a non-osculating Keplerian orbit such that the geometric relationships between the two frames are constant for all time. Both frames have their coordinate system origins at the location of the target star (:math:`O`).
+We define two reference frames: :math:`\mathcal{I} = (\mathbf{\hat e}_1, \mathbf{\hat e}_2, \mathbf{\hat e}_3)`,  with the plane of the sky in the :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane, and :math:`\mathcal{P} = (\mathbf{\hat{e}}, \mathbf{\hat{q}}, \mathbf{\hat{h}})`, commonly known as the perifocal frame, where the first unit vector points in the direction of the eccentricity vector (i.e., in the direction of periastron) and the third direction is orthogonal to the orbital plane and points in the direction of the orbital angular momentum.  We assume a non-osculating Keplerian orbit such that the geometric relationships between the two frames are constant for all time. Both frames have their coordinate system origins at the location of the target star (:math:`S`).
 
    .. image:: orbit_frames.png
-      :scale: 100 %
+      :scale: 50 %
       :alt: orbit reference frames
 
 
-Frame :math:`\mathcal{P}` is a 3-1-3 :math:`(\Omega,I,\omega)` rotation from frame :math:`\mathcal{I}`, where the angles are commonly known as the longitude of the ascending node, the inclination, and the argument of periastron, respectively.  The orbital radius (magnitude of the vector :math:`\mathbf{r}_{P/O}`) is given by the semi-major axis, :math:`a`, eccentricity, :math:`e` and the time-varying true anomaly, :math:`\nu` as:
+Frame :math:`\mathcal{P}` is a 3-1-3 :math:`(\Omega,I,\omega)` rotation from frame :math:`\mathcal{I}`, where the angles are commonly known as the longitude of the ascending node, the inclination, and the argument of periastron, respectively.  The orbital radius (magnitude of the star-planet vector :math:`\mathbf{r}_{P/S}`) is given by the semi-major axis, :math:`a`, eccentricity, :math:`e` and the time-varying true anomaly, :math:`\nu` as:
 
 .. _orbradcalcref:
 
@@ -117,7 +117,7 @@ Frame :math:`\mathcal{P}` is a 3-1-3 :math:`(\Omega,I,\omega)` rotation from fra
 
       r = \frac{a(1 - e^2)}{1 + e\cos\nu}
 
-The projected (or apparent) separation (the magnitude of the projection of :math:`\mathbf{r}_{P/O}` onto the :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane) is therefore given by:
+The projected (or apparent) separation (the magnitude of the projection of :math:`\mathbf{r}_{P/S}` onto the :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane) is therefore given by:
 
    .. math::
         
@@ -135,25 +135,25 @@ where :math:`d` is the distance between the observer and the target star.
 
    .. note::
 
-      All of the above holds true regardless of the choice of observer location, so long as the plane of the sky is in the  :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane.  However, the planet's phase (star-planet-observer) angle, and therefore photometry and timing of transits all depend on the observer location. We will adopt the convention, implicitly used by the Exoplanet Archive, that the observer is located along the positive  :math:`\mathbf{\hat e}_3` axis (i.e., looking down at :math:`O` in the figure above).
+      All of the above holds true regardless of the choice of observer location, so long as the plane of the sky is in the  :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane.  However, the planet's phase (star-planet-observer) angle, and therefore photometry and timing of transits all depend on the observer location. We will adopt the convention, implicitly used by the Exoplanet Archive, that the observer is located along the positive  :math:`\mathbf{\hat e}_3` axis (i.e., looking down at :math:`S` in the figure above).
 
-The phase angle :math:`\beta` is the angle between the planet-star vector and the planet-observer vector and so:
+The phase angle :math:`\beta` is the illuminant-object-observer angle, and therefore the angle between the planet-star vector ( :math:`\mathbf{r}_{S/P} \equiv \mathbf{r}_{P/S}`) and the planet-observer vector (given by  :math:`d\mathbf{\hat e}_3 - \mathbf{r}_{P/S}`).  Thus:
+ 
+   .. math::
+
+      \cos\beta = \frac{-\mathbf{r}_{P/S} \cdot (d\mathbf{\hat e}_3 - \mathbf{r}_{P/S} )}{r \Vert d\mathbf{\hat e}_3 - \mathbf{r}_{P/S} \Vert}
+
+If we assume that :math:`d \gg r` (the observer-target distance is much larger than the orbital radius), then the planet-observer and star-observer vectors become nearly parallel, and we can approximate :math:`d\mathbf{\hat e}_3 - \mathbf{r}_{P/S} \approx  d\mathbf{\hat e}_3`.  In this case, the phase angle equation simplifies to:
 
    .. math::
 
-      \cos\beta = \frac{\mathbf{r}_{P/O} \cdot (\mathbf{r}_{P/O} - d\mathbf{\hat e}_3)}{r \Vert \mathbf{r}_{P/O} - d\mathbf{\hat e}_3\Vert}
+      \cos\beta \approx \frac{-\mathbf{r}_{P/S} \cdot d\mathbf{\hat e}_3}{rd} = \frac{-z}{r} 
 
-If we assume that :math:`d \gg r` (the observer-target distance is much larger than the orbital size), then the planet-observer and star-observer vectors become nearly parallel, and we can approximate :math:`\mathbf{r}_{P/O} - d\mathbf{\hat e}_3 \approx  - d\mathbf{\hat e}_3`.  In this case, the phase angle equation simplifies to:
-
-   .. math::
-
-      \cos\beta = \frac{-z}{r}
-
-where :math:`z` is the component of :math:`\mathbf{r}_{P/O}` along :math:`\mathbf{\hat e}_3`:
+where :math:`z` is the component of :math:`\mathbf{r}_{P/S}` along :math:`\mathbf{\hat e}_3`:
 
    .. math::
       
-      z = \mathbf{r}_{P/O} \cdot \mathbf{\hat e}_3
+      z = \mathbf{r}_{P/S} \cdot \mathbf{\hat e}_3
 
 If we evaluate this expression in terms of the components of the orbital radius vector as a function of the Euler angles defined above, we find:
 
@@ -163,11 +163,13 @@ If we evaluate this expression in terms of the components of the orbital radius 
       
       \cos\beta = -\sin I \sin\theta
 
-Finally, we note that a planetary transit (if the orbit is properly inclined) would occur when :math:`\beta = \pi`, meaning that :math:`\sin\theta = 1` (under the assumption of :math:`I = \pi/2`), or equivalently: :math:`\nu = \pi/2 - \omega`.
+As a means of validating all of the above (and comparing to values provided by the Exoplanet Archive), we note that a planetary transit (if the orbit is properly inclined) would occur when :math:`\beta = \pi`, meaning that :math:`\sin\theta = 1` (under the assumption of :math:`I = \pi/2`), or equivalently: :math:`\nu = \pi/2 - \omega`. 
+
+Similarly, quadrature (defined as :math:`\beta = \pi/2`) will occur when :math:`\sin\theta = 0` under the assumption of a non-zero inclination; for zero inclination (face-on orbit), :math:`\beta` is always 90 degrees.  Thus, quadrature occurs when :math:`\nu = -\omega` or  :math:`\pi - \omega`.
 
    .. note::
 
-      If we make the opposite assumption of observer location (i.e., observer located along the negative :math:`\mathbf{\hat e}_3` axis, looking up at :math:`O` in the figure), then we would find that :math:`\cos\beta = \sin I \sin\theta` and that transits occur when :math:`\nu = -\pi/2 - \omega`.
+      If we make the opposite assumption of observer location (i.e., observer located along the negative :math:`\mathbf{\hat e}_3` axis, looking up at :math:`S` in the figure), then we would find that :math:`\cos\beta = \sin I \sin\theta` and that transits occur when :math:`\nu = -\pi/2 - \omega`. Quadrature, however, would still occur at the same values of true anomaly.
 
    
 Known Planet Targets
