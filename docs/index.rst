@@ -105,7 +105,7 @@ Orbit Geometry
 We define two reference frames: :math:`\mathcal{I} = (\mathbf{\hat e}_1, \mathbf{\hat e}_2, \mathbf{\hat e}_3)`,  with the plane of the sky in the :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane, and :math:`\mathcal{P} = (\mathbf{\hat{e}}, \mathbf{\hat{q}}, \mathbf{\hat{h}})`, commonly known as the perifocal frame, where the first unit vector points in the direction of the eccentricity vector (i.e., in the direction of periastron) and the third direction is orthogonal to the orbital plane and points in the direction of the orbital angular momentum.  We assume a non-osculating Keplerian orbit such that the geometric relationships between the two frames are constant for all time. Both frames have their coordinate system origins at the location of the target star (:math:`S`).
 
    .. image:: orbit_frames.png
-      :scale: 50 %
+      :scale: 48%
       :alt: orbit reference frames
 
 
