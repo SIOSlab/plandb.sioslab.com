@@ -101,5 +101,6 @@ if __name__ == "__main__":
     passwd = input("db password: ")
     username = 'plandb_admin'
 
-    engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@localhost/plandb_scratch',echo=False)
+    engine = create_engine('mysql+pymysql://'+username+':'+passwd+'@localhost/plandb',echo=False)
+    #pool_pre_ping=True for remote
     writeSQL(engine, plandata=planets, stdata=stars, orbitfits=orbitfits, orbdata=orbits, pdfs=newpdfs, aliases=None,contrastCurves=contrast_curves,scenarios=scenarios, completeness=completeness)
