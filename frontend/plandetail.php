@@ -169,7 +169,7 @@ $resultpdf = $conn->query($sqlpdfs);
 $sqlcontr = "SELECT CC.* FROM ContrastCurves CC, Planets PL WHERE CC.st_id=PL.st_id AND PL.pl_name='".$name."'";
 $resultcontr = $conn->query($sqlcontr);
 
-$sql4 =  "SELECT O.*, PL.pl_orbincl
+$sql4 =  "SELECT O.*, OFT.pl_orbincl
 FROM Stars ST, Planets PL, OrbitFits OFT, Completeness C, Scenarios S, Orbits O
 WHERE ST.st_id = PL.st_id
 AND PL.pl_id= OFT.pl_id
