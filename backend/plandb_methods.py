@@ -804,13 +804,14 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             err1 = [row['pl_orbinclerr1'], row['pl_orbinclerr1'], row['pl_orbinclerr1']]
             err2 = [row['pl_orbinclerr2'], row['pl_orbinclerr2'], row['pl_orbinclerr2']]
 
+        lum_fix = row['st_lum_correction']
         for k,i in enumerate(IList):
             I = IList[k]
             # calculate orbital values
             E = eccanom(M, e)
             nu = 2 * np.arctan(np.sqrt((1.0 + e) / (1.0 - e)) * np.tan(E / 2.0));
-            d = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
-            s = d * np.sqrt(
+            r = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu)) / lum_fix
+            s = r * np.sqrt(
                 4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(
                     2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
             beta = np.arccos(-np.sin(I) * np.sin(nu + w)) * u.rad
@@ -819,7 +820,6 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             print(j, plannames[j], WA.min() - minWA[j].value, WA.max() - maxWA[j].value)
 
             # Adjusts planet distance for luminosity
-            lum_fix = row['st_lum_correction']
             orbitfits_dict = {'pl_id': [j],
                               'pl_orbincl':  [IList[k] * 180 / np.pi],
                               'pl_orbinclerr1': err1[k],
@@ -839,7 +839,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                        'orbitfit_id': [orbitfit_id] * len(M),
                        'M': M,
                        't': t - t0.jd,
-                       'r': d,
+                       'r': r,
                        's': s,
                        'WA': WA,
                        'beta': beta.to(u.deg).value,
@@ -856,12 +856,10 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                 for count2, (l, band, bw, ws, wstep) in enumerate(bandzip):
                     pphi = (photinterps2[float(feinterp(fe))][float(distinterp(a / lum_fix))][c](
                         beta.to(u.deg).value[inds], ws).sum(1) * wstep / bw)[np.argsort(inds)]
-                    # print(f'calced_pphi: [{count1}, {count2}] : {pphi}')
                     pphi[np.isinf(pphi)] = np.nan
                     outdict['pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"] = pphi
                     allpphis[count1, count2] = pphi
-                    dMag = deltaMag(1, Rp * u.R_jupiter, d * u.AU, pphi)
-                    # print(f'calced_dMag: [{count1}, {count2}] : {dMag}')
+                    dMag = deltaMag(1, Rp * u.R_jupiter, r * u.AU, pphi)
                     dMag[np.isinf(dMag)] = np.nan
                     outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM"] = dMag
                     alldMags[count1, count2] = dMag
