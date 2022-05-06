@@ -592,7 +592,7 @@ def genBands():
     return zip(lambdas,bands,bws,bandws,bandwsteps)
 
 
-def calcQuadratureVals(data, bandzip, photdict):
+def calcQuadratureVals(orbitfits, bandzip, photdict):
     """
     Calculate quadrature photometry values for planets in data (output of getIPACdata)
     for bands in bandzip (output of genBands) assuming photometry info from photdict
@@ -600,14 +600,14 @@ def calcQuadratureVals(data, bandzip, photdict):
 
     """
 
-    smas = data['pl_orbsmax'].values
-    fes = data['st_met'].values
+    smas = orbitfits['pl_orbsmax'].values
+    fes = orbitfits['st_met'].values
     fes[np.isnan(fes)] = 0.0
-    Rps = data['pl_radj_forecastermod'].values
-    inc = data['pl_orbincl'].values
-    eccen = data['pl_orbeccen'].values
-    arg_per = data['pl_orblper'].values
-    lum = data['st_lum'].values
+    Rps = orbitfits['pl_radj_forecastermod'].values
+    inc = orbitfits['pl_orbincl'].values * np.pi / 180.0
+    eccen = orbitfits['pl_orbeccen'].values
+    arg_per = orbitfits['pl_orblper'].values * np.pi / 180.0
+    lum = orbitfits['st_lum'].values
 
     tmpout = {}
 
@@ -690,9 +690,9 @@ def calcQuadratureVals(data, bandzip, photdict):
         tmpout["quad_dMag_max_"+str(l)+"NM"] = np.nanmax(tmp,axis=0)
         tmpout["quad_dMag_med_"+str(l)+"NM"] = np.nanmedian(tmp,axis=0)
 
-    data = data.join(pd.DataFrame(tmpout))
+    orbitfits = orbitfits.join(pd.DataFrame(tmpout))
 
-    return data
+    return orbitfits
 
 
 def genOrbitData(data, bandzip, photdict, t0=None):
@@ -777,7 +777,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
 
         I = row['pl_orbincl'] * np.pi / 180.0
         # Generate orbit fits based on if I is null
-        if np.isnan(I) or np.isnan(row['pl_orbinclerr1']) or np.isnan(row['pl_orbinclerr2']):
+        if np.isnan(I) and np.isnan(row['pl_orbinclerr1']) and np.isnan(row['pl_orbinclerr2']):
             I = np.pi / 2.0
             if row['pl_bmassprov'] == 'Msini':
                 Icrit = np.arcsin(
@@ -789,6 +789,13 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             defs = [1, 0, 0, 0]
             icrit_flag = [0, 0, 0, 1]
             err1 = [0, 0, 0, 0]
+            err2 = err1
+        elif np.isnan(row['pl_orbinclerr1']) or np.isnan(row['pl_orbinclerr2']):
+            # If there are no error bars use just the inclination
+            IList = np.array([I])
+            defs = [1]
+            icrit_flag = [0]
+            err1 = [np.nan]
             err2 = err1
         else:
             IList = np.array([I, I+row['pl_orbinclerr1']*np.pi/180, I + row['pl_orbinclerr2']*np.pi/180])
@@ -2026,7 +2033,7 @@ def writeSQL_old(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliase
 
 def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
     """write outputs to sql database via engine"""
-    engine.execute("DROP TABLE Completeness, ContrastCurves, Scenarios, PDFs, Orbits, OrbitFits, Planets, Stars")
+    engine.execute("DROP TABLE IF EXISTS Completeness, ContrastCurves, Scenarios, PDFs, Orbits, OrbitFits, Planets, Stars")
 
     if stdata is not None:
         print("Writing Stars")

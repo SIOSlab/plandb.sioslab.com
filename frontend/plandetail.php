@@ -36,22 +36,20 @@ if (empty($_GET["name"])){
 $sql = "SELECT 
 ST.st_name AS pl_hostname,
 -- pl_reflink,
-OFT.pl_orbper AS pl_orbper,
+PL.pl_orbper AS pl_orbper,
 PL.discoverymethod AS pl_discmethod,
-OFT.pl_orbsmax AS pl_orbsmax,
-OFT.pl_orbeccen AS pl_orbeccen,
-OFT.pl_orbincl AS pl_orbincl,
-OFT.pl_bmassj AS pl_bmassj,
+PL.pl_orbsmax AS pl_orbsmax,
+PL.pl_orbeccen AS pl_orbeccen,
+PL.pl_orbincl AS pl_orbincl,
+PL.pl_bmassj AS pl_bmassj,
 PL.pl_bmassprov AS pl_bmassprov,
 PL.pl_radj AS pl_radj,
 -- pl_radreflink,
 PL.pl_radj_fortney AS pl_radj_fortney,
 PL.pl_radj_forecastermod AS pl_radj_forecastermod,
-OFT.pl_orbtper AS pl_orbtper,
-OFT.pl_orblper AS pl_orblper,
 PL.pl_eqt AS pl_eqt,
 PL.pl_insol AS pl_insol,
-OFT.pl_angsep AS pl_angsep,
+PL.pl_angsep AS pl_angsep,
 -- S.minangsep AS pl_minangsep,
 -- S.maxangsep AS pl_maxangsep, #Should this be OFT.pl_maxangsep instead
 ST.rastr AS ra_str, #These are copied over to orbitfits should they be dropped
@@ -169,7 +167,7 @@ $resultpdf = $conn->query($sqlpdfs);
 $sqlcontr = "SELECT CC.* FROM ContrastCurves CC, Planets PL WHERE CC.st_id=PL.st_id AND PL.pl_name='".$name."'";
 $resultcontr = $conn->query($sqlcontr);
 
-$sql4 =  "SELECT O.*, OFT.pl_orbincl
+$sql4 =  "SELECT O.*, PL.pl_orbincl
 FROM Stars ST, Planets PL, OrbitFits OFT, Completeness C, Scenarios S, Orbits O
 WHERE ST.st_id = PL.st_id
 AND PL.pl_id= OFT.pl_id
