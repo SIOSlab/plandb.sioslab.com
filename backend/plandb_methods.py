@@ -810,7 +810,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             # calculate orbital values
             E = eccanom(M, e)
             nu = 2 * np.arctan(np.sqrt((1.0 + e) / (1.0 - e)) * np.tan(E / 2.0));
-            r = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu)) / lum_fix
+            r = a * (1.0 - e ** 2.0) / (1 + e * np.cos(nu))
             s = r * np.sqrt(
                 4.0 * np.cos(2 * I) + 4 * np.cos(2 * nu + 2.0 * w) - 2.0 * np.cos(-2 * I + 2.0 * nu + 2 * w) - 2 * np.cos(
                     2 * I + 2 * nu + 2 * w) + 12.0) / 4.0
@@ -859,7 +859,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                     pphi[np.isinf(pphi)] = np.nan
                     outdict['pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"] = pphi
                     allpphis[count1, count2] = pphi
-                    dMag = deltaMag(1, Rp * u.R_jupiter, r * u.AU, pphi)
+                    dMag = deltaMag(1, Rp * u.R_jupiter, r/lum_fix * u.AU, pphi)
                     dMag[np.isinf(dMag)] = np.nan
                     outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM"] = dMag
                     alldMags[count1, count2] = dMag
