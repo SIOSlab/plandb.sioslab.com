@@ -37,6 +37,8 @@ $sql = "SELECT
 ST.st_name AS pl_hostname,
 -- pl_reflink,
 PL.pl_orbper AS pl_orbper,
+PL.pl_orblper AS pl_orblper,
+PL.pl_orbtper AS pl_orbtper,
 PL.discoverymethod AS pl_discmethod,
 PL.pl_orbsmax AS pl_orbsmax,
 PL.pl_orbeccen AS pl_orbeccen,
