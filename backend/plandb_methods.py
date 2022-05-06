@@ -642,11 +642,11 @@ def calcQuadratureVals(orbitfits, bandzip, photdict):
                     nu1 = -w
                     nu2 = np.pi - w
 
-                    r1 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu1)) / lum_fix
-                    r2 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu2)) / lum_fix
+                    r1 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu1))
+                    r2 = a * (1.0 - e ** 2.0) / (1.0 + e * np.cos(nu2))
 
-                    pphi1 = quadinterps[float(feinterp(fe))][float(distinterp(r1))][c](ws).sum() * wstep / bw
-                    pphi2 = quadinterps[float(feinterp(fe))][float(distinterp(r2))][c](ws).sum() * wstep / bw
+                    pphi1 = quadinterps[float(feinterp(fe))][float(distinterp(r1 / lum_fix))][c](ws).sum() * wstep / bw
+                    pphi2 = quadinterps[float(feinterp(fe))][float(distinterp(r2 / lum_fix))][c](ws).sum() * wstep / bw
                     if np.isinf(pphi1):
                         print("Inf value encountered in pphi")
                         pphi1 = np.nan
@@ -859,7 +859,7 @@ def genOrbitData(data, bandzip, photdict, t0=None):
                     pphi[np.isinf(pphi)] = np.nan
                     outdict['pPhi_' + "%03dC_" % (c * 100) + str(l) + "NM"] = pphi
                     allpphis[count1, count2] = pphi
-                    dMag = deltaMag(1, Rp * u.R_jupiter, r/lum_fix * u.AU, pphi)
+                    dMag = deltaMag(1, Rp * u.R_jupiter, r * u.AU, pphi)
                     dMag[np.isinf(dMag)] = np.nan
                     outdict['dMag_' + "%03dC_" % (c * 100) + str(l) + "NM"] = dMag
                     alldMags[count1, count2] = dMag
