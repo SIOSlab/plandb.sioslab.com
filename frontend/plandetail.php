@@ -242,7 +242,7 @@ echo "<TR><TH style='width:".$wd."%'>Estimated Radius (Modified Forecaster)  (Ju
 //     echo "<TR><TH style='width:".$wd."%'>Radius Based on Fortney et al., 2007 (Jupiter Radii)</TH><TD>".$row[pl_radj_fortney]." (<a href='docs/html/index.html#fortneyref' target=_blank>See here</a>)</TD></TR>\n";
 // }
 echo "<TR><TH style='width:".$wd."%'>Periapsis Passage Time (JD)</TH><TD>".$row['pl_orbtper']."</TD></TR>\n";
-echo "<TR><TH style='width:".$wd."%'>Longitude of Periapsis (deg)</TH><TD>".$row['pl_orblper']."</TD></TR>\n";
+echo "<TR><TH style='width:".$wd."%'>Argument of Periapsis (deg)</TH><TD>".$row['pl_orblper']."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Equilibrium Temperature (K)</TH><TD>".$row['pl_eqt']."</TD></TR>\n";
 // echo "<TR><TH style='width:".$wd."%'>Insolation Flux (Earth fluxes)</TH><TD>".$row['pl_insor']."</TD></TR>\n";
 echo "<TR><TH style='width:".$wd."%'>Angular Separation @ sma (mas)</TH><TD>".
