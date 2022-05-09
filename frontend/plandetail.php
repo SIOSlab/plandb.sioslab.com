@@ -1163,7 +1163,7 @@ if ($resultc){
     echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1,scenario2, scenario3, scenario4, scenario5, scenario6, scenario7, scenario8, scenario9, scenario10, scenario11, scenario12, scenario13, scenario14, scenario15, scenario16, scenario17], layout);" ;
     //echo "Plotly.newPlot('compDiv', [data,scenario0,scenario1], layout);" ;
     echo "</script>\n";
-    echo "<p>To select a single contrast curve, double click on it in the legend. To deselect a contrast curve, single click on it in the legend. To reset, double click on an unselected contrast curve in the legend. Contrast curves are not calculated for scenarios and appear as flat lines in scenarios where none of the star's planets can reach the IWA.</p>";
+    echo "<p>To select a single contrast curve, double click on it in the legend. To deselect a contrast curve, single click on it in the legend. To reset, double click on an unselected contrast curve in the legend. If a scenario's contrast curve appears as flat line that means the curve is not calculated since it is not necessary for completeness calculations. This happens when completeness is 0 regardless of the contrast curve because none of the star's planets are ever between the scenario's IWA/OWA.</p>";
     echo "<p>For full documentation see <a href=docs/html/index.html#completeness-table target=_blank>here</a>.</p>";
     //echo ($x_alpha[1] - $x_alpha[0]);
     //echo "\nUnique alphas: ".count($x_alpha);
