@@ -137,7 +137,7 @@ where :math:`d` is the distance between the observer and the target star.
 
       All of the above holds true regardless of the choice of observer location, so long as the plane of the sky is in the  :math:`\mathbf{\hat e}_1-\mathbf{\hat e}_2` plane.  However, the planet's phase (star-planet-observer) angle, and therefore photometry and timing of transits all depend on the observer location. We will adopt the convention, implicitly used by the Exoplanet Archive, that the observer is located along the positive  :math:`\mathbf{\hat e}_3` axis (i.e., looking down at :math:`S` in the figure above).
 
-The phase angle :math:`\beta` is the illuminant-object-observer angle, and therefore the angle between the planet-star vector ( :math:`\mathbf{r}_{S/P} \equiv \mathbf{r}_{P/S}`) and the planet-observer vector (given by  :math:`d\mathbf{\hat e}_3 - \mathbf{r}_{P/S}`).  Thus:
+The phase angle :math:`\beta` is the illuminant-object-observer angle, and therefore the angle between the planet-star vector ( :math:`\mathbf{r}_{S/P} \equiv -\mathbf{r}_{P/S}`) and the planet-observer vector (given by  :math:`d\mathbf{\hat e}_3 - \mathbf{r}_{P/S}`).  Thus:
  
    .. math::
 
