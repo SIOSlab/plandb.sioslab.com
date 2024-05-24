@@ -36,11 +36,11 @@ if cache:
         with open(photdict_path, 'rb') as f:
             photdict = pickle.load(f)
     else:
-        photdict = loadPhotometryData()
+        photdict = loadPhotometryData(infile="plandb.sioslab.com/allphotdata_2015.npz")
         with open(photdict_path, 'wb') as f:
             pickle.dump(photdict, f)
 else:
-    photdict = loadPhotometryData()
+    photdict = loadPhotometryData(infile="plandb.sioslab.com/allphotdata_2015.npz")
 
 #band info
 bandzip_path = Path(f'cache/bandzip_{datestr}.p')
@@ -115,7 +115,7 @@ else:
 # Calculating contrast curves for stars
 print('Contrast curve calculations')
 contr_data_path = Path(f'cache/contr_data_{datestr}.p')
-exosims_json = 'ci_perf_exosims.json'
+exosims_json = 'plandb.sioslab.com/ci_perf_exosims.json'
 if cache:
     if contr_data_path.exists():
         contr_data = pd.read_pickle(contr_data_path)

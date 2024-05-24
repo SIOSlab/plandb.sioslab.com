@@ -28,6 +28,7 @@ from requests.exceptions import ConnectionError
 from scipy.interpolate import RectBivariateSpline, griddata, interp1d, interp2d
 from scipy.stats import gaussian_kde
 from sqlalchemy import create_engine
+from sqlalchemy import text
 from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -467,7 +468,7 @@ def packagePhotometryData(dbfile=None):
     cloudstr[cloudstr == 'f3.0'] = 'f3'
     cloudstr[cloudstr == 'f6.0'] = 'f6'
 
-    tmp = pd.read_sql_table('g25_t150_m0.0_d0.5_NC_phang000',enginel)
+    tmp = pd.read_sql_table('g25_t150_m0.0_d0.5_NC_phang000',connectionl)
     wavelns = tmp.WAVELN.values
 
     allphotdata = np.zeros((metallicities.size, dists.size, clouds.size, betas.size, wavelns.size))
@@ -481,7 +482,7 @@ def packagePhotometryData(dbfile=None):
                 for l,beta in enumerate(betas):
                     name = basename3+"%03d"%beta
                     try:
-                        tmp = pd.read_sql_table(name,enginel)
+                        tmp = pd.read_sql_table(name,connectionl)
                     except:
                         print("Missing: %s"%name)
                         allphotdata[i,j,k,l,:] = np.nan
@@ -884,12 +885,12 @@ def genOrbitData(data, bandzip, photdict, t0=None):
             if orbdata is None:
                 orbdata = out.copy()
             else:
-                orbdata = orbdata.append(out)
+                orbdata = orbdata._append(out)
 
             if orbitfits is None:
                 orbitfits = pd.DataFrame(orbitfits_dict).copy()
             else:
-                orbitfits = orbitfits.append(pd.DataFrame(orbitfits_dict))
+                orbitfits = orbitfits._append(pd.DataFrame(orbitfits_dict))
 
     orbdata = orbdata.sort_values(by=['pl_id', 'orbitfit_id', 't', 'M']).reset_index(drop=True)
     orbitfits = orbitfits.reset_index(drop=True)
@@ -901,7 +902,7 @@ def addEphemeris(data, orbfits, orbdata, bandzip, photdict):
     Adds the ephemeris information to the orbit fits and orbit data
     '''
     raw_text = np.genfromtxt(
-        "cache/planets_updated_param.txt", dtype=str, delimiter="\n"
+        "plandb.sioslab.com/cache/planets_updated_param.txt", dtype=str, delimiter="\n"
     )
     planets = []
     for line_num, line_text in enumerate(raw_text):
@@ -1174,7 +1175,7 @@ def generateTables(data, orbitfits):
                "disc_instrument", "disc_telescope", "disc_facility", "rv_flag"])
     # orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
     # orbitfits_cols = np.setdiff1d(orbitfits_cols, pl_cols)
-    orbitfits_cols = np.genfromtxt('oft_cols.csv', delimiter=',', dtype=str)
+    orbitfits_cols = np.genfromtxt('plandb.sioslab.com/backend/oft_cols.csv', delimiter=',', dtype=str)
     # orbitfit_extra_cols = ['hostname', 'pl_name', 'pl_id', 'pl_angsep', 'pl_radj_forecastermod', 'pl_bmassj', 'pl_orbsmax']
     # orbitfits_cols.extend(orbitfit_extra_cols)
     # orbitfits_exclude_prefix = ('pl_massj', 'pl_sinij', 'pl_masse', 'pl_msinie', 'pl_bmasse', 'pl_rade', 'pl_rads', 'pl_defrefname', 'disc_', 'sy_', 'st_')
@@ -1361,6 +1362,7 @@ def calcContrastCurves(data, exosims_json):
         # working_angles_as = (working_angles_lam_D*lam_D*u.mas).to(u.arcsec)
         working_angles_as = np.linspace(minangsep.to(u.arcsec).value, maxangsep.to(u.arcsec).value)*u.arcsec
         working_angles_lam_D = (working_angles_as.to(u.mas)/lam_D).value
+        # working_angles_as = np.array(working_angles_as)
         # Now need to convert the inds into the corrected ones accounting for duplicates
         viable_inds = []
         for ind in inds:
@@ -1378,14 +1380,14 @@ def calcContrastCurves(data, exosims_json):
         for int_time in int_times:
             scenario_name = f"{mode_name.replace(' ', '_')}_{int_time.to(u.hr).value:0.0f}hr"
             scenario_path_list = []
-            star_F0s = []
-            for spectype in star_spectypes:
-                # F0 seems incapable of handling sub-dwarves so exclude them
-                if isinstance(spectype, str) and not "VI" in spectype:
-                    star_F0s.append(TL.F0(mode["BW"], mode["lam"], spec=spectype).value)
-                else:
-                    star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
-            TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
+            # star_F0s = []
+            # for spectype in star_spectypes:
+            #     # F0 seems incapable of handling sub-dwarves so exclude them
+            #     if isinstance(spectype, str) and not "VI" in spectype:
+            #         star_F0s.append(TL.F0(mode["BW"], mode["lam"], spec=spectype).value)
+            #     else:
+            #         star_F0s.append(TL.F0(mode["BW"], mode["lam"]).value)
+            # TL.F0dict[mode['hex']] = star_F0s * (u.ph / (u.m**2 * u.s * u.nm))
 
             fZ0 = TL.ZodiacalLight.fZ0
             fEZ = TL.ZodiacalLight.fEZ(5.05, [20]*u.deg, 2.9*u.AU) # Taken from the Nemati spreadsheet
@@ -1423,17 +1425,22 @@ def calcContrastCurves(data, exosims_json):
                 # # plt.yscale('log')
                 # plt.savefig('dmagvit.png', dpi=200)
                 # breakpoint()
-                for working_angle in working_angles_as:
+                # for working_angle in working_angles_as:
                     # dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angles_as, mode)
-                    dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angle, mode)[0][0]
-                    dMags.append(dMag)
-                    contr = 10**(dMag/(-2.5))
-                    contrasts.append(contr)
+                    # dMag = OS.calc_dMag_per_intTime([int_time.to(u.day).value]*u.day, TL, [ind], fZ0, fEZ, working_angle, mode)[0][0]
+                    # dMags.append(dMag)
+                    # contr = 10**(dMag/(-2.5))
+                    # contrasts.append(contr)
                 contr_df['r_lamD'] = working_angles_lam_D
                 contr_df['r_as'] = working_angles_as.value
                 contr_df['r_mas'] = working_angles_as.value*1000
-                contr_df['contrast'] = contrasts
-                contr_df['dMag'] = dMags
+                # contr_df['contrast'] = contrasts
+                # contr_df['dMag'] = dMags
+                # contr_df['r_lamD'] = None
+                # contr_df['r_as'] = None
+                # contr_df['r_mas'] = None
+                contr_df['contrast'] = None
+                contr_df['dMag'] = None
                 contr_df['lam'] = [mode['lam'].value]*len(working_angles_lam_D)
                 contr_df['t_int_hr'] = [int_time.value]*len(working_angles_as)
                 contr_df['fpp'] = [1/TL.PostProcessing.ppFact(working_angles_as[0])]*len(working_angles_as)
@@ -1469,7 +1476,7 @@ def calcPlanetCompleteness(data, bandzip, photdict, exosims_json, minangsep=150,
     datestr = Time.now().datetime.strftime("%Y_%m")
 
 
-    scenario_angles = pd.read_csv('cache/scenario_angles.csv')
+    scenario_angles = pd.read_csv('plandb.sioslab.com/cache/scenario_angles.csv')
     comp_scenarios = []
     compMinWA_scenarios = []
     compMaxWA_scenarios = []
@@ -1968,8 +1975,8 @@ def genAllAliases(data):
     starnames = data['pl_hostname'].unique()
     return genAliases(starnames)
 
-def fillMissingAliases(engine,data):
-    result = engine.execute("select Alias from Aliases where NEAName=1")
+def fillMissingAliases(connection,data):
+    result = connection.execute("select Alias from Aliases where NEAName=1")
     dbnames = np.hstack(result.fetchall())
     starnames = data['pl_hostname'].unique()
     missing = list(set(starnames) - set(dbnames))
@@ -1977,192 +1984,193 @@ def fillMissingAliases(engine,data):
     return genAliases(missing)
 
 
-def writeSQL_old(engine,data=None,orbdata=None,altorbdata=None,comps=None,aliases=None):
-    """write outputs to sql database via engine"""
+def writeSQL_old(connection,data=None,orbdata=None,altorbdata=None,comps=None,aliases=None):
+    """write outputs to sql database via connection"""
 
     if data is not None:
         print("Writing KnownPlanets")
         namemxchar = np.array([len(n) for n in data['pl_name'].values]).max()
-        data.to_sql('KnownPlanets',engine,chunksize=100,if_exists='replace',
+        data.to_sql('KnownPlanets',connection,chunksize=100,if_exists='replace',
                     dtype={'pl_name':sqlalchemy.types.String(namemxchar),
                             'pl_hostname':sqlalchemy.types.String(namemxchar-2),
                             'pl_letter':sqlalchemy.types.CHAR(1)})
         #set indexes
-        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_name)")
-        result = engine.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_hostname)")
+        result = connection.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_name)")
+        result = connection.execute("ALTER TABLE KnownPlanets ADD INDEX (pl_hostname)")
 
         #add comments
-        addSQLcomments(engine,'KnownPlanets')
+        addSQLcomments(connection,'KnownPlanets')
 
     if orbdata is not None:
         print("Writing PlanetOrbits")
         namemxchar = np.array([len(n) for n in orbdata['Name'].values]).max()
-        orbdata.to_sql('PlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
-        result = engine.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
-        result = engine.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        orbdata.to_sql('PlanetOrbits',connection,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = connection.execute("ALTER TABLE PlanetOrbits ADD INDEX (Name)")
+        result = connection.execute("ALTER TABLE PlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        addSQLcomments(engine,'PlanetOrbits')
+        addSQLcomments(connection,'PlanetOrbits')
 
     if altorbdata is not None:
         print("Writing AltPlanetOrbits")
         namemxchar = np.array([len(n) for n in altorbdata['Name'].values]).max()
-        altorbdata.to_sql('AltPlanetOrbits',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
-        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD INDEX (Name)")
-        result = engine.execute("ALTER TABLE AltPlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        altorbdata.to_sql('AltPlanetOrbits',connection,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = connection.execute("ALTER TABLE AltPlanetOrbits ADD INDEX (Name)")
+        result = connection.execute("ALTER TABLE AltPlanetOrbits ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        addSQLcomments(engine,'AltPlanetOrbits')
+        addSQLcomments(connection,'AltPlanetOrbits')
 
     if comps is not None:
         print("Writing Completeness")
         namemxchar = np.array([len(n) for n in comps['Name'].values]).max()
-        comps.to_sql('Completeness',engine,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
-        result = engine.execute("ALTER TABLE Completeness ADD INDEX (Name)")
-        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        comps.to_sql('Completeness',connection,chunksize=100,if_exists='replace',dtype={'Name':sqlalchemy.types.String(namemxchar)})
+        result = connection.execute("ALTER TABLE Completeness ADD INDEX (Name)")
+        result = connection.execute("ALTER TABLE Completeness ADD FOREIGN KEY (Name) REFERENCES KnownPlanets(pl_name) ON DELETE NO ACTION ON UPDATE NO ACTION");
 
-        addSQLcomments(engine,'Completeness')
+        addSQLcomments(connection,'Completeness')
 
 
     if aliases is not None:
         print("Writing Alias")
         aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
-        aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (SID)")
+        aliases.to_sql('Aliases',connection,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+        result = connection.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
+        result = connection.execute("ALTER TABLE Aliases ADD INDEX (SID)")
 
 def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None):
-    """write outputs to sql database via engine"""
-    engine.execute("DROP TABLE IF EXISTS Completeness, ContrastCurves, Scenarios, PDFs, Orbits, OrbitFits, Planets, Stars")
+    """write outputs to sql database via connection"""
+    connection = engine.connect()
+    connection.execute(text("DROP TABLE IF EXISTS Completeness, ContrastCurves, Scenarios, PDFs, Orbits, OrbitFits, Planets, Stars"))
 
     if stdata is not None:
         print("Writing Stars")
         namemxchar = np.array([len(n) for n in stdata['st_name'].values]).max()
         stdata = stdata.rename_axis('st_id')
-        stdata.to_sql('Stars', engine, chunksize=100, if_exists='replace',
+        stdata.to_sql('Stars', connection, chunksize=100, if_exists='replace',
                     dtype={'st_id': sqlalchemy.types.INT,
                            'st_name': sqlalchemy.types.String(namemxchar)})
         # set indexes
-        result = engine.execute('ALTER TABLE Stars ADD INDEX (st_id)')
+        result = connection.execute(text('ALTER TABLE Stars ADD INDEX (st_id)'))
 
         # add comments
-        # addSQLcomments(engine, 'Stars')
+        # addSQLcomments(connection, 'Stars')
 
     if plandata is not None:
         print("Writing Planets")
         namemxchar = np.array([len(n) for n in plandata['pl_name'].values]).max()
         plandata = plandata.rename_axis('pl_id')
-        plandata.to_sql('Planets',engine,chunksize=100,if_exists='replace',
+        plandata.to_sql('Planets',connection,chunksize=100,if_exists='replace',
                     dtype={'pl_id':sqlalchemy.types.INT,
                             'pl_name':sqlalchemy.types.String(namemxchar),
                             'st_name':sqlalchemy.types.String(namemxchar-2),
                             'pl_letter':sqlalchemy.types.CHAR(1),
                             'st_id': sqlalchemy.types.INT})
         #set indexes
-        result = engine.execute("ALTER TABLE Planets ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE Planets ADD INDEX (st_id)")
-        result = engine.execute("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = connection.execute(text("ALTER TABLE Planets ADD INDEX (pl_id)"))
+        result = connection.execute(text("ALTER TABLE Planets ADD INDEX (st_id)"))
+        result = connection.execute(text("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
 
         #add comments
-        # addSQLcomments(engine,'Planets')
+        # addSQLcomments(connection,'Planets')
 
     if orbitfits is not None:
         print("Writing OrbitFits")
         orbitfits = orbitfits.rename_axis('orbitfit_id')
         namemxchar = np.array([len(n) for n in orbitfits['pl_name'].values]).max()
-        orbitfits.to_sql('OrbitFits',engine,chunksize=100,if_exists='replace',
+        orbitfits.to_sql('OrbitFits',connection,chunksize=100,if_exists='replace',
                           dtype={'pl_id': sqlalchemy.types.INT,
                                  'orbitfit_id': sqlalchemy.types.INT,
                                  'pl_name': sqlalchemy.types.String(namemxchar)},
                           index=True)
-        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (orbitfit_id)")
-        result = engine.execute("ALTER TABLE OrbitFits ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = connection.execute(text("ALTER TABLE OrbitFits ADD INDEX (orbitfit_id)"))
+        result = connection.execute(text("ALTER TABLE OrbitFits ADD INDEX (pl_id)"))
+        result = connection.execute(text("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
 
-        # addSQLcomments(engine,'OrbitFits')
+        # addSQLcomments(connection,'OrbitFits')
 
     if orbdata is not None:
         print("Writing Orbits")
         namemxchar = np.array([len(n) for n in orbdata['pl_name'].values]).max()
         orbdata = orbdata.rename_axis('orbit_id')
-        orbdata.to_sql('Orbits',engine,chunksize=100,if_exists='replace',
+        orbdata.to_sql('Orbits',connection,chunksize=100,if_exists='replace',
                        dtype={'pl_name':sqlalchemy.types.String(namemxchar),
                               'pl_id': sqlalchemy.types.INT,
                               'orbit_id': sqlalchemy.types.BIGINT,
                               'orbitfit_id': sqlalchemy.types.INT},
                        index=True)
-        result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbit_id)")
-        result = engine.execute("ALTER TABLE Orbits ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE Orbits ADD INDEX (orbitfit_id)")
-        result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
-        result = engine.execute("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION");
+        result = connection.execute(text("ALTER TABLE Orbits ADD INDEX (orbit_id)"))
+        result = connection.execute(text("ALTER TABLE Orbits ADD INDEX (pl_id)"))
+        result = connection.execute(text("ALTER TABLE Orbits ADD INDEX (orbitfit_id)"))
+        result = connection.execute(text("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
+        result = connection.execute(text("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
 
-        # addSQLcomments(engine,'Orbits')
+        # addSQLcomments(connection,'Orbits')
 
     if pdfs is not None:
         print("Writing PDFs")
         pdfs = pdfs.reset_index(drop=True)
         namemxchar = np.array([len(n) for n in pdfs['Name'].values]).max()
         pdfs = pdfs.rename_axis('pdf_id')
-        pdfs.to_sql('PDFs',engine,chunksize=100,if_exists='replace',
+        pdfs.to_sql('PDFs',connection,chunksize=100,if_exists='replace',
                      dtype={'pl_name':sqlalchemy.types.String(namemxchar),
                             'pl_id': sqlalchemy.types.INT})
-        # result = engine.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
-        result = engine.execute("ALTER TABLE PDFs ADD INDEX (pl_id)")
-        result = engine.execute("ALTER TABLE PDFs ADD INDEX (pdf_id)")
-        # result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
-        result = engine.execute("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        # result = connection.execute("ALTER TABLE PDFs ADD INDEX (orbitfit_id)")
+        result = connection.execute(text("ALTER TABLE PDFs ADD INDEX (pl_id)"))
+        result = connection.execute(text("ALTER TABLE PDFs ADD INDEX (pdf_id)"))
+        # result = connection.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = connection.execute(text("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
 
-        # addSQLcomments(engine,'PDFs')
+        # addSQLcomments(connection,'PDFs')
 
     if aliases is not None:
         print("Writing Alias")
         aliases = aliases.rename_axis('alias_id')
         aliasmxchar = np.array([len(n) for n in aliases['Alias'].values]).max()
-        aliases.to_sql('Aliases',engine,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (alias_id)")
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (Alias)")
-        result = engine.execute("ALTER TABLE Aliases ADD INDEX (st_id)")
-        result = engine.execute("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        aliases.to_sql('Aliases',connection,chunksize=100,if_exists='replace',dtype={'Alias':sqlalchemy.types.String(aliasmxchar)})
+        result = connection.execute(text("ALTER TABLE Aliases ADD INDEX (alias_id)"))
+        result = connection.execute(text("ALTER TABLE Aliases ADD INDEX (Alias)"))
+        result = connection.execute(text("ALTER TABLE Aliases ADD INDEX (st_id)"))
+        result = connection.execute(text("ALTER TABLE Aliases ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
 
     if scenarios is not None:
         print("Writing Scenarios")
 
         namemxchar = np.array([len(n) for n in scenarios['scenario_name'].values]).max()
-        scenarios.to_sql("Scenarios", engine, chunksize=100, if_exists='replace', dtype={
+        scenarios.to_sql("Scenarios", connection, chunksize=100, if_exists='replace', dtype={
             'scenario_name': sqlalchemy.types.String(namemxchar),}, index = False)
 
-        result = engine.execute("ALTER TABLE Scenarios ADD INDEX (scenario_name)")
+        result = connection.execute(text("ALTER TABLE Scenarios ADD INDEX (scenario_name)"))
 
     if contrastCurves is not None:
         print("Writing ContrastCurves")
         contrastCurves = contrastCurves.rename_axis("curve_id")
         namemxchar = np.array([len(n) for n in contrastCurves['scenario_name'].values]).max()
-        contrastCurves.to_sql("ContrastCurves", engine, chunksize=100, if_exists='replace', dtype={
+        contrastCurves.to_sql("ContrastCurves", connection, chunksize=100, if_exists='replace', dtype={
             'st_id': sqlalchemy.types.INT,
             'curve_id' : sqlalchemy.types.INT,
             'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
-        # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (scenario_name)")
+        # result = connection.execute("ALTER TABLE ContastCurves ADD INDEX (scenario_name)")
 
-        # result = engine.execute("ALTER TABLE ContastCurves ADD INDEX (st_id)")
+        # result = connection.execute("ALTER TABLE ContastCurves ADD INDEX (st_id)")
 
-        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
-        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
+        result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION"))
 
     if completeness is not None:
         print("Writing completeness")
         completeness = completeness.rename_axis("completeness_id")
         namemxchar = np.array([len(n) for n in completeness['scenario_name'].values]).max()
-        completeness.to_sql("Completeness", engine, chunksize=100, if_exists='replace', dtype={
+        completeness.to_sql("Completeness", connection, chunksize=100, if_exists='replace', dtype={
             # 'scenario_id': sqlalchemy.types.INT,
             'pl_id' : sqlalchemy.types.INT,
             'completeness_id' : sqlalchemy.types.INT,
             'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
 
-        result = engine.execute("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
-        result = engine.execute("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION")
+        result = connection.execute(text("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
+        result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION"))
 
 
 
-def addSQLcomments(engine,tablename):
+def addSQLcomments(connection,tablename):
         """Add comments to table schema based on entries in spreadsheet"""
 
         #read in spreadsheet and grab data from appropriate sheet
@@ -2172,7 +2180,7 @@ def addSQLcomments(engine,tablename):
         cdefs = coldefs['Definition'][coldefs['Definition'].notnull()].values
         cnames =  coldefs['Name'][coldefs['Definition'].notnull()].values
 
-        result = engine.execute("show create table %s"%tablename)
+        result = connection.execute("show create table %s"%tablename)
         res = result.fetchall()
         res = res[0]['Create Table']
         res = res.split("\n")
@@ -2192,4 +2200,4 @@ def addSQLcomments(engine,tablename):
           if not key in cols: continue
           comm =  """ALTER TABLE `%s` CHANGE `%s` %s COMMENT "%s %s";"""%(tablename,key,d,cnames[cols == key][0].strip('"'),cdefs[cols == key][0])
           print(comm)
-          r = engine.execute(comm)
+          r = connection.execute(comm)
