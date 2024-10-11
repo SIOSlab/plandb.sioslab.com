@@ -23,18 +23,25 @@ new_engine = create_engine('mysql+pymysql://'+"andrewchiu"+':'+password+'@localh
 
 with sios_engine.connect() as connection:
   
-  #get ipac data
-  print("Getting ipac data")
-  
+  # Get ipac data
+  print("Getting IPAC Data")
+
   old_ipac_data, new_ipac_data = get_store_ipac()
-  
+
+  #TODO: Must be atleast 2 changes, FIX the fucntions like getEphermisValues to do hangle this
+  # TODO: Sample artificial change
   new_ipac_data.at[2, "pl_letter"] = 'a'
   new_ipac_data.at[3, "pl_letter"] = 'a'
   new_ipac_data.at[2, "pl_orbper"] = 180
   new_ipac_data.at[3, "pl_orbper"] = 1800
   
-  print(f"most recent: {old_ipac_data}")
-  print(f"current: {new_ipac_data}")
+  
+  new_ipac_data.to_excel("plandb.sioslab.com/backend/sheets/new_ipac.xlsx")
+  old_ipac_data.to_excel("plandb.sioslab.com/backend/sheets/old_ipac_data.xlsx")
+      
+  print(f"New IPAC: {new_ipac_data}")
+  print(f"Old IPAC: {old_ipac_data}")
+  
   
   #TODO: be able to insert custom ipac data, for test, possibly using flag
   #TODO: Test new row differences, because currently its zero, make test data that is slightly different (similar to ipac data)
@@ -44,26 +51,16 @@ with sios_engine.connect() as connection:
   print(f"Changed: {change_ipac_df}")   
     
   for entry in log: 
-    print(f"Reason: {entry['reason']}")   
-    print(f"Description: {entry['description']}")  
-    print("Details:", entry['details'])  
+    print(f"Reason: {entry['reason']}")
+    print(f"Description: {entry['description']}") 
+    print("Details:", entry['details']) 
     print("-" * 40)   
    
   if change_ipac_df.empty:
     print("No changes detected, zero rows have been updated/added")
     sys.exit() 
-    
-    
-  # TODO: Is it just planets, this actually might not be necessary, good anyways
-  # Keep track of planets, for later upsert
-  planets_to_update = []
-  
-  for index, row in change_ipac_df.iterrows():
-    planets_to_update.append(row['pl_name'])
-  
-  print(planets_to_update)
        
-  input2 = input("continue?")
+  input1 = input("continue?")
   
   # get photodict
   photdict_path = Path(f'cache/update_photdict_2022-05.p')
@@ -87,20 +84,19 @@ with sios_engine.connect() as connection:
   # orbdata.to_excel("plandb.sioslab.com/backend/sheets/orbata.xlsx")
   # orbdata.to_excel("plandb.sioslab.com/backend/sheets/orbfits.xlsx")
   
-  
   print(orbdata)
+  
   # get ephemeris
   ephemeris_orbdata_path = Path(f'cache/update_ephemeris_orbdata_{datestr}.p')
   ephemeris_orbfits_path = Path(f'cache/update_ephemeris_orbfits_{datestr}.p')
   ephemeris_orbitfits, ephemeris_orbdata = get_ephemerisdata(ephemeris_orbdata_path, ephemeris_orbfits_path, change_ipac_df, orbfits, orbdata, bandzip, photdict, cache)
   ephemeris_orbitfits.to_excel("plandb.sioslab.com/backend/sheets/ephemeris_orbfits.xlsx")
       
-  #quadrature
-  print("quadrature")
+  # get quadrature
+  print("Quadrature")
   quadrature_data_path = Path(f'cache/update_quadrature_data_{datestr}.p')
   quadrature_data = get_quadrature(quadrature_data_path, ephemeris_orbitfits, bandzip, photdict, cache)
   quadrature_data.to_excel("plandb.sioslab.com/backend/sheets/quadrature_data.xlsx")
-  
   
   contr_data_path = Path(f'cache/update_contr_data_{datestr}.p')
   exosims_json = 'plandb.sioslab.com/ci_perf_exosims.json'
@@ -122,7 +118,7 @@ with sios_engine.connect() as connection:
   stdata_path = Path(f'cache/update_stdata_{datestr}.p')
   table_orbitfits_path = Path(f'cache/update_table_orbitfits_{datestr}.p')
   
-  # orbitfits got updated, maybe change to new var
+  # Orbitfits got updated, maybe change to new var
   plan_data, stdata, orbitfits = get_generated_tables(plandata_path, stdata_path, table_orbitfits_path, change_ipac_df, quadrature_data, comps_data, cache)
   plan_data.to_excel("plandb.sioslab.com/backend/sheets/plandata.xlsx")
   stdata.to_excel("plandb.sioslab.com/backend/sheets/stdata.xlsx")
@@ -145,16 +141,16 @@ with sios_engine.connect() as connection:
   compiled_completeness = get_compiled_completeness(compiled_completeness_path, comps_data)
   compiled_completeness.to_excel("plandb.sioslab.com/backend/sheets/compiled_completeness.xlsx")
   
-  diff_completeness_df = pd.DataFrame({
-  'completeness_id': [0],
-  'pl_id': [3],
-  'completeness': [0.0111],
-  'scenario_name' : ['Optimistic_NF_Imager_20000hr'],
-  'compMinWA': [None],
-  'compMaxWA': [None],
-  'compMindMag': [None],
-  'compMaxdMag': [None],
-  })
+  # diff_completeness_df = pd.DataFrame({
+  # 'completeness_id': [0],
+  # 'pl_id': [3],
+  # 'completeness': [0.0111],
+  # 'scenario_name' : ['Optimistic_NF_Imager_20000hr'],
+  # 'compMinWA': [None],
+  # 'compMaxWA': [None],
+  # 'compMindMag': [None],
+  # 'compMaxdMag': [None],
+  # })
   
   # MakeSQL for the temporary database, creates diff engine, -> upsert diff engine with current engine
   scenarios = pd.read_csv("plandb.sioslab.com/cache/scenario_angles.csv")  
@@ -167,60 +163,83 @@ with sios_engine.connect() as connection:
   
   # Get from old_database
   old_completeness_df, old_contrast_curves_df, old_orbitfits_df, old_orbits_df, old_pdfs_df, old_planets_df, old_scenarios_df, old_stars_df = get_all_from_db(connection)
-      
-  print("Merging Planets")
-  merged_planets = upsert_df(old_planets_df, diff_planets_df, "pl_name")
+    
+  # Upsert planets
+  # Planets don't have pl_id, they only have pl_name which is indexed after
+  print("Merging planets")
+  merged_planets = upsert_general(old_planets_df, diff_planets_df, "pl_name")
 
+  
   # Upsert completeness
-  print("Merging Completeness")
+  print("Merging completeness")
+  
+  #TODO: Test new completeness, manually input change in completeness (Not sure how to artificially complete chane)
+  # only new value
+  # diff_completeness_df = pd.DataFrame({
+  #   'completeness_id': [0],
+  #   'pl_id': [3],
+  #   'completeness': [0.0111],
+  #   'scenario_name' : ['Optimistic_NF_Imager_20000hr'],
+  #   'compMinWA': [None],
+  #   'compMaxWA': [None],
+  #   'compMindMag': [None],
+  #   'compMaxdMag': [None],
+  #   })
+  
+  #TODO: Test new completeness, manually input change in completeness (Not sure how to artificially complete chane)
+  # Old value updated and new value
+  # df_merged_modified_new = pd.DataFrame({
+  #   'completeness_id': [0, 1, 2, 3, 4],
+  #   'pl_id': [3, 3, 3, 3, 3],
+  #   'completeness': [0, 0, 0.011, 0.085041, 0.233326834],
+  #   'scenario_name': ['Conservative_NF_Imager_25hr', 'Conservative_NF_Imager_100hr', 'Conservative_NF_Imager_10000hr', 'Optimistic_NF_Imager_25hr', 'Optimistic_NF_Imager_1111hr'],
+  #   'compMinWa': [None, None, None, None, None],
+  #   'compMaxWa': [None, None, None, None, None],
+  #   'compMindMag': [None, None, None, None, None],
+  #   'compMaxdMag': [None, None, None, None, None]
+  #     })  
   
   print(old_completeness_df, diff_completeness_df)
-  ssss = input("continue?")
   # Merge based on pl_id, foreign key relation, base on foreign key relation, might do the same for rest
   # TODO, this is highly likely to be wrong, forced to used indices here, because only unique, unfortunately incorrect, must base it upsert on the varying indices later
   # TODO: Iterate through each pl_id, since these are base off pl_id, correspond with pl_name, and then reset those completeness rows for that pl (remove and then add the new ones that were)
-  merged_completeness = upsert_general(old_completeness_df, diff_completeness_df, 'pl_id')
+  merged_completeness = upsert_general(old_completeness_df, diff_completeness_df, "pl_id")
   
-  print(merged_completeness)
-  input3 = input("continue?")
-
   # Upsert stars
   # TODO Star differences are based off that the planets table has foreign key st_id, therefore, to properly update stars, must go through planets, see what has been updated, and then go down through those planets, and their stars, and then if that planet has changed, update that star
+  # Same logic as with planets
   print("Merging stars")
-  merged_stars = upsert_df(old_stars_df, diff_stars_df, "st_name")
-  
-  input4 = input("continue4")
+  merged_stars = upsert_general(old_stars_df, diff_stars_df, "st_name")  
   
   # For these later upserts, only way to properly upsert is to detect the change from the earlier value, like the difference in planets from ipac, and then categorize the change as a result from upated information or new information. If new information (new planet), just add but if updated information, going to have to track down the previous. Maybe it's possible for me to locally store database versions, so it can be quickly updated based on path of changes that happened  
   # Upsert orbitfits
-  print("Merging Orbit Fits")
-  #TODO: should this be pl_name or pl_id
-  merged_orbitfits = upsert_general(old_orbitfits_df, diff_orbitfits_df, "pl_name")
+  print("Merging orbit fits")
+  merged_orbitfits = upsert_general(old_orbitfits_df, diff_orbitfits_df, "pl_id")
   
+  # TODO: Orbitfits don't have anyway of uniquely upserting other than orbit fit id, so if there's new orbit fits, they must be detected from the other builds, and then added
   # Upsert orbits
-  print("Merging Orbits")
-  merged_orbits = upsert_general(old_orbits_df, diff_orbits_df, "pl_name")
+  print("Merging orbits")
+  merged_orbits = upsert_general(old_orbits_df, diff_orbits_df, "pl_id")
+  
+  # Upsert contrast curvess  
+  print("Merging curves")
+  merged_contrast_curves = upsert_general(old_contrast_curves_df, diff_contrast_curves_df, "st_id") 
   
   
-  # TODO: Fix this based on logic above, use st_id, track st_id from st_names, likely need to do same logic for stars
-  # If stars are already reindexed, so should the st_id, if not track
-  print("Merging Curves")
-  merged_contrast_curves = upsert_df(old_contrast_curves_df, diff_contrast_curves_df, "st_id") 
+  # Upsert pdfs 
+  # TODO: same as orbit fits
+  # print("Merging pdfs")
+  # merged_pdfs = upsert_df(old_pdfs_df, diff_pdfs_df, "Name")
   
-  # Might have to compare back to old, dataframe, track down what planet the index is and then use that index to renumber the indexes in the old dataframe for the diff dataframe to properly upsert with matching indices
-  # TODO: Maybe add pl_name and st_name to pdfs and contrast curves, to make it easier 
+  # No need to upsert scenarios, as it's updated locally
   
-  
-  # upsert pdfs 
-  # TODO: Track with pl_id
-  print("Merging pdfs")
-  merged_pdfs = upsert_df(old_pdfs_df, diff_pdfs_df, "pl_id")
-  
-  # No need to upsert scenarios, as it's updated all at once
-  
-  # Write back to original database with new values,
+  # write back to original database with new values,
   # TODO: optionally, store old database in a different database for archive
-  print("Writing New Database")
-  final_writeSQL(new_engine, merged_planets, merged_stars, merged_orbitfits, merged_orbits, None, aliases=None, contrastCurves=None, scenarios = scenarios, completeness = merged_completeness)    
+  print("Merging and final write")
+  final_writeSQL(new_engine, merged_planets, merged_stars, merged_orbitfits, merged_orbits, None, aliases=None, contrastCurves=None, scenarios=scenarios, completeness=merged_completeness)    
   
   print("Done")
+  
+  # TODO: Print all total changes
+  # TODO: Correct the merges/compiles with no changes, ending up outputting an empty table, (account for table upserts with no changes) (Handle no new updates case). For example, final completeness would be empty if there are no changes to completeness in the update.
+  # TODO: Get "result = connection.execute(text("ALTER TABLE OrbitFits ROW_FORMAT=COMPRESSED"))" removed, line 1047 of update_util.py, operational error when that line is not there, it has to do with database setup

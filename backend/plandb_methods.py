@@ -35,7 +35,7 @@ import matplotlib as mpl
 from kep_generator import planet
 
 try:
-    from StringIO import StringIO
+    from StringIO import StringIO # type: ignore
 except ImportError:
     from io import BytesIO as StringIO
 
@@ -2067,7 +2067,7 @@ def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, p
         #set indexes
         result = connection.execute(text("ALTER TABLE Planets ADD INDEX (pl_id)"))
         result = connection.execute(text("ALTER TABLE Planets ADD INDEX (st_id)"))
-        result = connection.execute(text("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
+        # result = connection.execute(text("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
 
         #add comments
         # addSQLcomments(connection,'Planets')
