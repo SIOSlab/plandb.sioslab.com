@@ -129,11 +129,11 @@ with sios_engine.connect() as connection:
   # Look into and possibly remove the - to _
   contr_curvs2_path = Path(f'plandb.sioslab.com/cache/cont_curvs2_{datestr.replace("-", "_")}')
   compiled_contr_curvs_path = Path(f'plandb.sioslab.com/cache/cont_curvs_{datestr.replace("-", "_")}')
-  compiled_contrast_curves, newpdfs = get_compiled_contrast(compiled_contr_curvs_path, stdata, comps_data, change_ipac_df, contr_curvs2_path)
+  # compiled_contrast_curves, newpdfs = get_compiled_contrast(compiled_contr_curvs_path, stdata, comps_data, change_ipac_df, contr_curvs2_path)
   # compiled_contrast_curves = compileContrastCurves(stdata, compiled_contr_curvs_path)
-  compiled_contrast_curves.to_excel("plandb.sioslab.com/backend/sheets/compiled_contrast_curves.xlsx")
+  # compiled_contrast_curves.to_excel("plandb.sioslab.com/backend/sheets/compiled_contrast_curves.xlsx")
   # With current code, since get_compiled_contrast isnt fully working with new pdfs, new pdfs should be empty
-  newpdfs.to_excel("plandb.sioslab.com/backend/sheets/newpdfs.xlsx")
+  # newpdfs.to_excel("plandb.sioslab.com/backend/sheets/newpdfs.xlsx")
   
   
   # compile completeness
@@ -155,7 +155,7 @@ with sios_engine.connect() as connection:
   # MakeSQL for the temporary database, creates diff engine, -> upsert diff engine with current engine
   scenarios = pd.read_csv("plandb.sioslab.com/cache/scenario_angles.csv")  
   # writeSQL(engine, plandata=planets, stdata=stars, orbitfits=orbitfits, orbdata=orbits, pdfs=newpdfs, aliases=None,contrastCurves=contrast_curves,scenarios=scenarios, completeness=completeness)
-  temp_writeSQL(diff_sios_engine, plandata=plan_data, stdata=stdata, orbitfits=orbfits, orbdata=orbdata, pdfs=None, aliases=None, contrastCurves=compiled_contrast_curves, scenarios=scenarios, completeness=compiled_completeness)
+  temp_writeSQL(diff_sios_engine, plandata=plan_data, stdata=stdata, orbitfits=orbitfits, orbdata=orbdata, pdfs=None, aliases=None, contrastCurves=None, scenarios=scenarios, completeness=compiled_completeness)
 
   # Get from diff_database
   diff_engine_connection = diff_sios_engine.connect()
@@ -211,12 +211,28 @@ with sios_engine.connect() as connection:
   print("Merging stars")
   merged_stars = upsert_general(old_stars_df, diff_stars_df, "st_name")  
   
+  print('old orbitfits')
+  print(old_orbitfits_df)
+  print("diff orbitfits")
+  print(diff_orbitfits_df)
+  old_orbitfits_df.to_excel('plandb.sioslab.com/backend/sheets/original_orbitfits.xlsx')
+  diff_orbitfits_df.to_excel('plandb.sioslab.com/backend/sheets/diff_orbitfits.xlsx')
+  # print("diff between diff and old, this should be nothing")
+  # print(diff_orbits_df)
+  input7 = input("test")
+  
   # For these later upserts, only way to properly upsert is to detect the change from the earlier value, like the difference in planets from ipac, and then categorize the change as a result from upated information or new information. If new information (new planet), just add but if updated information, going to have to track down the previous. Maybe it's possible for me to locally store database versions, so it can be quickly updated based on path of changes that happened  
   # Upsert orbitfits
+  # TODO: maybe the error is here
   print("Merging orbit fits")
   merged_orbitfits = upsert_general(old_orbitfits_df, diff_orbitfits_df, "pl_id")
   
-  # TODO: Orbitfits don't have anyway of uniquely upserting other than orbit fit id, so if there's new orbit fits, they must be detected from the other builds, and then added
+  input5 = input("test2")
+  
+  
+  # TODO: compile/calc contrast curves still needs fixing 
+  # TODO: make a seperate database for todays data, the old data, and test by comparing todays data to old data + update
+  
   # Upsert orbits
   print("Merging orbits")
   merged_orbits = upsert_general(old_orbits_df, diff_orbits_df, "pl_id")
@@ -236,10 +252,11 @@ with sios_engine.connect() as connection:
   # write back to original database with new values,
   # TODO: optionally, store old database in a different database for archive
   print("Merging and final write")
-  final_writeSQL(new_engine, merged_planets, merged_stars, merged_orbitfits, merged_orbits, None, aliases=None, contrastCurves=None, scenarios=scenarios, completeness=merged_completeness)    
+  write_update_SQL(new_engine, merged_planets, merged_stars, merged_orbitfits, merged_orbits, None, aliases=None, contrastCurves= None, scenarios=None, completeness=merged_completeness)    
   
   print("Done")
   
   # TODO: Print all total changes
   # TODO: Correct the merges/compiles with no changes, ending up outputting an empty table, (account for table upserts with no changes) (Handle no new updates case). For example, final completeness would be empty if there are no changes to completeness in the update.
-  # TODO: Get "result = connection.execute(text("ALTER TABLE OrbitFits ROW_FORMAT=COMPRESSED"))" removed, line 1047 of update_util.py, operational error when that line is not there, it has to do with database setup
+  
+  

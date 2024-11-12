@@ -114,5 +114,4 @@ if __name__ == "__main__":
     contrast_curves.to_excel('main_contrast.xlsx')
     completeness.to_excel('main_completeness.xlsx')
     
-    
-    final_writeSQL(engine, plandata=planets, stdata=stars, orbitfits=orbitfits, orbdata=orbits, pdfs=newpdfs, aliases=None,contrastCurves=contrast_curves,scenarios=scenarios, completeness=completeness)
+    writeSQL(engine, plandata=planets, stdata=stars, orbitfits=orbitfits, orbdata=orbits, pdfs=newpdfs, aliases=None,contrastCurves=contrast_curves,scenarios=None, completeness=completeness)
