@@ -1,13 +1,29 @@
+# I added -1's to first 2 angle calcs
+#third angle does not project right and 2 axes are the same?
+
+
+#%%
 import numpy as np
 from astropy.coordinates import solar_system_ephemeris
 from astropy.coordinates import get_body
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy import units as u
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
-tgt_ra='08h00m00s'#example coords
-tgt_dec='60d00m00s' #example coords
-tgt_dist=100
+
+
+#check sun angle
+# x, y, z ang
+
+
+
+
+
+tgt_ra='7h00m00s'#example coords
+tgt_dec='20d00m00s' #example coords
+tgt_dist=1
 tgt=SkyCoord(ra=tgt_ra, dec=tgt_dec,distance=tgt_dist*u.au, frame='icrs')
 
 # TODO: set up matrices
@@ -76,13 +92,16 @@ Returns: yaw, pitch, roll in degrees (measured from local z aligned with sun)
     tgt_z=tgt.z.value
     tgt_eq=np.transpose(np.array([tgt_x, tgt_y, tgt_z])) # equatorial target coordinates 
     # TODO: convert tgt to ecliptic
-    tgt_ec=tgt_in.transform_to('geocentrictrueecliptic').represent_as('cartesian')
+    tgt_ec=tgt_in.transform_to('geocentricmeanecliptic').represent_as('cartesian')
     tgt_ec=np.array([tgt_ec.x.value, tgt_ec.y.value, tgt_ec.z.value])
 
-    r_eo=earth_coord.transform_to('geocentrictrueecliptic').represent_as('cartesian')
-    r_so=sun_coord.transform_to('geocentrictrueecliptic').represent_as('cartesian')
+    r_eo=earth_coord.transform_to('geocentricmeanecliptic').represent_as('cartesian')
+    r_so=sun_coord.transform_to('geocentricmeanecliptic').represent_as('cartesian')
     r_eo=np.array([r_eo.x.value,r_eo.y.value,r_eo.z.value]) # in ecliptic
     r_so=np.array([r_so.x.value,r_so.y.value,r_so.z.value]) # in ecliptic
+    r_so_eq=sun_coord.represent_as('cartesian')
+    r_so_eq=np.array([r_so_eq.x.value,r_so_eq.y.value,r_so_eq.z.value]) #in eq
+    r_so_eq_norm=r_so_eq/np.linalg.norm(r_so_eq)
     r_es=np.subtract(r_eo,r_so) # get vector of earth wrt sun 
 
     if SC_loc==None: # if no SC location specified, assume at L2
@@ -98,14 +117,14 @@ Returns: yaw, pitch, roll in degrees (measured from local z aligned with sun)
         r_l2o=r_l2s+r_so # L2/O vector
         r_sc_o=r_l2o #SC/O vector
     else: #if SC location specified
-        SC_loc= SC_loc.represent_as('cartesian').transform_to('geocentrictrueecliptic')
+        SC_loc= SC_loc.represent_as('cartesian').transform_to('geocentricmeanecliptic')
         r_sc_o=[SC_loc.x.value, SC_loc.y.value,SC_loc.z.value]
 
 
     # TODO:  rotates around Y, then X’, then target pointing (rotate around Z” and Y’’’)
         # aligning z w/ r_sun/R
     # a1-rotate about y by angle between e3 and projection of r_sun/SC onto e1-e3 plane
-    r_sunsc_norm=(r_sc_o-r_so)/np.linalg.norm(r_sc_o-r_so) # unit vector from sun to S/C
+    r_sunsc_norm=(r_so-r_sc_o)/np.linalg.norm(r_so-r_sc_o) # unit vector from sun to S/C
 
     xec=np.array([1,0,0])
     yec=np.array([0,1,0])
@@ -120,27 +139,37 @@ Returns: yaw, pitch, roll in degrees (measured from local z aligned with sun)
     v1=v1[:, np.newaxis]
     v2=v2[:, np.newaxis]
     v3=v3[:, np.newaxis]
-    a1= np.arctan2(np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
+    a1= np.arctan2(-1*np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,-1*v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
     ang=a1
+    print(np.sign(np.linalg.det(a=np.hstack((v1,v2,-1*v3)))))
+    print("a1",a1*180/np.pi)
     mat_C2=np.array([[np.cos(ang),0,-np.sin(ang)],[0, 1, 0],[np.sin(ang),0, np.cos(ang)]])
-    
-    # a2-rotate about x' by angle between r_sun/SC and z'
-    xp=np.matmul(mat_C2,xec)
-    yp=yec
-    zp=np.matmul(mat_C2,zec) 
+
+    # a2-rotate about x' by angle between r_sun/SC and z' for local z to point to sun
+    xp=np.matmul(np.transpose(mat_C2),[1,0,0])
+    yp=np.matmul(np.transpose(mat_C2),[0,1,0])
+    zp=np.matmul(np.transpose(mat_C2),[0,0,1]) 
     r_sunsc_normp=np.matmul(mat_C2,r_sunsc_norm)
 
-    v1=zp
+    v1=np.array([0,0,1])
     v2= r_sunsc_normp
-    v3= xp
+    v3= np.array([1,0,0])
     v1=v1[:, np.newaxis]
     v2=v2[:, np.newaxis]
     v3=v3[:, np.newaxis]
-    a2= np.arctan2(np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
+    a2= np.arctan2(-1*np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,-v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
     
+    print("a2",a2*180/np.pi)
+    print("manual angle", 180/np.pi*np.arccos(np.dot(np.array([0,0,1]),r_sunsc_normp)))
     #angle of rotation about x hat (roll)
     ang=a2
-    mat_C1=np.array([[np.cos(ang),0,-np.sin(ang)],[0, 1, 0],[np.sin(ang),0, np.cos(ang)]])
+    '''C1= [1      0       0
+    0       cos     sin
+    0       -sin    cos]'''
+    mat_C1=np.array([[1,0,0],[0, np.cos(ang), np.sin(ang)],[0,-np.sin(ang), np.cos(ang)]])
+    xpp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.array([1,0,0])))
+    ypp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.array([0,1,0])))
+    zpp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.array([0,0,1]))) 
 
 
     #AT ZERO POINT ORIENTATION NOW
@@ -154,44 +183,55 @@ Returns: yaw, pitch, roll in degrees (measured from local z aligned with sun)
     # get observatory-star look vector
         # r_t/G=r_t/O-r_G/O
     r_obs_star=np.subtract(tgt_ec, r_sc_o)
-    r_obs_starpp=np.matmul(mat_C1,np.matmul(mat_C2,r_obs_star))
+    r_obs_starpp=np.matmul(mat_C1,np.matmul(mat_C2,r_obs_star))/np.linalg.norm(r_obs_star)
 
     # align boresight with look vector
-    xpp=np.matmul(mat_C1,xp)
-    zpp=np.matmul(mat_C1,zp)
-    ypp=np.matmul(mat_C1,yp)
+ 
 
 
         # rotate about z by yaw angle (angle between x and projection of r_t/G onto x-y plane)
 
-    v1=xpp
-    b=r_obs_star-(np.dot(r_obs_star, zpp)*zpp)
+    v1=np.array([1,0,0])
+    b=r_obs_starpp-(np.dot(r_obs_starpp, np.array([0,0,1]))*np.array([0,0,1]))
     v2= b/np.linalg.norm(b) #unit vector of star-S/C vector projected onto local x-y plane
-    v3= zpp
+    v3= np.array([0,0,1])
     v1=v1[:, np.newaxis]
     v2=v2[:, np.newaxis]
     v3=v3[:, np.newaxis]
-    a3= np.arctan2(np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
-
+    a3= np.arctan2(np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,-v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
+    print("a3",a3*180/np.pi)
 
  
     ang=a3
     mat_C3=np.array([[np.cos(ang),np.sin(ang),0],[-np.sin(ang),np.cos(ang),0],[0,0,1]])
-    xppp=np.matmul(mat_C3,xpp)
-    yppp=np.matmul(mat_C3,ypp)
-    zppp=zpp
+    xppp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.matmul(np.transpose(mat_C3),np.array([1,0,0]))))
+    yppp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.matmul(np.transpose(mat_C3),np.array([0,1,0]))))
+    zppp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.matmul(np.transpose(mat_C3),np.array([0,0,1]))))
+    
+    
+    
+    
+    
+    
     r_obs_starppp=np.matmul(mat_C3,r_obs_starpp)
     
 
     # rotate about y_hat with pitch angle equal to angle between x hat and r_t/G
-    v1=xppp
-    v2= r_obs_starppp/np.linalg.norm(r_obs_starppp)
-    v3= yppp
+    v1= np.array([1,0,0])
+    v2= r_obs_starppp
+    v3= np.array([0,1,0])
     v1=v1[:, np.newaxis]
     v2=v2[:, np.newaxis]
     v3=v3[:, np.newaxis]
-    a4= np.arctan2(np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
+    a4= np.arctan2(np.linalg.norm(np.cross(np.transpose(v1),np.transpose(v2)))*np.sign(np.linalg.det(a=np.hstack((v1,v2,-v3)))), np.dot(np.transpose(v1).flatten(),np.transpose(v2).flatten()))
+    ang=a4
+    print("a4",a4*180/np.pi)
+    mat_C4= np.array([[np.cos(ang),0,-np.sin(ang)],[0, 1, 0],[np.sin(ang),0, np.cos(ang)]])
+    xppp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.matmul(np.transpose(mat_C3),np.matmul(np.transpose(mat_C4),np.array([0,0,1])))))
+    yppp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.matmul(np.transpose(mat_C3),np.matmul(np.transpose(mat_C4),np.array([0,0,1])))))
+    zppp=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.matmul(np.transpose(mat_C3),np.matmul(np.transpose(mat_C4),np.array([0,0,1])))))
     
+
 
     #calculate sun_angle
     sun_angle = sun_coord.separation(tgt_in).degree
@@ -210,13 +250,105 @@ Returns: yaw, pitch, roll in degrees (measured from local z aligned with sun)
     roll=0*180/np.pi #for now
     yaw3= a3*180/np.pi
     pitch4= a4*180/np.pi
+    mat_C22=np.array([[np.cos(a4),0,-np.sin(a4)],[0, 1, 0],[np.sin(ang),0, np.cos(ang)]])
+    sun_loc_coords=np.matmul(mat_C22,np.matmul(mat_C3,np.matmul(mat_C1,np.matmul(mat_C2,r_so/np.linalg.norm(r_so))))) 
+    #sun_loc_coords=np.matmul(mat_C22,np.matmul(mat_C3,np.matmul(mat_C1,np.matmul(mat_C2,r_sunsc_norm)))) 
+    sunx= np.arccos(sun_loc_coords [0])*180/np.pi
+    suny= np.arccos(sun_loc_coords [1])*180/np.pi
+    sunz= np.arccos(sun_loc_coords [2])*180/np.pi
 
-    return roll, pitch4, yaw3, sun_angle
 
-[r,p,y,sun_angle]=pointingAngles(tgt)
+
+ 
+    # Create a figure and an axes object
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.plot(r_so[0], r_so[1], r_so[2],marker="*",mfc = 'r',mec="r")
+    ax.plot(r_eo[0], r_eo[1], r_eo[2],marker=".", mfc="b",mec="b")
+    ax.plot(r_sc_o[0], r_sc_o[1], r_sc_o[2],marker="D", mfc="none",mec="m")
+    ax.plot(tgt_ec[0], tgt_ec[1], tgt_ec[2], marker="X", mfc = 'g',mec="g")
+    #ax.plot([r_so[0], r_sc_o[0]], [r_so[1], r_sc_o[1]], [r_so[2], r_sc_o[2]], "g--")
+    
+    ptx=xpp*np.linalg.norm(r_so-r_sc_o)
+    pty=ypp*np.linalg.norm(r_so-r_sc_o)
+    ptz=zpp*np.linalg.norm(r_so-r_sc_o)
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"r")
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+pty[0]]),np.array([r_sc_o[1], r_sc_o[1]+pty[1]]),np.array([r_sc_o[2], r_sc_o[2]+pty[2]]),"g")
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptz[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptz[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptz[2]]),"b")
+    
+    # ptx=r_sunsc_norm
+    # # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"k--")
+    # ptx=r_obs_starpp-(np.dot(r_obs_starpp, np.array([0,0,1]))*np.array([0,0,1]))
+    # ptx=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.linalg.norm(ptx)*ptx))
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"g--")
+    # ptx=r_obs_starpp
+    # ptx=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.linalg.norm(ptx)*ptx))
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"m--")
+    
+    # ptx2=(np.dot(r_obs_starpp, np.array([0,0,1]))*np.array([0,0,1]))
+    # ptx2=np.matmul(np.transpose(mat_C2),np.matmul(np.transpose(mat_C1),np.linalg.norm(ptx)*ptx))
+    # ax.plot(np.array([ptx[0], ptx[0]+ptx2[0]]),np.array([ptx[1], ptx[1]+ptx2[1]]),np.array([ptx[2], ptx[2]+ptx[2]]),"k--")
+
+
+    # print("sun pos",r_so)
+    # ptx=xppp*np.linalg.norm(r_so-r_sc_o)
+    # pty=yppp*np.linalg.norm(r_so-r_sc_o)
+    # ptz=zppp*np.linalg.norm(r_so-r_sc_o)
+    # print("pts",ptx==ptz)
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"r:")
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+pty[0]]),np.array([r_sc_o[1], r_sc_o[1]+pty[1]]),np.array([r_sc_o[2], r_sc_o[2]+pty[2]]),"g:")
+    # ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptz[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptz[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptz[2]]),"b:")
+    
+
+    ptx=xp*np.linalg.norm(r_so-r_sc_o)
+    pty=yp*np.linalg.norm(r_so-r_sc_o)
+    ptz=zp*np.linalg.norm(r_so-r_sc_o)
+    ptx=r_sunsc_norm
+    ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"k--")
+    print("manual ang", -180/np.pi*np.arccos(np.dot(ptx,zec)))
+    ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"g--")
+
+    print("sun pos",r_so)
+    ptx=xpp*np.linalg.norm(r_so-r_sc_o)
+    pty=ypp*np.linalg.norm(r_so-r_sc_o)
+    ptz=zpp*np.linalg.norm(r_so-r_sc_o)
+    print("pts",ptx==ptz)
+    ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptx[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptx[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptx[2]]),"r:")
+    ax.plot(np.array([r_sc_o[0], r_sc_o[0]+pty[0]]),np.array([r_sc_o[1], r_sc_o[1]+pty[1]]),np.array([r_sc_o[2], r_sc_o[2]+pty[2]]),"g:")
+    ax.plot(np.array([r_sc_o[0], r_sc_o[0]+ptz[0]]),np.array([r_sc_o[1], r_sc_o[1]+ptz[1]]),np.array([r_sc_o[2], r_sc_o[2]+ptz[2]]),"b:")
+    
+    
+    
+    
+    
+    return roll, pitch4, yaw3, sun_angle, sunx, suny, sunz
+    
+[r,p,y,sun_angle,sunx, suny, sunz]=pointingAngles(tgt)
 print(" roll=", r, "deg")
 print(" pitch=",p, "deg")
 print(" yaw=",y, "deg")
 print(" sun angle=",sun_angle, "deg")
+print("sunx, suny, sunz=   %.1f  %.1f   %.1f" %(sunx,suny,sunz))
 
 
+
+# %%
+'''
+(Xang, Yang, Zang)
+tgt_ra='08h00m00s'#example coords
+tgt_dec='60d00m00s' #example coords
+NASA code : 110.1  90.0     20.1
+this code: 83.5    27.9     115.4
+if use GCRS sun coord: 83.1    28.9     117.2
+
+
+tgt_ra='06h00m00s'#example coords
+tgt_dec='60d00m00s' #example coords
+NASA: 125.8    90.0   35.8
+this: 90.0  47.5   137.5
+using sun-SC instead of sun vector:  90.0  132.5   42.5
+
+
+
+'''
