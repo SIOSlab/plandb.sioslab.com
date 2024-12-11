@@ -11,6 +11,7 @@ import os
 
 #Flags
 cache = True
+# always rely on historic ipac
 datestr = Time.now().datetime.strftime("%Y-%m")
 
 # sign in originally before running, to solve cryptography error, sign in using mysql -u username (andrewchiu) -p, then cryptography is solved

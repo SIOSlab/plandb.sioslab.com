@@ -539,52 +539,90 @@ def get_ipac_database(data_path: Path, cache: bool) -> pd.DataFrame:
   
   
   #Could i have just done comparison = old_df == updated_df
-def get_ipac_differences(old_df: pd.DataFrame, updated_df: pd.DataFrame, tolerance: float = 1e-1):
-    col_names1 = old_df.columns.tolist()
-    col_names2 = updated_df.columns.tolist()
-    change_log = []
+# def get_ipac_differences(old_df: pd.DataFrame, updated_df: pd.DataFrame, tolerance: float = 1e-1):
+#     if list(old_df.columns) != list(updated_df.columns):
+#         return pd.DataFrame(), []  
+
+#     diff_rows = [] 
+#     change_log = []  
+
+#     for index, old_row in old_df.iterrows():
+#         pl_name_ind = old_row['pl_name']
+#         corresponding_updated_row = updated_df.loc[updated_df['pl_name'] == pl_name_ind]
+
+#         if corresponding_updated_row.empty:
+#             diff_rows.append(old_row.to_dict())
+#             change_log.append({"pl_name": pl_name_ind, "status": "removed"})
+#         else:
+#             corresponding_updated_row = corresponding_updated_row.iloc[0]
+#             differences = {}
+
+#             for col in old_df.columns:
+#                 old_value = old_row[col]
+#                 new_value = corresponding_updated_row[col]
+
+#                 # NaNs are equal
+#                 if pd.isna(old_value) and pd.isna(new_value):
+#                     continue
+
+#                 # Tolerance
+#                 if isinstance(old_value, (int, float)) and isinstance(new_value, (int, float)):
+#                     if abs(old_value - new_value) <= tolerance:
+#                         continue
+
+#                 if old_value != new_value:
+#                     differences[col] = {"old": old_value, "new": new_value}
+
+#             if differences:
+#                 diff_rows.append(corresponding_updated_row.to_dict())
+#                 change_log.append({"pl_name": pl_name_ind, "differences": differences})
+
+#             # Drop the row from updated_df
+#             updated_df = updated_df[updated_df['pl_name'] != pl_name_ind]
+
+#     # Add remaining/leftover rows from updated_df
+#     for _, new_row in updated_df.iterrows():
+#         diff_rows.append(new_row.to_dict())
+#         change_log.append({"pl_name": new_row['pl_name'], "status": "added"})
+
+#     diff_df = pd.DataFrame(diff_rows)
+#     return diff_df, change_log
+
+
+def get_ipac_differences(old_df, new_df, key_columns = ["pl_name"]):
+    """
+    Find differences between old and new DataFrames based on key columns,
+    handling `pd.NA` properly during comparisons.
     
-    if col_names1 != col_names2:
-        return pd.DataFrame(), change_log  
+    Parameters:
+        old_df (pd.DataFrame): The original DataFrame.
+        new_df (pd.DataFrame): The updated DataFrame.
+        key_columns (list): List of columns that form the unique key.
     
-    diff_df = pd.DataFrame()
+    Returns:
+        pd.DataFrame: A DataFrame with updated and new rows.
+    """
+    if not set(key_columns).issubset(old_df.columns) or not set(key_columns).issubset(new_df.columns):
+        raise ValueError("Key columns must exist in both DataFrames.")
     
-    for index, row in old_df.iterrows():
-        
-        pl_name_ind = row['pl_name']
-        corresponding_updated_row = updated_df.loc[updated_df['pl_name'] == pl_name_ind]
-        
-        if corresponding_updated_row.empty:
-            diff_df = pd.concat([diff_df, pd.DataFrame([row])], ignore_index=True)
-        else:
-            corresponding_updated_row = corresponding_updated_row.iloc[0]
-            differences = {}
-            
-            for col in old_df.columns:
-                old_value = row[col]
-                new_value = corresponding_updated_row[col] 
-                
-                # Nan's
-                if pd.isna(old_value) and pd.isna(new_value):
-                    continue  # Nan's are equal 
-                
-                # Tolerance
-                if isinstance(old_value, (int, float, np.number)) and isinstance(new_value, (int, float, np.number)):
-                    if abs(old_value - new_value) <= tolerance:
-                        continue  # Tolerance considered equal 
-                
-                if old_value != new_value:
-                    differences[col] = {"old": old_value, "new": new_value}   
-             
-            if differences: 
-                diff_df = pd.concat([diff_df, pd.DataFrame([corresponding_updated_row])], ignore_index=True)
-         
-        updated_df = updated_df.drop(corresponding_updated_row.name)
+    old_df = old_df.set_index(key_columns)
+    new_df = new_df.set_index(key_columns)
+
+    old_df, new_df = old_df.align(new_df, join="outer", axis=1, fill_value=pd.NA)
+    shared_index = old_df.index.intersection(new_df.index)
+
+    filled_old_df = old_df.loc[shared_index].fillna("__MISSING__")
+    filled_new_df = new_df.loc[shared_index].fillna("__MISSING__")
+    differences = (filled_old_df != filled_new_df).any(axis=1)
+
+    updated_rows = new_df.loc[shared_index][differences]
+    new_rows = new_df[~new_df.index.isin(old_df.index)]
     
-    if not updated_df.empty:
-        diff_df = pd.concat([diff_df, updated_df], ignore_index=True)
-    
-    return diff_df, change_log  
+    result = pd.concat([updated_rows, new_rows])
+
+    return result.reset_index()
+
+
 
 
 

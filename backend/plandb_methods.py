@@ -1287,7 +1287,7 @@ def calcContrastCurves(data, exosims_json):
     # These are used to keep track of where each planet's star's contrast curves
     # are going to be saved
     datestr = Time.now().datetime.strftime("%Y_%m")
-    contrast_curve_cache_base = Path(f'cache/cont_curvs_{datestr}/')
+    contrast_curve_cache_base = Path(f'plandb.sioslab.com/cache/cont_curvs_{datestr}/')
     contrast_curve_cache_base.mkdir(parents=True, exist_ok=True)
     star_base_path_list = []
 

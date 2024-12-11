@@ -9,7 +9,7 @@ import logging
 from database_main import compileContrastCurves
 from database_main import compileCompleteness
 
-from update_plandb_method import updateDatabase
+from update_plandb_method import *
 
 
 
@@ -51,7 +51,7 @@ comps, compdict, comps_data = calcPlanetCompleteness(contr_data, bandzip, photdi
 
 plandata, stdata, orbitfits = generateTables(data, comps_data)
 
-# TODO: Prob replace this path stuff, prob HAVE to cache contr curvecalculations and then compile, or maybe write new compile function
+# TODO: Prob replace this path stuff, prob HAVE to plandb.com/cache contr curvecalculations and then compile, or maybe write new compile function
 # TODO: calculate contrast curves and test it here
 contr_curvs_path = Path(f'plandb.sioslab.com/cache/cont_curvs_{datestr.replace("-", "_")}')
 contrast_curves = compileContrastCurves(stdata, contr_curvs_path)
@@ -61,7 +61,7 @@ contrast_curves = compileContrastCurves(stdata, contr_curvs_path)
 # newpdfs = pdfs.apply(addId, axis = 1)
 scenarios = pd.read_csv("plandb.sioslab.com/cache/scenario_angles.csv")
 
-# compiled_completeness_path = Path(f"plandb.sioslab.com/cache/compiled_completeness_{datestr}.p")
+# compiled_completeness_path = Path(f"plandb.com/cache/compiled_completeness_{datestr}.p")
 # if compiled_completeness_path.exists():
 #     completeness = pd.read_pickle(compiled_completeness_path)
 # else:
@@ -87,7 +87,7 @@ print(f"elapsed time: {elapsed_time}" )
 
 # build database from old values and update
 
-# build old (use cache files from 2022)
+# build old (use plandb.com/cache files from 2022)
 
 ######### Old Database build (2022) ############################################################################################################################
 
@@ -95,7 +95,7 @@ print(f"elapsed time: {elapsed_time}" )
 start_time_2022 = time.time()
 logging.info("2022 database build start")
 
-datestr = Time.now().datetime.strftime("2022-05")
+datestr = "2022-05"
 plandata_path = Path(f'plandb.sioslab.com/cache/plandata_{datestr}.p')
 planetsOld = pd.read_pickle(plandata_path)
 stdata_path = Path(f'plandb.sioslab.com/cache/stdata_{datestr}.p')
@@ -126,9 +126,6 @@ before_engine = create_engine('mysql+pymysql://'+"andrewchiu"+':'+"Password123!"
 
 writeSQL(before_engine, plandata=planetsOld, stdata=starsOld, orbitfits=orbitfitsOld, orbdata=orbitsOld, pdfs=None, aliases=None,contrastCurves=None,scenarios=None, completeness=None)
 
-updateDatabase()
-
-
 print("Done")
 
 end_time_2022 = time.time()
@@ -137,7 +134,7 @@ logging.info(f"2022 database build complete, elapsed time: {elapsed_time_2022}")
 
 #TODO; compile later
 
-# compiled_completeness_path = Path(f"plandb.sioslab.com/cache/compiled_completeness_{datestr}.p")
+# compiled_completeness_path = Path(f"plandb.com/cache/compiled_completeness_{datestr}.p")
 # if compiled_completeness_path.exists():
 #     completeness = pd.read_pickle(compiled_completeness_path)
 # else:
@@ -148,11 +145,10 @@ logging.info(f"2022 database build complete, elapsed time: {elapsed_time_2022}")
 
 ######### Update Database ############################################################################################################################
 
-
 start_time_update = time.time()
 logging.info("update database start")
 
-updateDatabase("andrewchiu", "password123!", "database2022before", 'databaseDiffUpdate', "databaseAfterUpdate")
+updateDatabaseTest("andrewchiu", "Password123!", "database2022before", 'databaseDiffUpdate', "databaseAfterUpdate")
 
 
 # update
@@ -207,7 +203,7 @@ def compare_all_tables(dataframes1, dataframes2):
         if set(df1.columns) != set(df2.columns):
             comparison_results[table_name] = {
                 "status": "mismatch",
-                "reason": "Column names or structure do not match",
+                "reason": "Column names don't match",
                 "df1_columns": list(df1.columns),
                 "df2_columns": list(df2.columns),
             }
@@ -221,7 +217,7 @@ def compare_all_tables(dataframes1, dataframes2):
         else:
             comparison_results[table_name] = {
                 "status": "mismatch",
-                "reason": "Row contents differ",
+                "reason": "Row contents different",
             }
 
     return comparison_results
