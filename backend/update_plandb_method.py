@@ -326,7 +326,8 @@ def updateDatabaseTest(user : str, password : str, sios_engine_name : str, diff_
     table_orbitfits_path = Path(f'plandb.sioslab.com/cache/update_table_orbitfits_{datestr}.p')
     
     # Orbitfits got updated, maybe change to new var
-    plan_data, stdata, orbitfits = get_generated_tables(plandata_path, stdata_path, table_orbitfits_path, change_ipac_df, quadrature_data, comps_data, cache)
+    # TODO maybe needs all ipac data, to update plandata here
+    plan_data, stdata, orbitfits = get_generated_tables(plandata_path, stdata_path, table_orbitfits_path, new_ipac_data, quadrature_data, comps_data, cache)
     plan_data.to_excel("plandb.sioslab.com/backend/sheets/plandata.xlsx")
     stdata.to_excel("plandb.sioslab.com/backend/sheets/stdata.xlsx")
     orbitfits.to_excel('plandb.sioslab.com/backend/sheets/later_orbitfits.xlsx')
@@ -422,6 +423,9 @@ def updateDatabaseTest(user : str, password : str, sios_engine_name : str, diff_
     # TODO: optionally, store old database in a different database for archive
     print("Merging and final write")
     write_update_SQL(new_engine, merged_planets, merged_stars, merged_orbitfits, merged_orbits, pdfs=None, aliases=None, contrastCurves= None, scenarios=None, completeness=None)    
+    
+    
+    #Re-index
     
     print("Done")
     

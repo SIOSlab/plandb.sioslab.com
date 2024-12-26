@@ -16,6 +16,16 @@ from update_plandb_method import *
 # build database from new values
 # database_main/build db
 
+"""
+
+Entire database benchmarking and building script.
+Broken down into the following steps.
+a) Complete database compile, using today's information.
+b) Build old database using 2022 information.
+c) update old database to 2024.
+
+"""
+
 logging.basicConfig(filename="timer_log.txt", level=logging.INFO, format = "%(asctime)s - %(message)s")
 
 cache = False

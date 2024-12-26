@@ -1,17 +1,17 @@
 import pandas as pd
 
 # Load CSVs
-df1 = pd.read_csv('plandb.sioslab.com/backend/test_results/databaseAfterUpdatePlanets.csv')
-df2 = pd.read_csv('plandb.sioslab.com/backend/test_results/TestTodayPlanets.csv')
+df1 = pd.read_csv('plandb.sioslab.com/backend/update/test/logs/test_results/databaseAfterUpdateStars.csv')
+df2 = pd.read_csv('plandb.sioslab.com/backend/update/test/logs/test_results/testTodayStars.csv')
 
-merged = df1.merge(df2, on='pl_id', how='inner', suffixes=('_df1', '_df2'))
+merged = df1.merge(df2, on='st_id', how='inner', suffixes=('_df1', '_df2'))
 
 # Initialize a results DataFrame for differences
 differences = []
 
 df1 = df1.drop(columns=['index'])
-df1 = df1.set_index('pl_id')
-df1.to_csv('plandb.sioslab.com/backend/test_results/databaseAfterUpdatePlanetsNew.csv')
+df1 = df1.set_index('st_id')
+df1.to_csv('plandb.sioslab.com/backend/update/test/logs/test_results/databaseAfterUpdatePlanetsNew.csv')
 
 
 
@@ -21,7 +21,7 @@ for index, row in merged.iterrows():
     diff_details = {}
     has_diff = False
 
-    for col in df1.columns.difference(['pl_id']):
+    for col in df1.columns.difference(['st_id']):
         col_df1 = f"{col}_df1"
         col_df2 = f"{col}_df2"
 
@@ -34,7 +34,7 @@ for index, row in merged.iterrows():
 
     if has_diff:
         differences.append({
-            "pl_id": row["pl_id"],
+            "pl_id": row["st_id"],
             "differences": diff_details
         })
 
