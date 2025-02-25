@@ -1287,7 +1287,7 @@ def calcContrastCurves(data, exosims_json):
     # These are used to keep track of where each planet's star's contrast curves
     # are going to be saved
     datestr = Time.now().datetime.strftime("%Y_%m")
-    contrast_curve_cache_base = Path(f'cache/cont_curvs_{datestr}/')
+    contrast_curve_cache_base = Path(f'plandb.sioslab.com/cache/cont_curvs_{datestr}/')
     contrast_curve_cache_base.mkdir(parents=True, exist_ok=True)
     star_base_path_list = []
 
@@ -2067,7 +2067,7 @@ def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, p
         #set indexes
         result = connection.execute(text("ALTER TABLE Planets ADD INDEX (pl_id)"))
         result = connection.execute(text("ALTER TABLE Planets ADD INDEX (st_id)"))
-        result = connection.execute(text("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
+        # result = connection.execute(text("ALTER TABLE Planets ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
 
         #add comments
         # addSQLcomments(connection,'Planets')
@@ -2083,7 +2083,7 @@ def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, p
                           index=True)
         result = connection.execute(text("ALTER TABLE OrbitFits ADD INDEX (orbitfit_id)"))
         result = connection.execute(text("ALTER TABLE OrbitFits ADD INDEX (pl_id)"))
-        result = connection.execute(text("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
+        # result = connection.execute(text("ALTER TABLE OrbitFits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
 
         # addSQLcomments(connection,'OrbitFits')
 
@@ -2100,8 +2100,8 @@ def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, p
         result = connection.execute(text("ALTER TABLE Orbits ADD INDEX (orbit_id)"))
         result = connection.execute(text("ALTER TABLE Orbits ADD INDEX (pl_id)"))
         result = connection.execute(text("ALTER TABLE Orbits ADD INDEX (orbitfit_id)"))
-        result = connection.execute(text("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
-        result = connection.execute(text("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
+        # result = connection.execute(text("ALTER TABLE Orbits ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
+        # result = connection.execute(text("ALTER TABLE Orbits ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION"));
 
         # addSQLcomments(connection,'Orbits')
 
@@ -2117,7 +2117,7 @@ def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, p
         result = connection.execute(text("ALTER TABLE PDFs ADD INDEX (pl_id)"))
         result = connection.execute(text("ALTER TABLE PDFs ADD INDEX (pdf_id)"))
         # result = connection.execute("ALTER TABLE PDFs ADD FOREIGN KEY (orbitfit_id) REFERENCES OrbitFits(orbitfit_id) ON DELETE NO ACTION ON UPDATE NO ACTION")
-        result = connection.execute(text("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
+        # result = connection.execute(text("ALTER TABLE PDFs ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
 
         # addSQLcomments(connection,'PDFs')
 
@@ -2152,8 +2152,8 @@ def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, p
 
         # result = connection.execute("ALTER TABLE ContastCurves ADD INDEX (st_id)")
 
-        result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
-        result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION"))
+        # result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (st_id) REFERENCES Stars(st_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
+        # result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION"))
 
     if completeness is not None:
         print("Writing completeness")
@@ -2165,8 +2165,8 @@ def writeSQL(engine, plandata=None, stdata=None, orbitfits=None, orbdata=None, p
             'completeness_id' : sqlalchemy.types.INT,
             'scenario_name': sqlalchemy.types.String(namemxchar)}, index = True)
 
-        result = connection.execute(text("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
-        result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION"))
+        # result = connection.execute(text("ALTER TABLE Completeness ADD FOREIGN KEY (pl_id) REFERENCES Planets(pl_id) ON DELETE NO ACTION ON UPDATE NO ACTION"))
+        # result = connection.execute(text("ALTER TABLE ContrastCurves ADD FOREIGN KEY (scenario_name) REFERENCES Scenarios(scenario_name) ON DELETE NO ACTION ON UPDATE NO ACTION"))
 
 
 
