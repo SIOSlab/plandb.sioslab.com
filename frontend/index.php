@@ -9,31 +9,24 @@ include "templates/headerclose.php";
 This interface provides direct querying to the full database. Queries including selection of pl_name will automatically create links to known planet detail pages. See the <a href="docs/plandbschema/index.html" target=_blank>Schema</a> for all available tables and columns.
 
 <form action="index.php" method="POST">
-        <textarea name="querytext" rows="4" cols="100">
+        <textarea name="querytext" rows="12" cols="100">
 <?php 
 if (!empty($_GET["querytext"])){
     $sql =$_GET["querytext"];}
 elseif (!empty($_POST["querytext"])){
     $sql = $_POST["querytext"]; }
 else {
-    $sql = "SELECT PL.pl_name AS pl_name, 
-    OFT.pl_angsep AS pl_angsep,
-    C.completeness AS completeness,
-    S.minangsep AS scenario_IWA,
-    S.maxangsep AS scenario_OWA,
-    PL.pl_radj_forecastermod AS pl_radj_forecastermod,
-    OFT.pl_bmassj AS pl_bmassj,
-    OFT.pl_orbsmax AS pl_orbsmax,
-    S.scenario_name AS scenario_name,
-    OFT.orbitfit_id AS orbitfit_id
-    FROM Planets PL, OrbitFits OFT, Completeness C, Scenarios S
-    WHERE C.completeness > 0 
-    AND PL.pl_id= OFT.pl_id
-    AND PL.pl_id= C.pl_id
-    AND C.scenario_name= S.scenario_name 
-    AND OFT.default_fit = 1
-    AND C.scenario_name = 'Optimistic_NF_Imager_10000hr'
-    ORDER BY C.completeness DESC";}
+    $sql = "SELECT PL.pl_name AS pl_name, OFT.pl_angsep AS pl_angsep, C.completeness AS completeness,
+S.minangsep AS scenario_IWA, S.maxangsep AS scenario_OWA,
+PL.pl_radj_forecastermod AS pl_radj_forecastermod,
+OFT.pl_bmassj AS pl_bmassj, OFT.pl_orbsmax AS pl_orbsmax, S.scenario_name AS scenario_name,
+OFT.orbitfit_id AS orbitfit_id, Stars.sy_vmag
+FROM Planets PL, OrbitFits OFT, Completeness C, Scenarios S, Stars
+WHERE C.completeness > 0 AND Stars.sy_vmag <=7
+AND PL.pl_id= OFT.pl_id AND PL.pl_id= C.pl_id AND PL.st_id = Stars.st_id
+AND C.scenario_name= S.scenario_name AND OFT.default_fit = 1 AND 
+C.scenario_name = 'Optimistic_NF_Imager_10000hr'
+ORDER BY C.completeness DESC";}
     
 echo "$sql";
 ?>
