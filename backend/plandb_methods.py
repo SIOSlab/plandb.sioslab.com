@@ -23,6 +23,7 @@ from EXOSIMS.util.eccanom import eccanom
 from EXOSIMS.util.getExoplanetArchive import (
     getExoplanetArchivePS,
     getExoplanetArchivePSCP,
+    cacheExoplanetArchiveQuery,
 )
 from MeanStars import MeanStars
 from requests.exceptions import ConnectionError
@@ -40,15 +41,19 @@ def comp_plot():
     pass
 
 
-def getIPACdata():
+def getIPACdata(forceNew=False):
     """
     grab everything from exoplanet and composite tables, merge,
     add additional column info and return/save to disk
     """
 
     print("Querying IPAC for all data.")
-    pscp_data = getExoplanetArchivePSCP()  # Composite table
-    ps_data = getExoplanetArchivePS()
+    pscp_data = getExoplanetArchivePSCP(forceNew=forceNew)  # Composite table
+    ps_data = getExoplanetArchivePS(forceNew=forceNew)
+
+    # basestr = "exoplanetArchiveSTELLARHOSTS"
+    # querystring = r"select+*+from+stellarhosts"
+    # hosts_data = cacheExoplanetArchiveQuery(basestr, querystring, forceNew=forceNew)
 
     # only keep stuff related to the star from composite
     composite_cols = [
@@ -65,6 +70,7 @@ def getIPACdata():
 
     # merge data sets
     merged_data = ps_data.copy()
+
     blank_col = [None] * len(ps_data)
     for col in composite_cols:
         if col not in merged_data.columns:
@@ -1582,7 +1588,22 @@ def generateTables(data, orbitfits):
         if ("st_" in col) or ("gaia_" in col) or ("sy_" in col)
     ]
     st_cols.extend(
-        ["dec", "decstr", "hd_name", "hip_name", "ra", "rastr", "elat", "elon"]
+        [
+            "dec",
+            "decstr",
+            "hd_name",
+            "hip_name",
+            "ra",
+            "rastr",
+            "elat",
+            "elon",
+            "glon",
+            "glat",
+            "tic_id",
+            "gaia_id",
+            "tic_id",
+            "gaia_id",
+        ]
     )
 
     pl_cols = [col for col in data.columns if ("pl_" in col)]
@@ -1603,8 +1624,10 @@ def generateTables(data, orbitfits):
     # orbitfits_cols = np.setdiff1d(orbitfits.columns, st_cols)
     # orbitfits_cols = np.setdiff1d(orbitfits_cols, pl_cols)
     orbitfits_cols = np.genfromtxt(
-    #    "plandb.sioslab.com/backend/oft_cols.csv", delimiter=",", dtype=str
-        "oft_cols.csv", delimiter=",", dtype=str
+        #    "plandb.sioslab.com/backend/oft_cols.csv", delimiter=",", dtype=str
+        "oft_cols.csv",
+        delimiter=",",
+        dtype=str,
     )
     # orbitfit_extra_cols = ['hostname', 'pl_name', 'pl_id', 'pl_angsep', 'pl_radj_forecastermod', 'pl_bmassj', 'pl_orbsmax']
     # orbitfits_cols.extend(orbitfit_extra_cols)
